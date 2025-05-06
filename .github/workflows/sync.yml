@@ -2,7 +2,7 @@ name: Sync with Upstream
 
 on:
   schedule:
-    - cron: '0 11 * * *'  # Daily at 11:00 UTC
+    - cron: '0 11 * * *'  # Daily at 12:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -19,12 +19,17 @@ jobs:
           git remote add upstream https://github.com/threema-ch/threema-desktop.git
           git fetch upstream
 
-      - name: Hard reset to upstream
+      - name: Merge upstream changes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git reset --hard upstream/stable
-          git push --force origin HEAD:stable
-          echo "Fork forcefully synced with upstream"
+          if ! git merge --no-edit --no-ff upstream/stable; then
+            echo "Merge conflict detected! Attempting automatic resolution..."
+            git checkout --ours .github/workflows/*
+            git add .github/workflows/*
+            git commit -m "Merge upstream: Preserve local workflow changes"
+          fi
+          git push origin HEAD:stable
+          echo "Successfully synced with upstream while preserving local changes"
