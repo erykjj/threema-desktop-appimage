@@ -1,0 +1,116 @@
+name: Flatpak→AppImage
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12 */4 * *'  # At 12:00 UTC every 4th day
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl flatpak wget libfuse2 imagemagick
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Check latest release
+        id: check-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST_TAG=$(gh api repos/${{ github.repository }}/releases/latest --jq '.tag_name' 2>/dev/null || true)
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_TAG="0.0.0"
+            echo "No existing releases found, using fallback version: $LATEST_TAG"
+          else
+            echo "Found existing release tag: $LATEST_TAG"
+          fi
+          echo "latest_release=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Download appimagetool
+        uses: actions/cache@v4
+        id: cache-appimagetool
+        with:
+          path: appimagetool-x86_64.AppImage
+          key: appimagetool-v1
+
+      - name: Download appimagetool (if not cached)
+        if: steps.cache-appimagetool.outputs.cache-hit != 'true'
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+
+      - name: Install Threema Flatpak
+        run: |
+          flatpak uninstall --user -y ch.threema.threema-desktop || true
+          flatpak install --user -y --from https://releases.threema.ch/flatpak/threema-desktop/ch.threema.threema-desktop.flatpakref
+
+      - name: Prepare AppDir
+        run: |
+          FLATPAK_DIR=$(flatpak info --show-location ch.threema.threema-desktop)
+          mkdir -p AppDir/usr
+          cp -r "$FLATPAK_DIR/files/main" AppDir/usr/
+          cp -r "$FLATPAK_DIR/files/lib" AppDir/usr/
+          cp -r "$FLATPAK_DIR/export/share" AppDir/usr/
+          mkdir -p AppDir/usr/bin
+          ln -sf "../main/ThreemaDesktop" AppDir/usr/bin/threema-desktop
+          chmod +x AppDir/usr/main/ThreemaDesktop
+          cp AppDir/usr/share/applications/ch.threema.threema-desktop.desktop AppDir/
+          cp AppDir/usr/share/icons/hicolor/512x512/apps/ch.threema.threema-desktop.png AppDir/threema-desktop.png
+          sed -i 's|^Icon=.*|Icon=threema-desktop|' AppDir/*.desktop
+          sed -i 's|Exec=.*|Exec=threema-desktop|' AppDir/*.desktop
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          export APPDIR="$(dirname "$(readlink -f "$0")")"
+          export PATH="$APPDIR/usr/bin:$PATH"
+          export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/main:$LD_LIBRARY_PATH"
+          exec "$APPDIR/usr/bin/threema-desktop" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Generate AppImage
+        run: |
+          ./appimagetool-x86_64.AppImage AppDir
+          mv Threema_Beta-x86_64.AppImage Threema-Desktop-x86_64.AppImage
+
+      - name: Get AppImage version
+        id: appimage-version
+        run: |
+          chmod +x Threema-Desktop-x86_64.AppImage
+          VERSION_INFO=$(./Threema-Desktop-x86_64.AppImage --no-sandbox --version 2>&1 | head -1)
+          VERSION_NUMBER=$(echo "$VERSION_INFO" | grep -oE '[0-9]+\.[0-9]+[^ ]*')
+          echo "version_number=${VERSION_NUMBER:-unknown}" >> $GITHUB_OUTPUT
+          echo "AppImage version: $VERSION_NUMBER"
+
+      - name: Check if update needed
+        id: check-update
+        run: |
+          if [ "${{ steps.appimage-version.outputs.version_number }}" == "${{ steps.check-release.outputs.latest_release }}" ]; then
+            echo "No update needed (versions match)"
+            echo "skip_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "Update available (AppImage: ${{ steps.appimage-version.outputs.version_number }}, GitHub: ${{ steps.check-release.outputs.latest_release }})"
+            echo "skip_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Threema-Desktop.AppImage
+          path: Threema-Desktop-x86_64.AppImage
+
+      - name: Create release
+        if: steps.check-update.outputs.skip_release != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          files: |
+            Threema-Desktop-x86_64.AppImage
+          tag_name: ${{ steps.appimage-version.outputs.version_number }}
+          name: "Threema Desktop ${{ steps.appimage-version.outputs.version_number }}"
+          body: "Built from official [Threema Desktop Flatpak](https://threema.ch/en/download-md)"
