@@ -211,6 +211,7 @@ function getTypeScriptConfigMixin(extension, override) {
         '@typescript-eslint/strict-boolean-expressions': [
             'error',
             {
+                allowNullableObject: false,
                 allowString: false,
                 allowNumber: false,
             },
@@ -256,6 +257,8 @@ function getTypeScriptConfigMixin(extension, override) {
         'threema/ban-typed-array-equality-comparison': 'error',
         'threema/no-todo-comments-without-issue': 'error',
         'threema/ban-direct-electron-access': 'error',
+        // This rule makes sure that the custom variant is not forgotten when conditioning on work-builds.
+        'threema/compare-work-and-custom': 'error',
 
         // Custom syntax rules
         'no-restricted-syntax': [
@@ -868,8 +871,8 @@ export default config(
         extends: [configs.strictTypeChecked],
     },
 
-    // Non-typescript utility script rules. We disable the type checker here since these files are written in pure
-    // js.
+    // Non-typescript utility script rules. We disable the type checker here since these files are
+    // written in pure js.
     {
         files: [
             'config/**/*.{cjs,js}',
@@ -912,6 +915,20 @@ export default config(
             'import/no-default-export': 'off',
         },
     },
+
+    // Allow type-documentation in mjs files
+    {
+        files: ['tools/**/*.mjs'],
+        languageOptions: {
+            globals: {
+                ...globals.node,
+            },
+        },
+        rules: {
+            'jsdoc/no-types': 'off',
+        },
+    },
+
     {
         files: ['packaging/**/*.ts'],
 
