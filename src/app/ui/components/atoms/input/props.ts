@@ -1,6 +1,8 @@
+import type {HTMLInputAttributes} from 'svelte/elements';
+
 import type {u53} from '~/common/types';
 
-export interface InputProps {
+export interface InputProps extends Pick<HTMLInputAttributes, 'onfocus' | 'oninput'> {
     /**
      * Whether this field should be autofocused on mount. Defaults to `false`.
      *
@@ -44,4 +46,8 @@ export interface InputProps {
      * The current value of the input element.
      */
     readonly value: string;
+    /**
+     * Callback for pressing enter.
+     */
+    readonly onpressenter?: () => void;
 }

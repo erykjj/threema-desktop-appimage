@@ -2,8 +2,7 @@
   @component Renders a top bar with the user's profile picture and action buttons.
 -->
 <script lang="ts">
-  import {createEventDispatcher} from 'svelte';
-
+  import {ROUTE_DEFINITIONS} from '~/app/routing/routes';
   import ContextMenuProvider from '~/app/ui/components/hocs/context-menu-provider/ContextMenuProvider.svelte';
   import type {TopBarProps} from '~/app/ui/components/partials/conversation-nav/internal/top-bar/props';
   import type Popover from '~/app/ui/generic/popover/Popover.svelte';
@@ -14,34 +13,20 @@
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {transformProfilePicture} from '~/common/dom/ui/profile-picture';
 
-  type $$Props = TopBarProps;
+  const {
+    initials,
+    onclickprofilepicture,
+    onclickreceiverlistbutton,
+    onclicksettingsbutton,
+    profilePicture,
+    services,
+  }: TopBarProps = $props();
 
-  export let profilePicture: $$Props['profilePicture'];
-  export let initials: $$Props['initials'];
-
-  const dispatch = createEventDispatcher<{
-    clickreceiverlistbutton: undefined;
-    clickprofilepicture: undefined;
-    clicksettingsbutton: undefined;
-  }>();
-
-  let popover: SvelteNullableBinding<Popover> = null;
-
-  function handleClickReceiverListButton(): void {
-    dispatch('clickreceiverlistbutton');
-  }
-
-  function handleClickProfilePicture(): void {
-    dispatch('clickprofilepicture');
-  }
-
-  function handleClickSettingsButton(): void {
-    dispatch('clicksettingsbutton');
-  }
+  let popover: SvelteNullableBinding<Popover> = $state(null);
 </script>
 
 <header class="container">
-  <button type="button" class="profile-picture" on:click={handleClickProfilePicture}>
+  <button class="profile-picture" onclick={onclickprofilepicture} type="button">
     <ProfilePicture
       img={transformProfilePicture(profilePicture.picture)}
       alt={$i18n.t('contacts.hint--own-profile-picture')}
@@ -61,7 +46,7 @@
         >
       </IconButton> -->
 
-    <IconButton on:click={handleClickReceiverListButton} flavor="naked">
+    <IconButton flavor="naked" onclick={onclickreceiverlistbutton}>
       <MdIcon theme="Outlined">person_outline</MdIcon>
     </IconButton>
 
@@ -78,6 +63,39 @@
         },
       }}
       items={[
+        ...(import.meta.env.BUILD_VARIANT === 'consumer' ||
+        import.meta.env.BUILD_ENVIRONMENT === 'sandbox'
+          ? [
+              {
+                type: 'option',
+                icon: {
+                  name: 'person_add',
+                  color: 'default',
+                },
+                label: $i18n.t('contacts.action--add-contact', 'New Contact'),
+                handler: () =>
+                  services.router.go({
+                    nav: ROUTE_DEFINITIONS.nav.receiverList.withParams({
+                      addressBookState: 'contact-add-form',
+                    }),
+                  }),
+              } as const,
+              {
+                type: 'option',
+                icon: {
+                  name: 'group_add',
+                  color: 'default',
+                },
+                label: $i18n.t('groups.action--add-group', 'New Group'),
+                handler: () =>
+                  services.router.go({
+                    nav: ROUTE_DEFINITIONS.nav.receiverList.withParams({
+                      addressBookState: 'group-add-form',
+                    }),
+                  }),
+              } as const,
+            ]
+          : []),
         {
           type: 'option',
           icon: {
@@ -85,15 +103,15 @@
             color: 'default',
           },
           label: $i18n.t('settings.label--title', 'Settings'),
-          handler: handleClickSettingsButton,
+          handler: onclicksettingsbutton ?? (() => {}),
         },
       ]}
       offset={{
         left: 0,
         top: 4,
       }}
+      onclickitem={() => popover?.close()}
       triggerBehavior="toggle"
-      on:clickitem={() => popover?.close()}
     >
       <IconButton flavor="naked">
         <MdIcon theme="Outlined">more_vert</MdIcon>

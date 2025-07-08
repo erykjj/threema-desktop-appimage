@@ -8,32 +8,51 @@
   import {i18n} from '~/app/ui/i18n';
   import WizardButton from '~/app/ui/svelte-components/blocks/Button/WizardButton.svelte';
   import Text from '~/app/ui/svelte-components/blocks/Input/Text.svelte';
-  import {assertUnreachable} from '~/common/utils/assert';
+  import {MAX_CONTACT_NAME_BYTES} from '~/app/ui/utils/constants';
+  import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
+  import {UTF8} from '~/common/utils/codec';
+  import {TIMER} from '~/common/utils/timer';
 
-  type $$Props = StepTwoProps;
+  let {
+    contact = $bindable(),
+    identity,
+    onclickback,
+    onclickcancel,
+    oncontinue,
+  }: StepTwoProps = $props();
 
-  export let contact: $$Props['contact'];
-  export let handleNextClicked: $$Props['handleNextClicked'];
-  export let identity: $$Props['identity'];
+  let firstName = $state<string>('');
+  let lastName = $state<string>('');
+  let contactFirstNameInputComponent = $state<SvelteNullableBinding<Text>>();
 
-  let firstName = '';
-  let lastName = '';
-  let contactFirstnameTextField: Text;
+  let firstNameByteSize = $state(0);
+  let lastNameByteSize = $state(0);
+
+  let continueButtonDisabled = $state(false);
+
+  const handleMutation = TIMER.debounce(() => {
+    firstNameByteSize = UTF8.encode(firstName).byteLength;
+    lastNameByteSize = UTF8.encode(lastName).byteLength;
+  }, 200);
 
   onMount(() => {
-    contactFirstnameTextField.focus();
+    contactFirstNameInputComponent?.focus();
   });
 </script>
 
 <form
   class="container"
-  on:submit|preventDefault={() => {
-    handleNextClicked(contact, firstName, lastName).catch(assertUnreachable);
+  onsubmit={(event) => {
+    event.preventDefault();
+    continueButtonDisabled = true;
+    oncontinue?.(contact, firstName, lastName);
+    continueButtonDisabled = false;
   }}
+  oninput={handleMutation}
 >
   <HiddenSubmit />
   <div class="bar">
-    <TopBar on:back on:cancel />
+    <TopBar {onclickback} {onclickcancel} />
   </div>
 
   <div class="content">
@@ -41,11 +60,17 @@
       <ProfilePictureUpload />
     </span>
     <div class="threema-id">
-      <Text disabled={true} value={identity} label={$i18n.t('contacts.label--threema-id')} />
+      <Text
+        disabled={true}
+        value={identity}
+        label={$i18n.t('contacts.label--threema-id', {
+          shortAppName: import.meta.env.SHORT_APP_NAME,
+        })}
+      />
     </div>
     <div class="firstname">
       <Text
-        bind:this={contactFirstnameTextField}
+        bind:this={contactFirstNameInputComponent}
         bind:value={firstName}
         label={$i18n.t('contacts.label--first-name', 'First Name')}
         spellcheck={false}
@@ -62,10 +87,16 @@
 
   <div class="next">
     <WizardButton
-      on:click={() => {
-        handleNextClicked(contact, firstName, lastName).catch(assertUnreachable);
-      }}>{$i18n.t('contacts.action--add-contact-next')}</WizardButton
-    >
+      onclick={() => {
+        continueButtonDisabled = true;
+        oncontinue?.(contact, firstName, lastName);
+        continueButtonDisabled = false;
+      }}
+      disabled={firstNameByteSize > MAX_CONTACT_NAME_BYTES ||
+        lastNameByteSize > MAX_CONTACT_NAME_BYTES ||
+        continueButtonDisabled}
+      >{$i18n.t('common.action--next', 'Next')}
+    </WizardButton>
   </div>
 </form>
 

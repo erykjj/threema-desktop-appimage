@@ -23,13 +23,14 @@ import {
     type ServicesForTasks,
 } from '~/common/network/protocol/task';
 import {serializeQuoteText} from '~/common/network/protocol/task/common/quotes';
-import {getFileJsonData} from '~/common/network/protocol/task/csp/common';
+import {getFileJsonData, getPollJsonData} from '~/common/network/protocol/task/csp/common';
 import {OutgoingCspMessagesTask} from '~/common/network/protocol/task/csp/outgoing-csp-messages';
 import type {ValidCspMessageTypeForReceiver} from '~/common/network/protocol/task/csp/types';
 import * as structbuf from '~/common/network/structbuf';
 import type {
     FileEncodable,
     GroupMemberContainerEncodable,
+    PollSetupEncodable,
     TextEncodable,
 } from '~/common/network/structbuf/csp/e2e';
 import {ensureError, unreachable} from '~/common/utils/assert';
@@ -85,6 +86,7 @@ export class OutgoingConversationMessageTask<TReceiver extends AnyReceiver>
             case 'audio':
                 uploadedBlobBytes = await this._messageModelStore.get().controller.uploadBlobs();
                 break;
+            case 'poll':
             case 'text':
                 // Nothing to upload
                 break;
@@ -119,8 +121,8 @@ export class OutgoingConversationMessageTask<TReceiver extends AnyReceiver>
             case ReceiverType.CONTACT:
                 outCspMessageTask = new OutgoingCspMessagesTask(this._services, [
                     {
+                        receiver: {main: this._receiverModel},
                         sharedMessageProperties,
-                        receiver: this._receiverModel,
                         specifics: {
                             default: {
                                 encoder: this._getCspEncoder(),
@@ -136,8 +138,8 @@ export class OutgoingConversationMessageTask<TReceiver extends AnyReceiver>
             case ReceiverType.GROUP:
                 outCspMessageTask = new OutgoingCspMessagesTask(this._services, [
                     {
+                        receiver: {main: this._receiverModel},
                         sharedMessageProperties,
-                        receiver: this._receiverModel,
                         specifics: {
                             default:
                                 // This cast is fine since the function will is bound to return a
@@ -175,7 +177,7 @@ export class OutgoingConversationMessageTask<TReceiver extends AnyReceiver>
      * Return the layer encoder for the message to be sent (without container).
      */
     private _getCspEncoder(): LayerEncoder<
-        TextEncodable | FileEncodable | GroupMemberContainerEncodable
+        TextEncodable | FileEncodable | PollSetupEncodable | GroupMemberContainerEncodable
     > {
         let encoder;
         const messageModel = this._messageModelStore.get();
@@ -203,6 +205,15 @@ export class OutgoingConversationMessageTask<TReceiver extends AnyReceiver>
                 const fileJson = getFileJsonData(messageModel);
                 encoder = structbuf.bridge.encoder(structbuf.csp.e2e.File, {
                     file: UTF8.encode(JSON.stringify(fileJson)),
+                });
+                break;
+            }
+            case 'poll': {
+                const {participants, votes} = messageModel.controller.getParticipantsAndVotes();
+                const pollJson = getPollJsonData(messageModel.view, participants, votes);
+                encoder = structbuf.bridge.encoder(structbuf.csp.e2e.PollSetup, {
+                    id: messageModel.view.pollId,
+                    poll: UTF8.encode(JSON.stringify(pollJson)),
                 });
                 break;
             }
@@ -238,6 +249,8 @@ export class OutgoingConversationMessageTask<TReceiver extends AnyReceiver>
                 case 'video':
                 case 'audio':
                     return CspE2eGroupConversationType.GROUP_FILE;
+                case 'poll':
+                    return CspE2eGroupConversationType.GROUP_POLL_SETUP;
                 default:
                     return unreachable(this._messageModelStore);
             }
@@ -250,6 +263,8 @@ export class OutgoingConversationMessageTask<TReceiver extends AnyReceiver>
                 case 'video':
                 case 'audio':
                     return CspE2eConversationType.FILE;
+                case 'poll':
+                    return CspE2eConversationType.POLL_SETUP;
                 default:
                     return unreachable(this._messageModelStore);
             }

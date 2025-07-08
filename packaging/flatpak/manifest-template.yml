@@ -14,7 +14,7 @@ finish-args:
   - --share=ipc
   # Show window using Wayland or X11
   - --socket=wayland
-  - --socket=x11
+  - --socket=fallback-x11
   # Access sound devices using pulseaudio
   - --socket=pulseaudio
   # Allow access to network
@@ -30,6 +30,8 @@ finish-args:
   - --talk-name=org.freedesktop.Notifications
   # Allow writing to system secrets storage
   - --talk-name=org.freedesktop.secrets
+  # Use native Wayland if available
+  - --env=ELECTRON_OZONE_PLATFORM_HINT=auto
 build-options:
   append-path: /usr/lib/sdk/node20/bin:/usr/lib/sdk/rust-stable/bin
   cflags: -O2 -g
@@ -58,13 +60,7 @@ modules:
       - type: script
         dest-filename: run.sh
         commands:
-          - # Note: The following options were temporarily removed to work around a bug in Chromium or Electron:
-            #
-            # --ozone-platform-hint=auto \
-            # --enable-features="WaylandWindowDecorations" \
-            #
-            # See https://github.com/electron/electron/issues/37531
-            /app/main/ThreemaDesktopLauncher --launcher-target-bin /app/bin/zypak-wrapper.sh /app/main/ThreemaDesktop "$@"
+          - /app/main/ThreemaDesktopLauncher --launcher-target-bin /app/bin/zypak-wrapper.sh /app/main/ThreemaDesktop "$@"
     build-commands:
       # Build and install launcher binary
       - cd src/rust/launcher/ && cargo --offline fetch --manifest-path Cargo.toml --verbose
@@ -106,7 +102,7 @@ modules:
           consumer-live) icon_base=consumer-live ;;
           work-sandbox) icon_base=work-sandbox ;;
           work-live) icon_base=work-live ;;
-          work-onprem) icon_base=work-live ;;
+          work-onprem) icon_base=work-onprem ;;
           *) echo "Invalid flavor: {{flavor}}"; exit 1 ;;
         esac
         install -Dm644 packaging/assets/icons/flatpak/${icon_base}.svg /app/share/icons/hicolor/scalable/apps/{{app-id}}.svg

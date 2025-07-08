@@ -1,38 +1,52 @@
 <script lang="ts">
   import Emoji from '~/app/ui/components/atoms/emoji/Emoji.svelte';
   import Text from '~/app/ui/components/atoms/text/Text.svelte';
+  import {receiverAllowsReactions} from '~/app/ui/components/partials/conversation/internal/message-list/internal/regular-message/internal/emoji-reactions-strip/helpers';
   import type {EmojiReactionsStripProps} from '~/app/ui/components/partials/conversation/internal/message-list/internal/regular-message/internal/emoji-reactions-strip/props';
   import Tooltip from '~/app/ui/generic/popover/Tooltip.svelte';
   import {i18n} from '~/app/ui/i18n';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {group} from '~/common/utils/array';
-  import {UNSUPPORTED_EMOJI_MAPPING} from '~/common/utils/emoji';
+  import {
+    UNSUPPORTED_EMOJI_MAPPING,
+    type SingleUnicodeEmoji,
+    type UnsupportedEmoji,
+  } from '~/common/utils/emoji';
 
-  type $$Props = EmojiReactionsStripProps;
+  const {
+    id,
+    conversation,
+    direction,
+    onclickbucket,
+    onclickopenemojipicker,
+    openEmojiPickerButtonAnchorName,
+    options = {},
+    reactions: unsortedReactions,
+  }: EmojiReactionsStripProps = $props();
 
-  export let id: $$Props['id'];
-  export let conversation: $$Props['conversation'];
-  export let direction: $$Props['direction'];
-  export let onClickBucket: $$Props['onClickBucket'];
-  export let onClickOpenEmojiPicker: $$Props['onClickOpenEmojiPicker'];
-  export let openEmojiPickerButtonAnchorName: $$Props['openEmojiPickerButtonAnchorName'];
-  export let options: NonNullable<$$Props['options']> = {};
-  let unsortedReactions: $$Props['reactions'];
-  export {unsortedReactions as reactions};
-
-  let tooltipComponent: SvelteNullableBinding<Tooltip> = null;
-  let currentTooltip:
+  let tooltipComponent = $state<SvelteNullableBinding<Tooltip>>(null);
+  let currentTooltip = $state<
     | {
         readonly anchorName: `--${string}`;
+        readonly emoji: SingleUnicodeEmoji | UnsupportedEmoji;
         readonly text: string;
       }
-    | undefined = undefined;
+    | undefined
+  >(undefined);
+  let isExpanded = $state<boolean>(false);
 
-  let isExpanded = false;
+  function handleClickBucket(
+    event: MouseEvent,
+    emoji: SingleUnicodeEmoji | UnsupportedEmoji,
+  ): void {
+    tooltipComponent?.close();
+    onclickbucket?.(event, emoji);
+  }
 
   function handleMouseEnterBucket(
     anchorName: `--${string}`,
+    emoji: SingleUnicodeEmoji | UnsupportedEmoji,
     reactions: typeof unsortedReactions,
   ): void {
     if (reactions.length < 1) {
@@ -41,6 +55,7 @@
 
     currentTooltip = {
       anchorName,
+      emoji,
       text: reactions
         .sort((a, b) => {
           if (a.sender.type === 'self') {
@@ -71,11 +86,24 @@
     isExpanded = !isExpanded;
   }
 
-  $: sortedReactionBuckets = group(
-    // Sort descending, so the latest reactions come first.
-    unsortedReactions.sort((a, b) => b.at.getTime() - a.at.getTime()),
-    (reaction) => reaction.emoji,
+  const sortedReactionBuckets = $derived(
+    group(
+      // Sort descending, so the latest reactions come first.
+      unsortedReactions.sort((a, b) => b.at.getTime() - a.at.getTime()),
+      (reaction) => reaction.emoji,
+    ),
   );
+
+  const reactionButtonsDisabled = $derived(!receiverAllowsReactions(conversation.receiver));
+
+  $effect(() => {
+    // When `sortedReactionBuckets` is updated while the tooltip is still open, close the tooltip if
+    // the emoji bucket it belongs to no longer exists.
+    if (currentTooltip !== undefined && !sortedReactionBuckets.has(currentTooltip.emoji)) {
+      tooltipComponent?.close();
+      currentTooltip = undefined;
+    }
+  });
 </script>
 
 <Tooltip bind:this={tooltipComponent} anchorName={currentTooltip?.anchorName}>
@@ -96,15 +124,17 @@
           class="bucket"
           class:active={reactions.some((reaction) => reaction.direction === 'outbound')}
           class:animated={index >= 5}
-          class:disabled={!conversation.emojiReactionsFeatureSupport.supported}
+          class:disabled={!conversation.emojiReactionsFeatureSupport.supported ||
+            reactionButtonsDisabled}
           style:anchor-name={`--${id}-bucket-${emoji}`}
           style:animation-delay={`${(index - 5) * 0.05}s`}
-          disabled={!conversation.emojiReactionsFeatureSupport.supported &&
+          disabled={(!conversation.emojiReactionsFeatureSupport.supported &&
             conversation.receiver.type === 'contact' &&
-            direction === 'outbound'}
-          on:click={(event) => onClickBucket(event, emoji)}
-          on:mouseenter={() => handleMouseEnterBucket(`--${id}-bucket-${emoji}`, reactions)}
-          on:mouseleave={handleMouseLeaveBucket}
+            direction === 'outbound') ||
+            reactionButtonsDisabled}
+          onclick={(event) => handleClickBucket(event, emoji)}
+          onmouseenter={() => handleMouseEnterBucket(`--${id}-bucket-${emoji}`, emoji, reactions)}
+          onmouseleave={handleMouseLeaveBucket}
         >
           <span class="emoji">
             <Emoji unicode={isSupported ? emoji : UNSUPPORTED_EMOJI_MAPPING} />
@@ -124,7 +154,7 @@
       class="expand"
       class:expanded={isExpanded}
       style:animation-delay={`${(sortedReactionBuckets.size - 5 - 1) * 0.05}s`}
-      on:click={handleClickToggleExpanded}
+      onclick={handleClickToggleExpanded}
     >
       <Text
         size="body-small"
@@ -135,13 +165,13 @@
       />
     </button>
   {/if}
-  {#if sortedReactionBuckets.size > 0 && options.showAddEmojiReactionButton === true}
+  {#if sortedReactionBuckets.size > 0 && options.showAddEmojiReactionButton === true && !reactionButtonsDisabled}
     <div class="add">
       <button
         class:expanded={isExpanded}
         style:anchor-name={openEmojiPickerButtonAnchorName}
         style:animation-delay={`${(sortedReactionBuckets.size - 5) * 0.05}s`}
-        on:click={onClickOpenEmojiPicker}
+        onclick={onclickopenemojipicker}
       >
         <MdIcon theme="Outlined">add_reaction</MdIcon>
       </button>
@@ -202,8 +232,7 @@
       }
     }
 
-    .bucket,
-    .add button {
+    .bucket {
       &.active {
         background-color: var(--cc-emoji-reactions-strip-bucket-background-color--active);
         border: var(--cc-emoji-reactions-strip-bucket-border-color--active) solid rem(1px);
@@ -221,6 +250,8 @@
     }
 
     .bucket {
+      position: relative;
+
       .emoji,
       .count {
         display: flex;
@@ -238,7 +269,7 @@
         font-weight: 500;
       }
 
-      &:has(> .count) {
+      &:has(:global(> .count)) {
         padding: rem(3px) rem(5px) rem(3px) rem(3px);
       }
 

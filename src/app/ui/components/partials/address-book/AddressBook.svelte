@@ -1,8 +1,8 @@
 <!--
   @component Renders an address book containing the user's contacts.
 -->
-<script lang="ts" generics="THandlerProps = never">
-  import {createEventDispatcher, tick} from 'svelte';
+<script lang="ts">
+  import {tick} from 'svelte';
 
   import {globals} from '~/app/globals';
   import SearchBar from '~/app/ui/components/molecules/search-bar/SearchBar.svelte';
@@ -15,10 +15,13 @@
   import type {AddressBookProps} from '~/app/ui/components/partials/address-book/props';
   import type {TabState} from '~/app/ui/components/partials/address-book/types';
   import ContactAddForm from '~/app/ui/components/partials/contact-add-form/ContactAddForm.svelte';
+  import GroupAddForm from '~/app/ui/components/partials/group-add-form/GroupAddForm.svelte';
+  import type {ContextMenuItemHandlerProps} from '~/app/ui/components/partials/receiver-nav/types';
   import ReceiverPreviewList from '~/app/ui/components/partials/receiver-preview-list/ReceiverPreviewList.svelte';
   import type {
     ReceiverPreviewListItem,
     ContextMenuItemWithHandlerProps,
+    ReceiverPreviewListProps,
   } from '~/app/ui/components/partials/receiver-preview-list/props';
   import {i18n} from '~/app/ui/i18n';
   import type {I18nType} from '~/app/ui/i18n-types';
@@ -26,35 +29,38 @@
   import {scrollIntoViewIfNeededAsync} from '~/app/ui/utils/scroll';
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import type {DbReceiverLookup} from '~/common/db';
-  import {InactiveContactsPolicy} from '~/common/enum';
+  import type {AnyReceiver} from '~/common/model';
+  import type {Contact} from '~/common/model/types/contact';
+  import type {Group} from '~/common/model/types/group';
   import {unreachable} from '~/common/utils/assert';
 
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.address-book');
 
-  type $$Props = AddressBookProps<THandlerProps>;
+  let {
+    actions,
+    componentState = 'receiver-preview-list',
+    items = {contacts: [], groups: [], workSubscriptionContacts: []},
+    onclickedititem,
+    onclickitem,
+    options = {},
+    services,
+    snippetTopbar,
+  }: AddressBookProps = $props();
 
-  export let actions: $$Props['actions'];
-  export let items: NonNullable<$$Props['items']> = [];
-  export let options: NonNullable<$$Props['options']> = {};
-  export let services: $$Props['services'];
-  export let tabState: $$Props['tabState'] = 'contact';
+  const {router} = services;
+
+  let tabState: TabState = $state('contacts');
 
   const {
-    router,
-    settings: {
-      views: {appearance},
-    },
-  } = services;
+    allowReceiverCreation = true,
+    allowReceiverEditing = true,
+    highlightActiveReceiver = true,
+  } = $derived(options);
 
-  let componentState: 'receiver-preview-list' | 'contact-add-form' = 'receiver-preview-list';
-  let searchBarComponent: SvelteNullableBinding<SearchBar> = null;
-  let searchTerm: string | undefined = undefined;
-  let listElement: SvelteNullableBinding<HTMLElement> = null;
-
-  const dispatch = createEventDispatcher<{
-    clickedititem: THandlerProps;
-  }>();
+  let searchBarComponent = $state<SvelteNullableBinding<SearchBar>>(null);
+  let searchTerm = $state<string | undefined>(undefined);
+  let listElement = $state<SvelteNullableBinding<HTMLElement>>(null);
 
   /**
    * Set focus to the search bar input element and select its contents.
@@ -104,28 +110,33 @@
     await scrollToActiveItem();
   }
 
-  function handleClickAdd(): void {
+  function handleClickAddContact(): void {
     componentState = 'contact-add-form';
+  }
+
+  function handleClickAddGroup(): void {
+    componentState = 'group-add-form';
+    searchTerm = '';
   }
 
   function getTabBarTabs(): TabBarProps<TabState>['tabs'] {
     return [
       {
-        id: 'contact',
+        id: 'contacts',
         icon: 'person',
-        onClick: handleClickTab,
+        onclick: handleClickTab,
       },
       {
-        id: 'group',
+        id: 'groups',
         icon: 'group',
-        onClick: handleClickTab,
+        onclick: handleClickTab,
       },
       ...(import.meta.env.BUILD_VARIANT === 'work' || import.meta.env.BUILD_VARIANT === 'custom'
         ? [
             {
-              id: 'work-subscription-contact',
+              id: 'workSubscriptionContacts',
               icon: 'work_outline',
-              onClick: handleClickTab,
+              onclick: handleClickTab,
             } as const,
           ]
         : []),
@@ -133,10 +144,10 @@
   }
 
   function getContextMenuItems(
-    receiverPreviewListItem: ReceiverPreviewListItem<THandlerProps>,
+    receiverPreviewListItem: ReceiverPreviewListItem<ContextMenuItemHandlerProps<AnyReceiver>>,
     currentAllowReceiverEditing: boolean,
     t: I18nType['t'],
-  ): ContextMenuItemWithHandlerProps<THandlerProps>[] {
+  ): ContextMenuItemWithHandlerProps<ContextMenuItemHandlerProps<AnyReceiver>>[] {
     if (!currentAllowReceiverEditing) {
       // Don't show a context menu if editing is not allowed, as there are no other options at this time.
       return [];
@@ -148,7 +159,7 @@
           {
             type: 'option',
             disabled: false,
-            handler: (props) => dispatch('clickedititem', props),
+            handler: (props) => onclickedititem?.(props),
             label: t('contacts.action--edit', 'Edit'),
             icon: {
               name: 'edit',
@@ -167,29 +178,19 @@
     }
   }
 
-  function getFilteredItems(
+  function getFilteredPreviewListItems(
+    currentTab: TabState,
     currentItems: typeof items,
     currentSearchTerm: typeof searchTerm,
-    currentAppearance: typeof $appearance,
-  ): typeof items {
-    return currentItems.filter((item) => {
-      // Only retain contacts that were added manually by the user.
-      if (item.receiver.type === 'contact' && item.receiver.acquaintanceLevel !== 'direct') {
-        return false;
-      }
-
-      // Filter inactive contacts according to the respective policy.
-      if (
-        currentAppearance.inactiveContactsPolicy === InactiveContactsPolicy.HIDE &&
-        item.receiver.type === 'contact' &&
-        item.receiver.isInactive
-      ) {
-        return false;
-      }
-
-      // Receivers of type "self" don't make sense to be displayed in the address book. In
-      // practice, this case should never happen, but if such items were to be provided, we'll
-      // filter them out.
+  ): ReceiverPreviewListProps<ContextMenuItemHandlerProps<AnyReceiver>>['items'] {
+    function filterItems(
+      item:
+        | ReceiverPreviewListItem<ContextMenuItemHandlerProps<Contact>>
+        | ReceiverPreviewListItem<ContextMenuItemHandlerProps<Group>>,
+      // TODO(DESK-236) Add distribution lists here.
+    ): boolean {
+      // Receivers of type "self" don't make sense in the address book. In practice, this case
+      // should never happen, but if such items are provided, we'll filter them out.
       if (item.receiver.type === 'self') {
         return false;
       }
@@ -200,43 +201,43 @@
       }
 
       return true;
-    });
+    }
+
+    return currentItems[currentTab].filter(filterItems) as ReceiverPreviewListProps<
+      ContextMenuItemHandlerProps<AnyReceiver>
+    >['items'];
   }
 
-  function resetStateToDefault(): void {
+  function resetStateToDefault(tabState_: TabState): void {
     componentState = 'receiver-preview-list';
+    tabState = tabState_;
   }
 
-  $: ({
-    allowReceiverCreation = true,
-    allowReceiverEditing = true,
-    highlightActiveReceiver = true,
-  } = options);
-
-  $: filteredItems = getFilteredItems(items, searchTerm, $appearance);
+  const filteredPreviewListItems = $derived(
+    getFilteredPreviewListItems(tabState, items, searchTerm),
+  );
 </script>
 
 {#if componentState === 'receiver-preview-list'}
   <div class="container">
-    {#if $$slots.topbar}
-      <slot name="topbar" />
+    {#if snippetTopbar}
+      {@render snippetTopbar?.()}
     {/if}
     <div class="tab-bar">
-      <TabBar tabs={getTabBarTabs()} />
+      <TabBar tabs={getTabBarTabs()} initiallySelectedId={tabState} />
     </div>
 
     <div class="search">
       <SearchBar
         bind:this={searchBarComponent}
         bind:term={searchTerm}
-        onRequestRefresh={() => {}}
+        onclear={handleClearSearchBar}
         placeholder={getSearchInputPlaceholderForTabState(tabState, $i18n.t)}
-        on:clear={handleClearSearchBar}
       />
     </div>
 
-    {#if allowReceiverCreation && import.meta.env.BUILD_VARIANT === 'consumer' && tabState === 'contact'}
-      <button class="add" on:click={handleClickAdd}>
+    {#if allowReceiverCreation && (import.meta.env.BUILD_VARIANT === 'consumer' || import.meta.env.BUILD_ENVIRONMENT === 'sandbox') && tabState === 'contacts'}
+      <button class="add" onclick={handleClickAddContact}>
         <div class="icon">
           <MdIcon theme="Filled">add</MdIcon>
         </div>
@@ -246,18 +247,29 @@
       </button>
     {/if}
 
+    {#if allowReceiverCreation && (import.meta.env.BUILD_VARIANT === 'consumer' || import.meta.env.BUILD_ENVIRONMENT === 'sandbox') && tabState === 'groups'}
+      <button class="add" onclick={handleClickAddGroup}>
+        <div class="icon">
+          <MdIcon theme="Filled">add</MdIcon>
+        </div>
+        <div class="text">
+          {$i18n.t('groups.action--add-group', 'New Group')}
+        </div>
+      </button>
+    {/if}
+
     <div bind:this={listElement} class="list">
-      {#if filteredItems.length > 0}
+      {#if filteredPreviewListItems.length > 0}
         <ReceiverPreviewList
           contextMenuItems={(receiverPreviewListItem) =>
             getContextMenuItems(receiverPreviewListItem, allowReceiverEditing, $i18n.t)}
           highlights={searchTerm}
-          items={filteredItems}
+          items={filteredPreviewListItems}
+          {onclickitem}
           options={{
             highlightActiveReceiver,
           }}
           {services}
-          on:clickitem
         />
       {:else}
         <!-- No receivers. -->
@@ -266,11 +278,19 @@
   </div>
 {:else if componentState === 'contact-add-form'}
   <ContactAddForm
-    on:back={resetStateToDefault}
-    on:cancel={resetStateToDefault}
-    on:contactcreated={resetStateToDefault}
     {actions}
+    onclickback={() => resetStateToDefault('contacts')}
+    onclickcancel={() => resetStateToDefault('contacts')}
+    oncreatesuccess={() => resetStateToDefault('contacts')}
     {services}
+  />
+{:else if componentState === 'group-add-form'}
+  <GroupAddForm
+    {services}
+    contacts={items.contacts}
+    {actions}
+    onclickback={() => resetStateToDefault('groups')}
+    onclickcancel={() => resetStateToDefault('groups')}
   />
 {:else}
   {unreachable(componentState)}

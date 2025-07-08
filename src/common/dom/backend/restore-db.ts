@@ -4,20 +4,24 @@ import type {
     DatabaseBackend,
     DbContactUid,
     DbConversationUid,
+    DbCreated,
+    DbCreateMessage,
     DbMessageHistory,
     DbMessageReaction,
     DbMessageUid,
+    DbPollMessage,
+    DbPollVoteFragment,
     DbReceiverLookup,
     RawDatabaseKey,
 } from '~/common/db';
 import type {FactoriesForBackend} from '~/common/dom/backend';
-import {MessageType, ReceiverType, StatusMessageType} from '~/common/enum';
+import {MessageType, PollMessageType, ReceiverType, StatusMessageType} from '~/common/enum';
 import {canCopyFiles, copyFiles, type FileId} from '~/common/file-storage';
 import type {ServicesForKeyStorage} from '~/common/key-storage';
 import type {Logger} from '~/common/logging';
 import type {IdentityString} from '~/common/network/types';
 import type {LocalSettings} from '~/common/settings';
-import type {u53} from '~/common/types';
+import type {i53, u53} from '~/common/types';
 import {assert, unreachable} from '~/common/utils/assert';
 
 /**
@@ -106,6 +110,7 @@ export async function transferOldMessages(
         );
     }
 
+    const pollClosedMessages: DbCreateMessage<DbPollMessage>[] = [];
     let messages = [];
     let offset = 0;
     do {
@@ -117,7 +122,6 @@ export async function transferOldMessages(
         offset += chunkSize;
 
         const messageFileIds: FileId[] = [];
-
         for (const message of messages) {
             let uidOfContactInNewDb: DbContactUid | 'me' | undefined = undefined;
             if (message.message?.senderContactUid !== undefined) {
@@ -163,11 +167,30 @@ export async function transferOldMessages(
                 };
 
                 /* eslint-disable max-depth */
-                let messageUid: DbMessageUid;
+                let messageUid: DbMessageUid | undefined = undefined;
                 switch (dbMessage.type) {
                     case 'text':
                         messageUid = db.createTextMessage(dbMessage);
                         break;
+                    case 'poll': {
+                        switch (dbMessage.pollMessageType) {
+                            case PollMessageType.POLL_CLOSED:
+                                // Don't process `POLL_CLOSED` messages yet, as the corresponding
+                                // `POLL_CREATED` messages need to be imported first but the restore
+                                // order is not guaranteed.
+                                pollClosedMessages.push(dbMessage);
+                                break;
+
+                            case PollMessageType.POLL_CREATED:
+                            case undefined:
+                                messageUid = restorePollMessage(db, dbMessage);
+                                break;
+
+                            default:
+                                unreachable(dbMessage.pollMessageType);
+                        }
+                        break;
+                    }
                     case 'file': {
                         if (dbMessage.fileData?.fileId !== undefined) {
                             messageFileIds.push(dbMessage.fileData.fileId);
@@ -218,7 +241,7 @@ export async function transferOldMessages(
                 }
                 /* eslint-enable max-depth */
 
-                if (innerMessage.type !== MessageType.DELETED) {
+                if (messageUid !== undefined && innerMessage.type !== MessageType.DELETED) {
                     restoreReactionsAndHistory(
                         db,
                         messageUid,
@@ -232,6 +255,31 @@ export async function transferOldMessages(
             await copyFiles(oldFileStorage, file, log, messageFileIds);
         }
     } while (messages.length !== 0);
+
+    // Restore deferred messages of type `POLL_CLOSED`.
+    for (const pollClosedMessage of pollClosedMessages) {
+        const pollUid = db.getPoll(
+            pollClosedMessage.pollCreatorIdentity,
+            pollClosedMessage.conversationUid,
+            pollClosedMessage.pollId,
+        )?.uid;
+        if (pollUid === undefined) {
+            // If the poll this message belongs to doesn't exist, skip restoring the `POLL_CLOSED`
+            // message. Note: This is a sanity check and should not happen in a sound database.
+            log.warn(
+                `Skipping restore of POLL_CLOSED message because the poll with id "${pollClosedMessage.pollId}" does not exist`,
+            );
+            continue;
+        }
+
+        const messageUid = restorePollMessage(db, pollClosedMessage);
+        restoreReactionsAndHistory(
+            db,
+            messageUid,
+            pollClosedMessage.reactions,
+            pollClosedMessage.history,
+        );
+    }
 
     // Now we want to move the status messages;
     offset = 0;
@@ -333,6 +381,37 @@ function restoreEmojiSkinTonePreferences(
                 preference.preferredSkinToneEmoji,
             );
     }
+}
+
+function restorePollMessage(
+    db: DatabaseBackend,
+    dbMessage: DbCreateMessage<DbPollMessage>,
+): DbCreated<DbPollMessage> {
+    // Restore poll message.
+    const messageUid = db.createPollMessage(dbMessage);
+
+    // Restore poll votes.
+    const votesBySender = dbMessage.choices.reduce((acc, choice) => {
+        choice.votes.forEach((vote) => {
+            const current = acc.get(vote.senderIdentity) ?? [];
+            acc.set(vote.senderIdentity, [
+                ...current,
+                {choiceId: choice.choiceId, selected: vote.selected},
+            ]);
+        });
+        return acc;
+    }, new Map<IdentityString, {choiceId: i53; selected: boolean}[]>());
+
+    votesBySender.forEach((choices, senderIdentity) => {
+        const pollVotes: DbPollVoteFragment = {
+            pollId: dbMessage.pollId,
+            creatorIdentity: dbMessage.pollCreatorIdentity,
+            choices,
+        };
+        db.updatePollVotes(dbMessage.conversationUid, pollVotes, senderIdentity);
+    });
+
+    return messageUid;
 }
 
 /**

@@ -5,32 +5,30 @@
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {publicKeyGrid} from '~/common/dom/ui/fingerprint';
 
-  type $$Props = PublicKeyModalProps;
+  const {onclose, publicKey}: PublicKeyModalProps = $props();
 
-  export let publicKey: $$Props['publicKey'];
-
-  let modalComponent: SvelteNullableBinding<Modal> = null;
-  let actionsElement: SvelteNullableBinding<HTMLElement> = null;
-  let modalElement: SvelteNullableBinding<HTMLElement> = null;
+  let modalComponent = $state<SvelteNullableBinding<Modal>>(null);
+  let actionsElement = $state<SvelteNullableBinding<HTMLElement>>(null);
+  let modalElement = $state<SvelteNullableBinding<HTMLElement>>(null);
 </script>
 
 <Modal
   bind:this={modalComponent}
   bind:actionsElement
   bind:element={modalElement}
+  {onclose}
   wrapper={{
     type: 'card',
     actions: [
       {
         iconName: 'close',
-        onClick: 'close',
+        onclick: 'close',
       },
     ],
     title: $i18n.t('settings--profile.label--public-key', 'Public Key'),
     minWidth: 240,
     maxWidth: 240,
   }}
-  on:close
 >
   <div class="content">
     <pre class="key"><code>{publicKeyGrid(publicKey)}</code></pre>
@@ -49,7 +47,7 @@
       color: var(--t-text-e2-color);
       font-size: rem(18px);
       font-weight: 400;
-      font-family: 'Lab Grotesque';
+      font-family: 'Open Sans';
       text-align: center;
       letter-spacing: rem(2px);
     }

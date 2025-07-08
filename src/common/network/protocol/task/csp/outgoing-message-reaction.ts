@@ -64,10 +64,10 @@ function reactionSpecifics<
 }
 
 export class OutgoingMessageReactionTask<TReceiver extends AnyReceiver>
-    implements ActiveTask<void, 'volatile'>
+    implements ActiveTask<void, 'persistent'>
 {
     public readonly type: ActiveTaskSymbol = ACTIVE_TASK;
-    public readonly persist = false;
+    public readonly persist = true;
     public readonly transaction = undefined;
 
     private readonly _log: Logger;
@@ -87,7 +87,7 @@ export class OutgoingMessageReactionTask<TReceiver extends AnyReceiver>
         );
     }
 
-    public async run(handle: ActiveTaskCodecHandle<'volatile'>): Promise<void> {
+    public async run(handle: ActiveTaskCodecHandle<'persistent'>): Promise<void> {
         // 2. Run the Legacy Reaction Mapping Steps with reaction and let legacy-reaction be the result.
         const legacyReaction = legacyReactionMappingSteps(this._reaction, this._variant);
 
@@ -163,7 +163,7 @@ export class OutgoingMessageReactionTask<TReceiver extends AnyReceiver>
                     };
                     task = new OutgoingCspMessagesTask(this._services, [
                         {
-                            receiver: this._receiverModel,
+                            receiver: {main: this._receiverModel},
                             sharedMessageProperties,
                             specifics: {default: {encoder: legacyEncoder, messageProperties}},
                         },
@@ -177,7 +177,7 @@ export class OutgoingMessageReactionTask<TReceiver extends AnyReceiver>
 
                     task = new OutgoingCspMessagesTask(this._services, [
                         {
-                            receiver: this._receiverModel,
+                            receiver: {main: this._receiverModel},
                             sharedMessageProperties,
                             specifics: {
                                 default: {encoder: defaultEncoder, messageProperties},
@@ -226,7 +226,7 @@ export class OutgoingMessageReactionTask<TReceiver extends AnyReceiver>
                 };
                 task = new OutgoingCspMessagesTask(this._services, [
                     {
-                        receiver: this._receiverModel,
+                        receiver: {main: this._receiverModel},
                         sharedMessageProperties,
                         specifics: {
                             default: {encoder: groupDefaultEncoder, messageProperties},

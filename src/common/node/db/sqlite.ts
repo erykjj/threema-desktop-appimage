@@ -58,6 +58,16 @@ import type {
     DbPersistentProtocolStateUid,
     DbPersistentProtocolState,
     DbEmojiSkinTone,
+    DbPollMessage,
+    DbPollUid,
+    DbChoiceUid,
+    DbPollMessageFragment,
+    DbPoll,
+    DbChoice,
+    DbVote,
+    DbPollVoteFragment,
+    DbPollCloseUpdate,
+    DbPollLookup,
 } from '~/common/db';
 import {
     type GlobalPropertyKey,
@@ -66,6 +76,9 @@ import {
     MessageType,
     type NonceScope,
     type PersistentProtocolStateType,
+    PollDisplayMode,
+    PollMessageType,
+    PollState,
     ReceiverType,
 } from '~/common/enum';
 import type {FileId} from '~/common/file-storage';
@@ -75,6 +88,7 @@ import type {BlobType} from '~/common/model/message/common';
 import type {FavoriteEmojis} from '~/common/model/types/emoji-preferences';
 import type {
     AnyNonDeletedMessageType,
+    EditableMessageType,
     MediaBasedMessageType,
     TextBasedMessageType,
 } from '~/common/model/types/message';
@@ -84,6 +98,7 @@ import {
     type GroupId,
     type IdentityString,
     type MessageId,
+    type PollId,
 } from '~/common/network/types';
 import {type Settings, SETTINGS_CODEC} from '~/common/settings';
 import type {u53} from '~/common/types';
@@ -117,11 +132,15 @@ import {
     tMessageFileData,
     tMessageHistory,
     tMessageImageData,
+    tMessagePollData,
     tMessageReaction,
     tMessageTextData,
     tMessageVideoData,
     tNonce,
     tPersistentProtocolState,
+    tPollChoices,
+    tPolls,
+    tPollVotes,
     tRunningGroupCalls,
     tSettings,
     tStatusMessage,
@@ -146,6 +165,14 @@ type UpdateSetWithThumbnail =
     | UpdateSetsForDbMessage<DbFileMessage>
     | UpdateSetsForDbMessage<DbImageMessage>
     | UpdateSetsForDbMessage<DbVideoMessage>;
+
+/**
+ * Union of all message data table types.
+ */
+type AnyMessageDataTable =
+    | AnyMediaMessageDataTable
+    | typeof tMessageTextData
+    | typeof tMessagePollData;
 
 /**
  * Union of all media message data table types.
@@ -436,10 +463,10 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                     syncState: tContact.syncState,
                     typingIndicatorPolicyOverride: tContact.typingIndicatorPolicyOverride,
                     readReceiptPolicyOverride: tContact.readReceiptPolicyOverride,
-                    notificationTriggerPolicyOverrideValue:
-                        tContact.notificationTriggerPolicyOverride,
-                    notificationTriggerPolicyOverrideExpiresAt:
-                        tContact.notificationTriggerPolicyOverrideExpiresAt,
+                    notificationTriggerPolicyOverride: {
+                        policy: tContact.notificationTriggerPolicyOverride.asRequiredInOptionalObject(),
+                        expiresAt: tContact.notificationTriggerPolicyOverrideExpiresAt,
+                    },
                     notificationSoundPolicyOverride: tContact.notificationSoundPolicyOverride,
                     profilePictureContactDefined: tContact.profilePictureContactDefined,
                     profilePictureGatewayDefined: tContact.profilePictureGatewayDefined,
@@ -448,12 +475,6 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                     colorIndex: tContact.colorIndex,
                 })
                 .where(tContact.uid.equals(uid))
-                // TODO(DESK-1780) Replace the deprecated function
-                // eslint-disable-next-line @typescript-eslint/no-deprecated
-                .guidedSplitOptional('notificationTriggerPolicyOverride', {
-                    policy: 'notificationTriggerPolicyOverrideValue!',
-                    expiresAt: 'notificationTriggerPolicyOverrideExpiresAt?',
-                })
                 .executeSelectNoneOrOne(),
         );
         if (contact === null) {
@@ -602,21 +623,15 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                     name: tGroup.name,
                     createdAt: tGroup.createdAt,
                     userState: tGroup.userState,
-                    notificationTriggerPolicyOverrideValue:
-                        tGroup.notificationTriggerPolicyOverride,
-                    notificationTriggerPolicyOverrideExpiresAt:
-                        tGroup.notificationTriggerPolicyOverrideExpiresAt,
+                    notificationTriggerPolicyOverride: {
+                        policy: tGroup.notificationTriggerPolicyOverride.asRequiredInOptionalObject(),
+                        expiresAt: tGroup.notificationTriggerPolicyOverrideExpiresAt,
+                    },
                     notificationSoundPolicyOverride: tGroup.notificationSoundPolicyOverride,
                     profilePictureAdminDefined: tGroup.profilePictureAdminDefined,
                     colorIndex: tGroup.colorIndex,
                 })
                 .where(tGroup.uid.equals(queryUid))
-                // TODO(DESK-1780) Replace the deprecated function
-                // eslint-disable-next-line @typescript-eslint/no-deprecated
-                .guidedSplitOptional('notificationTriggerPolicyOverride', {
-                    policy: 'notificationTriggerPolicyOverrideValue!',
-                    expiresAt: 'notificationTriggerPolicyOverrideExpiresAt?',
-                })
                 .executeSelectNoneOrOne(),
         );
         if (group === null) {
@@ -1282,6 +1297,32 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
     }
 
     /** @inheritdoc */
+    public hasMessageByPollId(
+        creatorIdentity: IdentityString,
+        conversationUid: DbConversationUid,
+        pollId: PollId,
+        pollMessageType: PollMessageType,
+    ): DbHas<DbPollMessage> {
+        return sync(
+            this._db
+                .selectFrom(tPolls)
+                .innerJoin(tMessagePollData)
+                .on(tMessagePollData.pollUid.equals(tPolls.uid))
+                .innerJoin(tMessage)
+                .on(tMessage.uid.equals(tMessagePollData.messageUid))
+                .select({uid: tMessage.uid})
+                .where(
+                    tMessage.conversationUid
+                        .equals(conversationUid)
+                        .and(tMessagePollData.type.equals(pollMessageType))
+                        .and(tPolls.pollId.equals(pollId))
+                        .and(tPolls.pollCreatorIdentity.equals(creatorIdentity)),
+                )
+                .executeSelectNoneOrOne(),
+        )?.uid;
+    }
+
+    /** @inheritdoc */
     public hasStatusMessageByUid(
         conversationUid: DbConversationUid,
         uid: DbStatusMessageUid,
@@ -1441,6 +1482,87 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                     ...common,
                     ...text,
                     type: MessageType.TEXT,
+                };
+            }
+            case MessageType.POLL: {
+                // TODO(DESK-1828) Rewrite this using joins.
+                // Example:
+                //
+                // const tPollVotesLeftJoin = tPollVotes.forUseInLeftJoin();
+                // const choices = sync(
+                //     this._db
+                //         .selectFrom(tPollChoices)
+                //         .leftJoin(tPollVotesLeftJoin)
+                //         .on(tPollVotesLeftJoin.choiceUid.equals(tPollChoices.uid))
+                //         .select({
+                //             uid: tPollChoices.uid,
+                //             pollUid: tPollChoices.pollUid,
+                //             choiceId: tPollChoices.choiceId,
+                //             description: tPollChoices.description,
+                //             sortKey: tPollChoices.sortKey,
+
+                //             votes: this._db
+                //                 .aggregateAsArrayDistinct({
+                //                     uid: tPollVotesLeftJoin.uid,
+                //                     senderIdentity: tPollVotesLeftJoin.senderIdentity,
+                //                     choiceUid: tPollVotesLeftJoin.choiceUid,
+                //                     selected: tPollVotesLeftJoin.selected,
+                //                 })
+                //                 .useEmptyArrayForNoValue(),
+                //         })
+                //         .where(tPollChoices.pollUid.equals(poll.uid))
+                //         .groupBy(tPollChoices.uid)
+                //         .orderBy(tPollChoices.sortKey)
+                //         .executeSelectMany(),
+                // );
+
+                const poll =
+                    sync(
+                        this._db
+                            .selectFrom(tMessagePollData)
+                            .innerJoin(tPolls)
+                            .on(tPolls.uid.equals(tMessagePollData.pollUid))
+                            .select({
+                                uid: tPolls.uid,
+                                pollId: tPolls.pollId,
+                                conversationUid: tPolls.conversationUid,
+                                pollCreatorIdentity: tPolls.pollCreatorIdentity,
+                                createdAt: tPolls.createdAt,
+                                pollState: tPolls.pollState,
+                                description: tPolls.description,
+                                answerType: tPolls.answerType,
+                                announceType: tPolls.announceType,
+                                choicesType: tPolls.choicesType,
+                                displayMode: tPolls.displayMode,
+                                pollMessageType: tMessagePollData.type,
+                            })
+                            .where(tMessagePollData.messageUid.equals(common.uid))
+                            .executeSelectNoneOrOne(),
+                    ) ?? undefined;
+
+                if (poll === undefined) {
+                    this._log.warn(`No associated poll for message ${common.uid} found.`);
+                    return undefined;
+                }
+
+                const choices = this._getPollChoicesByPollUid(poll.uid).map((choice) => ({
+                    ...choice,
+                    votes: this._getPollVotesByChoiceUid(choice.uid),
+                }));
+
+                return {
+                    ...common,
+                    type: MessageType.POLL,
+                    pollId: poll.pollId,
+                    pollCreatorIdentity: poll.pollCreatorIdentity,
+                    description: poll.description,
+                    pollState: poll.pollState,
+                    answerType: poll.answerType,
+                    announceType: poll.announceType,
+                    displayMode: poll.displayMode,
+                    choicesType: poll.choicesType,
+                    pollMessageType: poll.pollMessageType,
+                    choices,
                 };
             }
             case MessageType.FILE: {
@@ -1726,6 +1848,20 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
         return this._getMessage(common);
     }
 
+    public getAllMessagesByType<TMessageType extends MessageType>(
+        type: TMessageType,
+        limit?: u53,
+    ): Pick<DbMessageCommon<TMessageType>, 'conversationUid' | 'uid'>[] {
+        return sync(
+            this._db
+                .selectFrom(tMessage)
+                .select({conversationUid: tMessage.conversationUid, uid: tMessage.uid})
+                .where(tMessage.messageType.equals(type))
+                .limitIfValue(limit)
+                .executeSelectMany(),
+        );
+    }
+
     /** @inheritdoc */
     public getStatusMessageByUid(uid: DbStatusMessageUid): DbGet<DbAnyStatusMessage> {
         const statusMessage = sync(
@@ -1969,7 +2105,7 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
     }
 
     private _getLastEdit(
-        type: AnyNonDeletedMessageType,
+        type: Exclude<AnyNonDeletedMessageType, MessageType.POLL>,
         messageUid: DbMessageUid,
     ): DbMessageLastEdit {
         switch (type) {
@@ -1985,6 +2121,19 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                 return this._getLastAudioMessageEdit(tMessageAudioData, messageUid);
             default:
                 return unreachable(type);
+        }
+    }
+
+    private _getTableForMessageType(
+        type: Exclude<MessageType, MessageType.DELETED>,
+    ): AnyMessageDataTable {
+        switch (type) {
+            case MessageType.TEXT:
+                return tMessageTextData;
+            case MessageType.POLL:
+                return tMessagePollData;
+            default:
+                return this._getTableForFileType(type);
         }
     }
 
@@ -2036,7 +2185,7 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
     }
 
     /** @inheritdoc */
-    public editMessage<TMessageType extends AnyNonDeletedMessageType>(
+    public editMessage<TMessageType extends EditableMessageType>(
         messageUid: DbMessageUid,
         type: TMessageType,
         messageUpdate: DbMessageEditFor<TMessageType>,
@@ -2405,6 +2554,10 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
 
                     return {deletedFileIds};
                 }
+                case MessageType.POLL: {
+                    // We don't support edit polls, so nothing to do here
+                    return {deletedFileIds: []};
+                }
                 default:
                     return unreachable(message);
             }
@@ -2544,8 +2697,11 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
         fileDataUid?: DbFileDataUid;
         thumbnailFileDataUid?: DbFileDataUid;
     }[] {
-        // Text messages or deleted messages don't have associated file data
-        if (message.type === MessageType.TEXT || message.type === MessageType.DELETED) {
+        if (
+            message.type === MessageType.TEXT ||
+            message.type === MessageType.DELETED ||
+            message.type === MessageType.POLL
+        ) {
             return [];
         }
 
@@ -2872,8 +3028,7 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                 .filter(isNotUndefined);
 
             // Delete the corresponding entry in the message subtable.
-            const table =
-                type === MessageType.TEXT ? tMessageTextData : this._getTableForFileType(type);
+            const table = this._getTableForMessageType(type);
             sync(
                 this._db
                     .deleteFrom(table)
@@ -3381,7 +3536,7 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
     /** @inheritdoc */
     public getFileDataByBlobIdAndSender(
         senderContactUid: 'me' | DbContactUid,
-        messageType: Exclude<AnyNonDeletedMessageType, MessageType.TEXT>,
+        messageType: Exclude<AnyNonDeletedMessageType, MessageType.TEXT | MessageType.POLL>,
         blobId: BlobId,
         type: BlobType,
     ): (DbFileData & {readonly fileDataUid: DbFileDataUid}) | undefined {
@@ -3829,6 +3984,9 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
             case 'deleted':
                 text = undefined;
                 break;
+            case 'poll':
+                text = undefined;
+                break;
             default:
                 unreachable(message.type);
         }
@@ -3948,6 +4106,309 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                 .where(tRunningGroupCalls.groupUid.equals(groupUid))
                 .executeSelectMany(),
         );
+    }
+
+    /** @inheritdoc */
+    public createPollMessage(message: DbCreateMessage<DbPollMessage>): DbCreated<DbPollMessage> {
+        return this._db.syncTransaction(() => {
+            let type: PollMessageType;
+            switch (message.pollMessageType) {
+                case PollMessageType.POLL_CLOSED:
+                    type = PollMessageType.POLL_CLOSED;
+                    break;
+
+                case PollMessageType.POLL_CREATED:
+                case undefined:
+                    type = PollMessageType.POLL_CREATED;
+                    break;
+
+                default:
+                    unreachable(message.pollMessageType);
+            }
+
+            let pollUid: DbPollUid | undefined;
+            // If the poll message type is closed, we don't insert new poll data. The poll update
+            // must have happened before in `closePoll`.
+            if (type === PollMessageType.POLL_CLOSED) {
+                pollUid = this.getPoll(
+                    message.pollCreatorIdentity,
+                    message.conversationUid,
+                    message.pollId,
+                )?.uid;
+                assert(pollUid !== undefined, 'The poll referenced by a closed poll must exist');
+            } else {
+                pollUid = this._insertPollData(message);
+            }
+
+            // Common message
+            const messageUid: DbMessageUid = this._insertCommonMessageData(message);
+
+            // Poll message
+            sync(
+                this._db
+                    .insertInto(tMessagePollData)
+                    .set({
+                        messageUid,
+                        type,
+                        pollUid,
+                    })
+                    .executeInsert(),
+            );
+
+            // Note: Returning the UID of the main message, not of the messagePollData
+            return messageUid;
+        }, this._log);
+    }
+
+    /** @inheritdoc */
+    public getPollMessageFragment(
+        creatorIdentity: IdentityString,
+        conversationUid: DbConversationUid,
+        pollId: PollId,
+    ): DbPollMessageFragment | undefined {
+        // TODO(DESK-1828) we should rewrite this using joins
+        const poll = this.getPoll(creatorIdentity, conversationUid, pollId);
+        if (poll === undefined) {
+            this._log.warn(`No poll with pollId ${pollId} found.`);
+            return undefined;
+        }
+
+        const choices = this._getPollChoicesByPollUid(poll.uid).map((choice) => ({
+            ...choice,
+            votes: this._getPollVotesByChoiceUid(choice.uid),
+        }));
+
+        return {
+            ...poll,
+            choices,
+        };
+    }
+
+    /** @inheritdoc */
+    public updatePollVotes(
+        conversationUid: DbConversationUid,
+        pollVotes: DbPollVoteFragment,
+        senderIdentity: IdentityString,
+    ): void {
+        const poll = this.getPoll(pollVotes.creatorIdentity, conversationUid, pollVotes.pollId);
+        if (poll === undefined) {
+            return;
+        }
+
+        for (const vote of pollVotes.choices) {
+            const choiceUid = sync(
+                this._db
+                    .selectFrom(tPollChoices)
+                    .select({
+                        uid: tPollChoices.uid,
+                    })
+                    .where(
+                        tPollChoices.pollUid
+                            .equals(poll.uid)
+                            .and(tPollChoices.choiceId.equals(vote.choiceId)),
+                    )
+                    .executeSelectOne(),
+            );
+
+            sync(
+                this._db
+                    .insertInto(tPollVotes)
+                    .set({
+                        senderIdentity,
+                        choiceUid: choiceUid.uid,
+                        selected: vote.selected,
+                    })
+                    .onConflictOn(tPollVotes.senderIdentity, tPollVotes.choiceUid)
+                    .doUpdateSet({
+                        senderIdentity,
+                        choiceUid: choiceUid.uid,
+                        selected: vote.selected,
+                    })
+                    .executeInsert(),
+            );
+        }
+    }
+
+    /** @inheritdoc */
+    public closePoll(pollLookup: DbPollLookup, pollUpdate: DbPollCloseUpdate): void {
+        const poll = this.getPoll(
+            pollLookup.pollCreatorIdentity,
+            pollLookup.conversationUid,
+            pollLookup.pollId,
+        );
+        if (poll === undefined) {
+            this._log.warn(`Poll with pollId ${pollLookup.pollId} not found, abort`);
+            return;
+        }
+
+        // Update poll status to closed
+        const rowsUpdated = sync(
+            this._db
+                .update(tPolls)
+                .set({pollState: PollState.CLOSED})
+                .where(tPolls.uid.equals(poll.uid))
+                .executeUpdate(),
+        );
+
+        if (rowsUpdated === 1) {
+            if (poll.displayMode === PollDisplayMode.LIST) {
+                // Overwrite all votes with the final result which is the single source of truth.
+                pollUpdate.participants.forEach((senderIdentity, index) => {
+                    const pollVoteFragment: DbPollVoteFragment = {
+                        pollId: pollLookup.pollId,
+                        choices: pollUpdate.choices.map((choice) => {
+                            assert(
+                                Array.isArray(choice.participantVotes) &&
+                                    choice.participantVotes.length ===
+                                        pollUpdate.participants.length,
+                                'Number of participants and participants votes mismatch',
+                            );
+                            return {
+                                choiceId: choice.choiceId,
+                                selected: choice.participantVotes[index] === 1,
+                            };
+                        }),
+                        creatorIdentity: pollLookup.pollCreatorIdentity,
+                    };
+                    this.updatePollVotes(
+                        pollLookup.conversationUid,
+                        pollVoteFragment,
+                        senderIdentity,
+                    );
+                });
+            } else {
+                // Just set the total amount of votes for each choice
+                for (const choice of pollUpdate.choices) {
+                    sync(
+                        this._db
+                            .update(tPollChoices)
+                            .set({totalAmountVotes: choice.totalAmountVotes})
+                            .where(
+                                tPollChoices.choiceId
+                                    .equals(choice.choiceId)
+                                    .and(tPollChoices.pollUid.equals(poll.uid)),
+                            )
+                            .executeUpdate(),
+                    );
+                }
+            }
+        }
+    }
+
+    /** @inheritdoc */
+    public getPoll(
+        creatorIdentity: IdentityString,
+        conversationUid: DbConversationUid,
+        pollId: PollId,
+    ): DbGet<DbPoll> {
+        return (
+            sync(
+                this._db
+                    .selectFrom(tPolls)
+                    .select({
+                        uid: tPolls.uid,
+                        pollId: tPolls.pollId,
+                        conversationUid: tPolls.conversationUid,
+                        pollCreatorIdentity: tPolls.pollCreatorIdentity,
+                        createdAt: tPolls.createdAt,
+                        description: tPolls.description,
+                        pollState: tPolls.pollState,
+                        answerType: tPolls.answerType,
+                        announceType: tPolls.announceType,
+                        choicesType: tPolls.choicesType,
+                        displayMode: tPolls.displayMode,
+                    })
+                    .where(
+                        tPolls.conversationUid
+                            .equals(conversationUid)
+                            .and(tPolls.pollId.equals(pollId))
+                            .and(tPolls.pollCreatorIdentity.equals(creatorIdentity)),
+                    )
+                    .executeSelectNoneOrOne(),
+            ) ?? undefined
+        );
+    }
+
+    private _getPollChoicesByPollUid(pollUid: DbPollUid): readonly DbChoice[] {
+        return sync(
+            this._db
+                .selectFrom(tPollChoices)
+                .select({
+                    uid: tPollChoices.uid,
+                    pollUid: tPollChoices.pollUid,
+                    choiceId: tPollChoices.choiceId,
+                    description: tPollChoices.description,
+                    sortKey: tPollChoices.sortKey,
+                    totalAmountVotes: tPollChoices.totalAmountVotes,
+                })
+                .where(tPollChoices.pollUid.equals(pollUid))
+                .orderBy(tPollChoices.sortKey)
+                .executeSelectMany(),
+        );
+    }
+
+    private _getPollVotesByChoiceUid(choiceUid: DbChoiceUid): readonly DbVote[] {
+        return sync(
+            this._db
+                .selectFrom(tPollVotes)
+                .select({
+                    uid: tPollVotes.uid,
+                    senderIdentity: tPollVotes.senderIdentity,
+                    choiceUid: tPollVotes.choiceUid,
+                    selected: tPollVotes.selected,
+                })
+                .where(tPollVotes.choiceUid.equals(choiceUid))
+                .executeSelectMany(),
+        );
+    }
+
+    /**
+     * Insert poll choice data into the database.
+     */
+    private _insertPollChoiceData(choice: Omit<DbChoice, 'uid'>): DbChoiceUid {
+        return sync(
+            this._db
+                .insertInto(tPollChoices)
+                .set({
+                    pollUid: choice.pollUid,
+                    choiceId: choice.choiceId,
+                    description: choice.description,
+                    sortKey: choice.sortKey,
+                    totalAmountVotes: choice.totalAmountVotes ?? 0,
+                })
+                .returningLastInsertedId()
+                .executeInsert(),
+        );
+    }
+
+    /**
+     * Insert poll data into the database.
+     */
+    private _insertPollData(message: DbCreateMessage<DbPollMessage>): DbPollUid {
+        // Insert Poll
+        const pollUid = sync(
+            this._db
+                .insertInto(tPolls)
+                .set({
+                    pollId: message.pollId,
+                    pollCreatorIdentity: message.pollCreatorIdentity,
+                    createdAt: new Date(),
+                    conversationUid: message.conversationUid,
+                    description: message.description,
+                    pollState: message.pollState,
+                    answerType: message.answerType,
+                    announceType: message.announceType,
+                    choicesType: message.choicesType,
+                    displayMode: message.displayMode,
+                })
+                .returningLastInsertedId()
+                .executeInsert(),
+        );
+
+        // Insert poll choices
+        message.choices.forEach((choice) => this._insertPollChoiceData({...choice, pollUid}));
+
+        return pollUid;
     }
 
     /* eslint-enable @typescript-eslint/member-ordering */

@@ -6,6 +6,7 @@ import type {MessageSender} from '~/app/ui/components/partials/conversation/inte
 import type {SanitizeAndParseTextToHtmlOptions} from '~/app/ui/utils/text';
 import type {MessageId} from '~/common/network/types';
 import type {SingleUnicodeEmoji, UnsupportedEmoji} from '~/common/utils/emoji';
+import type {PollData} from '~/common/viewmodel/conversation/main/message/regular-message/store/types';
 import type {FeatureSupport} from '~/common/viewmodel/conversation/main/store/types';
 import type {FileMessageDataState} from '~/common/viewmodel/types';
 import type {AnyReceiverData} from '~/common/viewmodel/utils/receiver';
@@ -16,7 +17,11 @@ import type {AnyReceiverData} from '~/common/viewmodel/utils/receiver';
 export interface RegularMessageProps {
     readonly boundary?: MessageContextMenuProviderProps['boundary'];
     readonly conversation: {
-        readonly receiver: AnyReceiverData;
+        readonly receiver: AnyReceiverData & {
+            readonly closePoll: (
+                pollData: Pick<PollData, 'pollCreatorIdentity' | 'pollId'>,
+            ) => Promise<void>;
+        };
         readonly editMessageFeatureSupport: FeatureSupport;
         readonly emojiReactionsFeatureSupport: FeatureSupport;
     };
@@ -35,7 +40,7 @@ export interface RegularMessageProps {
         };
         readonly thumbnail?: Omit<
             NonNullable<NonNullable<MessageProps['file']>['thumbnail']>,
-            'blobStore'
+            'thumbnailStore'
         >;
     };
     /**
@@ -44,19 +49,28 @@ export interface RegularMessageProps {
      */
     readonly highlighted?: MessageProps['highlighted'];
     readonly id: MessageId;
-    readonly onClickContextMenuFavoriteEmoji: (
+    readonly onclickcontextmenufavoriteemoji?: (
         event: MouseEvent,
         emoji: SingleUnicodeEmoji,
     ) => void;
-    readonly onClickEmojiReactionStripBucket: (
+    readonly onclickdeleteoption?: MessageContextMenuProviderProps['onclickdeleteoption'];
+    readonly onclickeditoption?: MessageContextMenuProviderProps['onclickeditoption'];
+    readonly onclickemojireactionstripbucket?: (
         event: MouseEvent,
         emoji: SingleUnicodeEmoji | UnsupportedEmoji,
     ) => void;
-    readonly onClickOpenEmojiPicker: (event: MouseEvent, anchorName: `--${string}`) => void;
+    readonly onclickforwardoption?: MessageContextMenuProviderProps['onclickforwardoption'];
+    readonly onclickopendetailsoption?: MessageContextMenuProviderProps['onclickopendetailsoption'];
+    readonly onclickopenemojipicker?: (event: MouseEvent, anchorName: `--${string}`) => void;
+    readonly onclickquote?: MessageProps['onclickquote'];
+    readonly onclickquoteoption?: MessageContextMenuProviderProps['onclickquoteoption'];
+    readonly onclickthumbnail?: MessageProps['onclickthumbnail'];
+    readonly oncompletehighlightanimation?: MessageProps['oncompletehighlightanimation'];
     readonly options?: {
         /** Whether to always show the caret (instead of only on hover). Defaults to `false`. */
         readonly alwaysShowCaret?: boolean;
     };
+    readonly pollData?: MessageProps['pollData'];
     readonly quote?: AnyQuotedMessage;
     readonly sender: MessageSender;
     readonly services: AppServicesForSvelte;

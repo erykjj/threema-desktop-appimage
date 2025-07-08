@@ -1,9 +1,14 @@
 import type * as v from '@badrap/valita';
 
 import type {ROUTE_DEFINITIONS} from '~/app/routing/routes';
+import type {DeleteGroupModalProps} from '~/app/ui/components/partials/modals/delete-group-modal/props';
+import type {DisbandGroupModalProps} from '~/app/ui/components/partials/modals/disband-group-modal/props';
+import type {EditGroupNameModalProps} from '~/app/ui/components/partials/modals/edit-group-name-modal/props';
+import type {LeaveGroupModalProps} from '~/app/ui/components/partials/modals/leave-group-modal/props';
 import type {ProfilePictureModalProps} from '~/app/ui/components/partials/modals/profile-picture-modal/props';
 import type {Remote} from '~/common/utils/endpoint';
 import type {GroupDetailViewModelBundle} from '~/common/viewmodel/receiver/detail/group';
+import type {AnyReceiverDataOrSelf} from '~/common/viewmodel/utils/receiver';
 
 /**
  * Shape of the router's route params if it's an "aside" route.
@@ -19,7 +24,19 @@ export type RemoteGroupDetailViewModelStoreValue = ReturnType<
 export type RemoteGroupDetailViewModelController =
     Remote<GroupDetailViewModelBundle>['viewModelController'];
 
-export type ModalState = NoneModalState | ProfilePictureModalState;
+export type ModalState =
+    | NoneModalState
+    | ProfilePictureModalState
+    | EditGroupNameModalState
+    | DisbandGroupModalState
+    | LeaveGroupModalState
+    | DeleteGroupModalState;
+
+export type ContextMenuItemHandlerProps =
+    | {
+          readonly receiver: AnyReceiverDataOrSelf;
+      }
+    | undefined;
 
 interface NoneModalState {
     readonly type: 'none';
@@ -28,4 +45,24 @@ interface NoneModalState {
 interface ProfilePictureModalState {
     readonly type: 'profile-picture';
     readonly props: ProfilePictureModalProps;
+}
+
+interface EditGroupNameModalState {
+    readonly type: 'edit-group-name';
+    readonly props: EditGroupNameModalProps;
+}
+
+interface DisbandGroupModalState {
+    readonly type: 'disband-group';
+    readonly props: DisbandGroupModalProps;
+}
+
+interface LeaveGroupModalState {
+    readonly type: 'leave-group';
+    readonly props: LeaveGroupModalProps;
+}
+
+interface DeleteGroupModalState {
+    readonly type: 'delete-group';
+    readonly props: DeleteGroupModalProps;
 }

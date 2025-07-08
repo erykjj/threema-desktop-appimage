@@ -1,58 +1,50 @@
 <!--
-  @component
-  Renders an image whose bytes might be provided later, or a placeholder.
+  @component Renders an image whose bytes might be provided later, or a placeholder.
 -->
 <script lang="ts">
-  import {onDestroy} from 'svelte';
+  import {onDestroy, untrack} from 'svelte';
 
-  import {globals} from '~/app/globals';
   import {constrain} from '~/app/ui/components/atoms/lazy-image/constrain';
   import type {LazyImageProps} from '~/app/ui/components/atoms/lazy-image/props';
   import type {LazyImageContent} from '~/app/ui/components/atoms/lazy-image/types';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
-  import type {ProfilePictureBlobStoreValue} from '~/common/dom/ui/profile-picture';
   import {assertUnreachable, unreachable} from '~/common/utils/assert';
   import {isSupportedImageType} from '~/common/utils/image';
 
-  const log = globals.unwrap().uiLogging.logger('ui.component.lazy-image');
+  const {
+    byteStore,
+    constraints,
+    description,
+    dimensions = undefined,
+    isClickable = false,
+    isFocusable = false,
+    onclick,
+    responsive = false,
+    snippetFailed,
+    snippetLoading,
+  }: LazyImageProps = $props();
 
-  type $$Props = LazyImageProps;
-
-  export let byteStore: $$Props['byteStore'];
-  export let constraints: $$Props['constraints'];
-  export let description: $$Props['description'];
-  export let dimensions: $$Props['dimensions'] = undefined;
-  export let isClickable: NonNullable<$$Props['isClickable']> = false;
-  export let isFocusable: NonNullable<$$Props['isFocusable']> = false;
-  export let responsive: NonNullable<$$Props['responsive']> = false;
-
-  let image: LazyImageContent = {
+  let image = $state<LazyImageContent>({
     state: 'loading',
-  };
+  });
 
   async function updateContent(
-    value: 'loading' | Blob | ProfilePictureBlobStoreValue | undefined,
+    currentByteStoreValue: typeof $byteStore | undefined,
   ): Promise<void> {
-    revokeCurrentImageUrl(image);
+    untrack(() => revokeCurrentImageUrl(image));
 
-    if (value === 'loading') {
+    if (currentByteStoreValue === 'loading') {
       image = {state: 'loading'};
       return;
     }
 
-    if (value === undefined) {
+    if (currentByteStoreValue === undefined) {
       image = {state: 'failed'};
       return;
     }
 
-    // At this point it's certain that `value` is either a blob or contains a blob with
-    // precalculated dimensions.
-    let blob: Blob;
-    if (value instanceof Blob) {
-      blob = value;
-    } else {
-      blob = value.blob;
-    }
+    // At this point it's certain that `value` contains a blob with precalculated dimensions.
+    const blob = currentByteStoreValue.blob;
 
     // If the blob is an unsupported image type (e.g., an SVG), don't render it at all.
     if (!isSupportedImageType(blob.type)) {
@@ -60,56 +52,38 @@
       return;
     }
 
-    try {
-      // If the dimensions are not calculated yet, calculate them here.
-      if (value instanceof Blob) {
-        const imageBitmap = await createImageBitmap(blob);
-
-        revokeCurrentImageUrl(image);
-        image = {
-          state: 'loaded',
-          url: URL.createObjectURL(blob),
-          dimensions: {
-            width: imageBitmap.width,
-            height: imageBitmap.height,
-          },
-        };
-        imageBitmap.close();
-        return;
-      }
-      // Use the precalculated information to create the image.
-      revokeCurrentImageUrl(image);
-      image = {
-        state: 'loaded',
-        url: URL.createObjectURL(blob),
-        dimensions: {
-          width: value.dimensions.width,
-          height: value.dimensions.height,
-        },
-      };
-    } catch {
-      // Creating bitmap from blob failed, e.g., if the blob's media type didn't match its actual
-      // content.
-      log.warn(
-        `Creating bitmap of type ${blob.type} from ${blob.size}-byte blob failed. Wrong media type or corrupted bytes?`,
-      );
-      image = {state: 'failed'};
-    }
+    // Use the precalculated information to create the image.
+    untrack(() => revokeCurrentImageUrl(image));
+    image = {
+      state: 'loaded',
+      url: URL.createObjectURL(blob),
+      dimensions: {
+        width: currentByteStoreValue.dimensions.width,
+        height: currentByteStoreValue.dimensions.height,
+      },
+    };
   }
 
   function revokeCurrentImageUrl(currentImage: LazyImageContent): void {
-    if (image.state === 'loaded') {
-      URL.revokeObjectURL(image.url);
+    if (currentImage.state === 'loaded') {
+      URL.revokeObjectURL(currentImage.url);
     }
   }
 
-  $: preferredDisplay = constrain({
-    dimensions: image.state === 'loaded' ? image.dimensions : (dimensions ?? {width: 0, height: 0}),
-    constraints,
-  });
-  $: preferredAspectRatio = `${preferredDisplay.values.width} / ${preferredDisplay.values.height}`;
+  const preferredDisplay = $derived(
+    constrain({
+      dimensions:
+        image.state === 'loaded' ? image.dimensions : (dimensions ?? {width: 0, height: 0}),
+      constraints,
+    }),
+  );
+  const preferredAspectRatio = $derived(
+    `${preferredDisplay.values.width} / ${preferredDisplay.values.height}`,
+  );
 
-  $: updateContent($byteStore).catch(assertUnreachable);
+  $effect(() => {
+    updateContent($byteStore).catch(assertUnreachable);
+  });
 
   onDestroy(() => {
     revokeCurrentImageUrl(image);
@@ -129,20 +103,24 @@
   style:--c-t-image-max-height={`${constraints.max.height}px`}
   disabled={!isClickable}
   tabindex={isFocusable ? 0 : -1}
-  on:click
+  {onclick}
 >
   {#if image.state === 'loading'}
-    <slot name="loading">
-      <span class="placeholder" />
-    </slot>
+    {#if snippetLoading}
+      {@render snippetLoading()}
+    {:else}
+      <span class="placeholder"></span>
+    {/if}
   {:else if image.state === 'loaded'}
     <img class:cover={!preferredDisplay.isAspectRatioObeyed} src={image.url} alt={description} />
   {:else if image.state === 'failed'}
-    <slot name="failed">
+    {#if snippetFailed}
+      {@render snippetFailed()}
+    {:else}
       <span class="placeholder cover failed">
         <MdIcon theme="Filled">broken_image</MdIcon>
       </span>
-    </slot>
+    {/if}
   {:else}
     {unreachable(image)}
   {/if}

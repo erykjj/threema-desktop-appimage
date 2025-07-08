@@ -2,32 +2,29 @@
   @component Renders a list of preview cards for the given receivers.
 -->
 <script lang="ts" generics="THandlerProps = never">
-  import {createEventDispatcher} from 'svelte';
-
   import type {ConversationRouteParams} from '~/app/ui/components/partials/conversation/types';
   import ReceiverPreview from '~/app/ui/components/partials/receiver-preview-list/internal/receiver-preview/ReceiverPreview.svelte';
-  import type {ReceiverPreviewListProps} from '~/app/ui/components/partials/receiver-preview-list/props';
+  import type {
+    ReceiverPreviewListItem,
+    ReceiverPreviewListProps,
+  } from '~/app/ui/components/partials/receiver-preview-list/props';
   import {transformContextMenuItemsToContextMenuOptions} from '~/app/ui/components/partials/receiver-preview-list/transformers';
   import {reactive, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
-  import type {DbReceiverLookup} from '~/common/db';
 
-  type $$Props = ReceiverPreviewListProps<THandlerProps>;
-
-  export let contextMenuItems: $$Props['contextMenuItems'] = undefined;
-  export let highlights: $$Props['highlights'] = undefined;
-  export let items: $$Props['items'] = [];
-  export let options: NonNullable<$$Props['options']> = {};
-  export let services: $$Props['services'];
+  const {
+    contextMenuItems = undefined,
+    highlights = undefined,
+    items = [],
+    onclickitem,
+    onselectitem,
+    options = {},
+    services,
+  }: ReceiverPreviewListProps<THandlerProps> = $props();
 
   const {router} = services;
 
-  const dispatch = createEventDispatcher<{
-    clickitem: {readonly lookup: DbReceiverLookup; readonly active: boolean};
-  }>();
-
-  let routeParams: ConversationRouteParams | undefined = undefined;
-
-  let containerElement: SvelteNullableBinding<HTMLElement> = null;
+  let routeParams = $state<ConversationRouteParams | undefined>(undefined);
+  let containerElement = $state<SvelteNullableBinding<HTMLElement>>(null);
 
   function handleChangeRouterState(): void {
     const routerState = router.get();
@@ -43,22 +40,33 @@
   function handleClickItem(
     event: MouseEvent,
     active: boolean,
-    receiverLookup?: DbReceiverLookup,
+    item: ReceiverPreviewListItem<THandlerProps>,
   ): void {
     event.preventDefault();
-    if (receiverLookup === undefined) {
+
+    if (item.receiver.type === 'self') {
       return;
     }
 
-    dispatch('clickitem', {lookup: receiverLookup, active});
+    onclickitem?.({lookup: item.receiver.lookup, active});
   }
 
-  $: reactive(handleChangeRouterState, [$router]);
+  function handleSelectItem(selected: boolean, item: ReceiverPreviewListItem<THandlerProps>): void {
+    if (item.receiver.type === 'self') {
+      return;
+    }
+
+    onselectitem?.(selected, {lookup: item.receiver.lookup});
+  }
+
+  $effect(() => {
+    reactive(handleChangeRouterState, [$router]);
+  });
 </script>
 
 <ul bind:this={containerElement} class="container">
   {#each items as item (item.receiver.id)}
-    {@const {receiver} = item}
+    {@const {receiver, interaction} = item}
     {@const active =
       receiver.type === 'self'
         ? false
@@ -66,7 +74,7 @@
           routeParams.receiverLookup.uid === receiver.lookup.uid}
 
     <ReceiverPreview
-      {active}
+      active={active && options.highlightActiveReceiver !== false}
       contextMenuOptions={contextMenuItems === undefined
         ? undefined
         : {
@@ -74,17 +82,29 @@
             ...transformContextMenuItemsToContextMenuOptions(item, contextMenuItems),
           }}
       {highlights}
+      interaction={// eslint-disable-next-line no-nested-ternary
+      interaction?.mode === 'click'
+        ? {
+            ...interaction,
+            onclick: (event) => {
+              interaction.onclick?.(event);
+              handleClickItem(event, active, item);
+            },
+          }
+        : interaction?.mode === 'select'
+          ? {
+              ...interaction,
+              onselect: (selected) => {
+                interaction.onselect?.(selected);
+                handleSelectItem(selected, item);
+              },
+            }
+          : {mode: 'none'}}
       options={{
         highlightWhenActive: options.highlightActiveReceiver,
       }}
       {receiver}
       {services}
-      on:click={(event) =>
-        handleClickItem(
-          event.detail,
-          active,
-          receiver.type === 'self' ? undefined : receiver.lookup,
-        )}
     />
   {/each}
 </ul>

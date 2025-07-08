@@ -6,15 +6,18 @@
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import type {u53} from '~/common/types';
 
-  type $$Props = TabBarProps<TId>;
+  const {tabs, initiallySelectedId}: TabBarProps<TId> = $props();
 
-  export let tabs: $$Props['tabs'];
+  let activeId = $state<TId | undefined>(
+    tabs.find((tab) => tab.id === initiallySelectedId)?.id ?? tabs.at(0)?.id,
+  );
 
-  let activeId: TId | undefined = tabs.at(0)?.id;
-
+  /**
+   * Set the current tabstate.
+   */
   function handleClickTab(tab: (typeof tabs)[u53]): void {
     activeId = tab.id;
-    tab.onClick?.(tab.id);
+    tab.onclick?.(tab.id);
   }
 </script>
 
@@ -26,7 +29,7 @@
       class="tab"
       class:active
       disabled={tab.disabled ?? false}
-      on:click={() => handleClickTab(tab)}
+      onclick={() => handleClickTab(tab)}
     >
       <MdIcon theme="Outlined">{tab.icon}</MdIcon>
     </button>

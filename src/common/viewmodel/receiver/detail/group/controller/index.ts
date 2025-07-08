@@ -1,16 +1,51 @@
 import type {DbContactReceiverLookup} from '~/common/db';
-import {AcquaintanceLevel} from '~/common/enum';
+import {AcquaintanceLevel, GroupUserState} from '~/common/enum';
 import {TRANSFER_HANDLER} from '~/common/index';
 import type {Group} from '~/common/model';
+import type {DisbandGroupIntent, LeaveGroupIntent} from '~/common/model/types/group';
 import {assert} from '~/common/utils/assert';
 import {PROXY_HANDLER, type ProxyMarked} from '~/common/utils/endpoint';
 import type {ServicesForViewModel} from '~/common/viewmodel';
+import {updateReceiverData, type GroupReceiverUpdateData} from '~/common/viewmodel/utils/receiver';
 
 export interface IGroupDetailViewModelController extends ProxyMarked {
     /**
      * Update the acquaintance level of the contact specified by `lookup`.
      */
     readonly setAcquaintanceLevelDirect: (lookup: DbContactReceiverLookup) => Promise<void>;
+
+    /**
+     * Update the group with the provided data.
+     */
+    readonly edit: (update: GroupReceiverUpdateData) => Promise<boolean>;
+
+    /**
+     * Remove a member from this group.
+     */
+    readonly removeMember: (lookup: DbContactReceiverLookup) => Promise<boolean>;
+
+    /**
+     * Disband this group.
+     *
+     * Returns true if the operation succeeded.
+     */
+    readonly disband: (intent: DisbandGroupIntent) => Promise<boolean>;
+
+    /**
+     * Leave this group.
+     *
+     * Returns true if the operation was successful.
+     */
+    readonly leave: (intent: LeaveGroupIntent) => Promise<boolean>;
+
+    /**
+     * Delete a left group.
+     *
+     * Returns true if the operation succeded.
+     *
+     * @throws if the group was not left yet.
+     */
+    readonly delete: () => Promise<boolean>;
 }
 
 export class GroupDetailViewModelController implements IGroupDetailViewModelController {
@@ -33,5 +68,43 @@ export class GroupDetailViewModelController implements IGroupDetailViewModelCont
         await contact.get().controller.update.fromLocal({
             acquaintanceLevel: AcquaintanceLevel.DIRECT,
         });
+    }
+
+    /** @inheritdoc */
+    public async edit(update: GroupReceiverUpdateData): Promise<boolean> {
+        return await updateReceiverData(this._group, update);
+    }
+
+    /** @inheritdoc */
+    public async removeMember(lookup: DbContactReceiverLookup): Promise<boolean> {
+        const newMemberSet = [...this._group.view.members].filter(
+            (member) => member.ctx !== lookup.uid,
+        );
+        // We let the backend decide whether or not something has changed in the group membership
+        // state.
+        const memberUpdateResult = await this._group.controller.setMembers.fromLocal(
+            newMemberSet,
+            new Date(),
+        );
+        return memberUpdateResult !== 'failed';
+    }
+
+    /** @inheritdoc */
+    public async disband(intent: DisbandGroupIntent): Promise<boolean> {
+        return await this._services.model.groups.disband.fromLocal(this._group.ctx, intent);
+    }
+
+    /** @inheritdoc */
+    public async leave(intent: LeaveGroupIntent): Promise<boolean> {
+        return await this._services.model.groups.leave.fromLocal(this._group.ctx, intent);
+    }
+
+    /** @inheritdoc */
+    public async delete(): Promise<boolean> {
+        assert(
+            this._group.view.userState !== GroupUserState.MEMBER,
+            'Receiver must be group and left to delete it completely',
+        );
+        return await this._services.model.groups.remove.fromLocal(this._group.ctx);
     }
 }

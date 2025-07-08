@@ -30,8 +30,10 @@ export interface ConversationPreviewProps {
         readonly sender: MessageSender;
         readonly status: IndicatorProps['status'];
         readonly text?: TextContent;
+        readonly pollData?: Pick<NonNullable<MessageProps['pollData']>, 'description'>;
     };
-    readonly popover?: ContextMenuProviderProps['popover'];
+    readonly onclick?: (event: MouseEvent) => void;
+    readonly onclickjoincall?: ReceiverCardProps['onclickjoincall'];
     readonly receiver: AnyReceiverData;
     readonly services: Pick<AppServicesForSvelte, 'profilePicture' | 'router' | 'settings'>;
     readonly totalMessageCount: u53;

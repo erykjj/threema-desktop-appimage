@@ -51,17 +51,6 @@ const PARAM_GROUP_LOOKUP_SCHEMA = PARAM_RECEIVER_LOOKUP_SCHEMA.assert(
  */
 const PARAM_CONVERSATION_LOOKUP_SCHEMA = v.object({
     receiverLookup: PARAM_RECEIVER_LOOKUP_SCHEMA,
-    forwardedMessage: v
-        .object({
-            receiverLookup: v
-                .object({
-                    type: v.number().map((value) => ReceiverTypeUtils.fromNumber(value)),
-                    uid: v.bigint().map(ensureU64),
-                })
-                .map((value) => value as DbReceiverLookup),
-            messageId: v.number().map(ensureMessageId),
-        })
-        .optional(),
     preloadedFiles: v
         .array(
             v.object({
@@ -85,12 +74,21 @@ const PARAM_SETTINGS_SCHEMA = v.object({
 /**
  * Group call activity data.
  */
-const PARAM_CALL_ACTIVITY_SCHEMA = v.union(
-    v.object({
-        receiverLookup: PARAM_GROUP_LOOKUP_SCHEMA,
-        intent: v.union(v.literal('join'), v.literal('join-or-create')),
-    }),
-);
+const PARAM_CALL_ACTIVITY_SCHEMA = v.object({
+    receiverLookup: PARAM_GROUP_LOOKUP_SCHEMA,
+    intent: v.union(v.literal('join'), v.literal('join-or-create')),
+});
+
+/**
+ * ReceiverNav data.
+ */
+const PARAM_RECEIVER_NAV_SCHEMA = v.object({
+    addressBookState: v.union(
+        v.literal('receiver-preview-list'),
+        v.literal('contact-add-form'),
+        v.literal('group-add-form'),
+    ),
+});
 
 /**
  * Path definition.
@@ -336,7 +334,7 @@ export const ROUTE_DEFINITIONS = {
         }),
         receiverList: defineNav({
             id: 'receiverList',
-            params: undefined,
+            params: PARAM_RECEIVER_NAV_SCHEMA,
         }),
         settingsList: defineNav({
             id: 'settingsList',
@@ -393,6 +391,10 @@ export const ROUTE_DEFINITIONS = {
         changePassword: defineModal({
             id: 'changePassword',
             params: undefined,
+        }),
+        editGroupMembers: defineModal({
+            id: 'editGroupMembers',
+            params: PARAM_GROUP_LOOKUP_SCHEMA,
         }),
     },
     activity: {

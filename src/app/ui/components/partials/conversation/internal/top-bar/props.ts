@@ -4,7 +4,7 @@ import type {DeleteConversationModalProps} from '~/app/ui/components/partials/mo
 import type {ReceiverCardProps} from '~/app/ui/components/partials/receiver-card/props';
 import type {u53} from '~/common/types';
 import type {AnyCallData} from '~/common/viewmodel/utils/call';
-import type {AnyReceiverData} from '~/common/viewmodel/utils/receiver';
+import type {AnyReceiverData, GroupReceiverData} from '~/common/viewmodel/utils/receiver';
 
 /**
  * Props accepted by the `TopBar` component.
@@ -22,7 +22,14 @@ export interface TopBarProps {
             readonly unarchive: () => Promise<void>;
             readonly unpin: () => Promise<void>;
         };
-    readonly receiver: AnyReceiverData;
+    readonly onclickjoincall?: (options: {
+        readonly event: MouseEvent;
+        readonly intent: 'join' | 'join-or-create';
+    }) => void;
+    readonly receiver:
+        | Exclude<AnyReceiverData, GroupReceiverData>
+        // Extend the `GroupReceiverData` with a function to delete groups.
+        | (GroupReceiverData & {delete: () => Promise<boolean>});
     readonly services: ReceiverCardProps['services'] &
         Pick<AppServicesForSvelte, 'router' | 'settings'>;
 }

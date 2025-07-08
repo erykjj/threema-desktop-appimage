@@ -1,21 +1,24 @@
 import {NACL_CONSTANTS} from '~/common/crypto';
 import {randomString} from '~/common/crypto/random';
-import type {DbReceiverLookup} from '~/common/db';
 import {
     ConversationVisibility,
+    GroupUserState,
     ImageRenderingType,
     MessageDirection,
     MessageType,
+    PollChoicesType,
+    PollMessageType,
+    PollState,
     ReceiverType,
 } from '~/common/enum';
 import {TRANSFER_HANDLER} from '~/common/index';
 import type {Logger} from '~/common/logging';
 import type {Conversation} from '~/common/model';
 import type {ModelStore} from '~/common/model/utils/model-store';
-import {randomMessageId} from '~/common/network/protocol/utils';
+import {randomMessageId, randomPollId} from '~/common/network/protocol/utils';
 import type {MessageId, StatusMessageId} from '~/common/network/types';
 import {wrapRawBlobKey} from '~/common/network/types/keys';
-import {assert, unreachable} from '~/common/utils/assert';
+import {assert, unreachable, unwrap} from '~/common/utils/assert';
 import {PROXY_HANDLER, type ProxyMarked, type Remote} from '~/common/utils/endpoint';
 import {isSupportedImageType} from '~/common/utils/image';
 import type {RemoteAbortListener} from '~/common/utils/signal';
@@ -23,10 +26,10 @@ import {type IQueryableStore, WritableStore} from '~/common/utils/store';
 import type {IViewModelRepository, ServicesForViewModel} from '~/common/viewmodel';
 import type {
     SendMessageEventDetail,
-    SendFileBasedMessageEventDetail,
+    SendFileBasedMessageInformation,
     OutboundMessageInitFragment,
+    PollLookup,
 } from '~/common/viewmodel/conversation/main/controller/types';
-import type {ConversationRegularMessageViewModelBundle} from '~/common/viewmodel/conversation/main/message/regular-message';
 import {
     getOngoingGroupCallViewModelBundle,
     type OngoingGroupCallViewModelBundle,
@@ -43,13 +46,13 @@ export interface IConversationViewModelController extends ProxyMarked {
     readonly removeMessage: (messageId: MessageId) => void;
     readonly markMessageAsDeleted: (messageId: MessageId) => Promise<void>;
     readonly removeStatusMessage: (statusMessageId: StatusMessageId) => void;
-    readonly findForwardedMessage: (
-        receiverLookup: DbReceiverLookup,
-        messageId: MessageId,
-    ) => ConversationRegularMessageViewModelBundle | undefined;
     readonly markAllMessagesAsRead: () => Promise<void>;
     readonly pin: () => Promise<void>;
     readonly sendMessage: (messageEventDetail: Remote<SendMessageEventDetail>) => Promise<void>;
+    /**
+     * Closes a poll and creates a new closed-poll-setup message.
+     */
+    readonly sendPollCloseMessage: (pollLookup: PollLookup) => Promise<void>;
     readonly sendIsTyping: (value: boolean) => Promise<void>;
     /**
      * Set the currently visible messages in conversation viewport.
@@ -80,6 +83,15 @@ export interface IConversationViewModelController extends ProxyMarked {
         readonly joinOrCreateCall: (
             cancel: RemoteAbortListener<unknown>,
         ) => Promise<OngoingGroupCallViewModelBundle>;
+
+        /**
+         * Delete a left group.
+         *
+         * Return true if the group was succesfully deleted.
+         *
+         * @throws if the current conversation is not a left group.
+         */
+        readonly deleteGroup: () => Promise<boolean>;
     } & ProxyMarked;
 }
 
@@ -96,6 +108,18 @@ export class ConversationViewModelController implements IConversationViewModelCo
             cancel: RemoteAbortListener<unknown>,
         ): Promise<OngoingGroupCallViewModelBundle> =>
             await this._joinCall('join-or-create', cancel),
+
+        /** @inheritdoc */
+        deleteGroup: async (): Promise<boolean> => {
+            const receiver = this._conversation.get().controller.receiver().get();
+
+            assert(
+                receiver.type === ReceiverType.GROUP &&
+                    receiver.view.userState !== GroupUserState.MEMBER,
+                'Receiver must be group and left to delete it completely',
+            );
+            return await this._services.model.groups.remove.fromLocal(receiver.ctx);
+        },
     };
 
     private readonly _log: Logger;
@@ -150,33 +174,6 @@ export class ConversationViewModelController implements IConversationViewModelCo
             .controller.markMessageAsDeleted.fromLocal(messageId, new Date());
     }
 
-    public findForwardedMessage(
-        receiverLookup: DbReceiverLookup,
-        messageId: MessageId,
-    ): ConversationRegularMessageViewModelBundle | undefined {
-        const forwardedConversationModelStore =
-            this._services.model.conversations.getForReceiver(receiverLookup);
-        if (forwardedConversationModelStore === undefined) {
-            return undefined;
-        }
-
-        const forwardedMessageModelStore = forwardedConversationModelStore
-            .get()
-            .controller.getMessage(messageId);
-        if (forwardedMessageModelStore === undefined) {
-            return undefined;
-        }
-        if (forwardedMessageModelStore.type === MessageType.DELETED) {
-            this._log.error(`Message with id "${messageId}" is deleted and cannot be forwarded`);
-            return undefined;
-        }
-
-        return this._viewModelRepository.conversationRegularMessage(
-            forwardedConversationModelStore,
-            forwardedMessageModelStore,
-        );
-    }
-
     public async markAllMessagesAsRead(): Promise<void> {
         return await this._conversation.get().controller.read.fromLocal(new Date());
     }
@@ -210,6 +207,28 @@ export class ConversationViewModelController implements IConversationViewModelCo
                     messageEventDetail.files,
                 );
                 break;
+            case 'poll':
+                outgoingMessageInitFragments = [
+                    {
+                        type: 'poll',
+                        announceType: messageEventDetail.announceType,
+                        answerType: messageEventDetail.answerType,
+                        description: messageEventDetail.description,
+                        displayMode: messageEventDetail.displayMode,
+                        pollCreatorIdentity: this._services.device.identity.string,
+                        pollId: randomPollId(this._services.crypto),
+                        pollState: messageEventDetail.pollState,
+                        choicesType: PollChoicesType.TEXT,
+                        choices: messageEventDetail.choices.map((choice) => ({
+                            description: choice.description,
+                            choiceId: choice.choiceId,
+                            sortKey: choice.choiceId,
+                            participantVotes: [],
+                        })),
+                        participants: [],
+                    },
+                ];
+                break;
             default:
                 unreachable(messageEventDetail);
         }
@@ -225,6 +244,64 @@ export class ConversationViewModelController implements IConversationViewModelCo
                 ...init,
             });
         }
+    }
+
+    /** @inheritdoc */
+    public async sendPollCloseMessage(pollLookup: PollLookup): Promise<void> {
+        if (pollLookup.pollCreatorIdentity !== this._services.device.identity.string) {
+            this._log.error('Cannot close a poll where the user is not the creator');
+            return;
+        }
+
+        const poll = this._conversation
+            .get()
+            .controller.getMessageByPollId(
+                pollLookup.pollCreatorIdentity,
+                pollLookup.pollId,
+                PollMessageType.POLL_CREATED,
+            );
+        assert(
+            poll !== undefined && poll.ctx === MessageDirection.OUTBOUND,
+            'Poll to be closed must exist within the given conversation',
+        );
+
+        // If the poll is already closed, do nothing.
+        if (poll.get().view.pollState === PollState.CLOSED) {
+            this._log.debug(
+                'Trying to close a poll that was already closed. Returning without adding a new message',
+            );
+            return;
+        }
+        // Close the current poll.
+        poll.get().controller.close.direct();
+
+        const {view: pollView} = poll.get();
+
+        const {participants, votes} = poll.get().controller.getParticipantsAndVotes();
+
+        await this._conversation.get().controller.addMessage.fromLocal({
+            direction: MessageDirection.OUTBOUND,
+            pollState: PollState.CLOSED,
+            id: randomMessageId(this._services.crypto),
+            announceType: pollView.announceType,
+            answerType: pollView.answerType,
+            createdAt: new Date(),
+            description: pollView.description,
+            displayMode: pollView.displayMode,
+            pollCreatorIdentity: this._services.device.identity.string,
+            pollId: pollLookup.pollId,
+            participants,
+            choicesType: pollView.choicesType,
+            choices: pollView.choices.map((choice, index) => ({
+                choiceId: choice.choiceId,
+                description: choice.description,
+                // Unwrap is fine since `getParticipantsAndVotes` guarantees that this exists.
+                participantVotes: unwrap(votes[index]),
+                sortKey: choice.sortKey,
+                totalAmountVotes: choice.totalAmountVotes,
+            })),
+            type: 'poll',
+        });
     }
 
     /** @inheritdoc */
@@ -268,7 +345,7 @@ export class ConversationViewModelController implements IConversationViewModelCo
      * files or as media files, depending on the media type.
      */
     private async _prepareFileBasedMessageInitFragments(
-        files: SendFileBasedMessageEventDetail['files'],
+        files: SendFileBasedMessageInformation['files'],
     ): Promise<OutboundMessageInitFragment[]> {
         const {crypto, file} = this._services;
 

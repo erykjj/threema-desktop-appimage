@@ -103,9 +103,17 @@ export type IndividualMessageProperties<
  * only guarantees that both refer to messages for the same receiver. It is the responsibility of
  * the caller to pair an encoder with a matching message type.
  */
-type CspMessage = {
+export type CspMessage = {
     readonly [TReceiverType in ReceiverType]: {
-        readonly receiver: ReceiverFor<TReceiverType>;
+        readonly receiver: {
+            readonly main: ReceiverFor<TReceiverType>;
+            // Can be used to send the message to additional receivers, e.g. to send empty group
+            // setups to contacts that are not part of the group any more. TODO(DESK-236) Decide the
+            // type for distribution lists.
+            readonly extra?: TReceiverType extends ReceiverType.CONTACT
+                ? undefined
+                : ReadonlySet<Contact> | undefined;
+        };
         readonly sharedMessageProperties: SharedMessageProperties;
         readonly specifics: {
             /**
@@ -150,14 +158,6 @@ export class OutgoingCspMessagesTask
         readonly receiver: Group | Contact;
     }[] = [];
 
-    /**
-     * Create a new instance of this task.
-     *
-     * @param _services Task services.
-     * @param _receiver Model of message receiver
-     * @param _messageProperties Properties of the CSP message
-     * @returns the message sent reflection date.
-     */
     public constructor(
         private readonly _services: ServicesForTasks,
         messages: readonly CspMessage[],
@@ -169,46 +169,54 @@ export class OutgoingCspMessagesTask
         // Transform the messages into a suitable format
         for (const message of messages) {
             let messageInformation;
-            switch (message.receiver.type) {
+            switch (message.receiver.main.type) {
                 case ReceiverType.CONTACT:
                     messageInformation = {
-                        receiverContacts: new Set<Contact>([message.receiver]),
+                        receiverContacts: new Set<Contact>([message.receiver.main]),
                         nonces: this._generateNonces(1),
-                        receiver: message.receiver,
+                        receiver: message.receiver.main,
                     } as const;
                     break;
 
                 case ReceiverType.GROUP: {
                     const creatorIdentity = getIdentityString(
                         this._services.device,
-                        message.receiver.view.creator,
+                        message.receiver.main.view.creator,
                     );
                     const receiverContacts = new Set<Contact>(
-                        [...message.receiver.view.members.values()].map((m) => m.get()),
+                        [...message.receiver.main.view.members.values()].map((m) => m.get()),
                     );
 
+                    const {main: receiver} = message.receiver;
                     // Decide depending on the encoder whether or not the creator should get a message.
-                    if (message.receiver.view.creator !== 'me') {
+                    if (receiver.view.creator !== 'me') {
                         const dynamicMessage = message.specifics.dynamic?.(
-                            message.receiver.view.creator.get(),
+                            receiver.view.creator.get(),
                         );
                         if (
                             dynamicMessage !== 'omit' &&
                             shouldSendGroupMessageToCreator(
-                                message.receiver.view.name,
+                                receiver.view.name,
                                 creatorIdentity,
                                 dynamicMessage?.messageProperties.type ??
                                     message.specifics.default.messageProperties.type,
                             )
                         ) {
-                            receiverContacts.add(message.receiver.view.creator.get());
+                            receiverContacts.add(receiver.view.creator.get());
+                        }
+                    }
+
+                    // Add the additional receivers into the receiver set.
+                    if (message.receiver.extra !== undefined) {
+                        for (const additionalReceiver of message.receiver.extra) {
+                            receiverContacts.add(additionalReceiver);
                         }
                     }
 
                     messageInformation = {
                         receiverContacts,
                         nonces: this._generateNonces(receiverContacts.size),
-                        receiver: message.receiver,
+                        receiver: message.receiver.main,
                     } as const;
                     break;
                 }
@@ -216,7 +224,7 @@ export class OutgoingCspMessagesTask
                     throw new Error('TODO(DESK-237): Support distribution lists');
 
                 default:
-                    unreachable(message.receiver);
+                    unreachable(message.receiver.main);
             }
 
             this._messages.push({
@@ -536,24 +544,35 @@ export class OutgoingCspMessagesTask
                 // Wait for message ack
                 if (!messageSpecifics.messageProperties.cspMessageFlags.dontAck) {
                     await handle.read((message) => {
-                        // Check if the message type matches
-                        if (message.type !== D2mPayloadType.PROXY) {
-                            return MessageFilterInstruction.BYPASS_OR_BACKLOG;
-                        }
-                        if (message.payload.type !== CspPayloadType.OUTGOING_MESSAGE_ACK) {
-                            return MessageFilterInstruction.BYPASS_OR_BACKLOG;
-                        }
-                        // Check if the message ID matches
-                        if (message.payload.payload.messageId !== properties.messageId) {
-                            return MessageFilterInstruction.BYPASS_OR_BACKLOG;
+                        if (message.type === D2mPayloadType.PROXY) {
+                            if (message.payload.type !== CspPayloadType.OUTGOING_MESSAGE_ACK) {
+                                return MessageFilterInstruction.BACKLOG;
+                            }
+                            // Check if the message ID matches
+                            if (message.payload.payload.messageId !== properties.messageId) {
+                                return MessageFilterInstruction.BACKLOG;
+                            }
+                            // Check if the receiver equals our current message
+                            if (!byteEquals(message.payload.payload.identity, receiverIdentity)) {
+                                return MessageFilterInstruction.BACKLOG;
+                            }
+
+                            return MessageFilterInstruction.ACCEPT;
                         }
 
-                        // Check if the receiver equals our current message
-                        if (!byteEquals(message.payload.payload.identity, receiverIdentity)) {
-                            return MessageFilterInstruction.BYPASS_OR_BACKLOG;
+                        switch (message.type) {
+                            case D2mPayloadType.TRANSACTION_ENDED:
+                                return MessageFilterInstruction.BACKLOG;
+                            case D2mPayloadType.DEVICES_INFO:
+                            case D2mPayloadType.BEGIN_TRANSACTION_ACK:
+                            case D2mPayloadType.COMMIT_TRANSACTION_ACK:
+                            case D2mPayloadType.TRANSACTION_REJECTED:
+                            case D2mPayloadType.REFLECT_ACK:
+                            case D2mPayloadType.DROP_DEVICE_ACK:
+                                return MessageFilterInstruction.REJECT;
+                            default:
+                                return unreachable(message);
                         }
-
-                        return MessageFilterInstruction.ACCEPT;
                     });
                 }
                 sentMessagesCount++;

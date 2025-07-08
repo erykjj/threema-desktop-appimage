@@ -24,6 +24,7 @@
   import type {ConversationPreviewListItem} from '~/app/ui/components/partials/conversation-preview-list/props';
   import ClearConversationModal from '~/app/ui/components/partials/modals/clear-conversation-modal/ClearConversationModal.svelte';
   import DeleteConversationModal from '~/app/ui/components/partials/modals/delete-conversation-modal/DeleteConversationModal.svelte';
+  import DeleteGroupModal from '~/app/ui/components/partials/modals/delete-group-modal/DeleteGroupModal.svelte';
   import SearchResultList from '~/app/ui/components/partials/search-result-list/SearchResultList.svelte';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
@@ -38,37 +39,40 @@
   const {uiLogging, hotkeyManager} = globals.unwrap();
   const log = uiLogging.logger('ui.component.conversation-nav');
 
-  type $$Props = ConversationNavProps;
-
-  export let services: $$Props['services'];
+  const {services}: ConversationNavProps = $props();
 
   const {backend, router} = services;
 
   // ViewModelBundle of the current conversation.
-  let viewModelStore: IQueryableStore<RemoteConversationListViewModelStoreValue | undefined> =
-    new ReadableStore(undefined);
+  let viewModelStore = $state<
+    IQueryableStore<RemoteConversationListViewModelStoreValue | undefined>
+  >(new ReadableStore(undefined));
 
-  let profileViewModelStore: IQueryableStore<RemoteProfileViewModelStoreValue | undefined> =
-    new ReadableStore(undefined);
+  let profileViewModelStore = $state<IQueryableStore<RemoteProfileViewModelStoreValue | undefined>>(
+    new ReadableStore(undefined),
+  );
 
-  let modalState: ModalState = {type: 'none'};
+  let modalState = $state<ModalState>({type: 'none'});
 
-  let searchBarComponent: SvelteNullableBinding<SearchBar> = null;
-  let searchTerm: string | undefined = undefined;
+  let searchBarComponent = $state<SvelteNullableBinding<SearchBar>>(null);
+  let searchTerm = $state<string | undefined>(undefined);
 
-  let conversationPreviewListComponent: SvelteNullableBinding<
-    ConversationPreviewList<ContextMenuItemHandlerProps>
-  > = null;
-  let searchResultListComponent: SvelteNullableBinding<SearchResultList> = null;
+  let conversationPreviewListComponent =
+    $state<SvelteNullableBinding<ConversationPreviewList<ContextMenuItemHandlerProps>>>(null);
+  let searchResultListComponent = $state<SvelteNullableBinding<SearchResultList>>(null);
 
-  let listElement: SvelteNullableBinding<HTMLElement> = null;
+  let listElement = $state<SvelteNullableBinding<HTMLElement>>(null);
 
   function handleHotkeyControlF(): void {
     searchBarComponent?.focusAndSelect();
   }
 
   function handleClickReceiverListButton(): void {
-    router.go({nav: ROUTE_DEFINITIONS.nav.receiverList.withoutParams()});
+    router.go({
+      nav: ROUTE_DEFINITIONS.nav.receiverList.withParams({
+        addressBookState: 'receiver-preview-list',
+      }),
+    });
   }
 
   function handleClickProfilePicture(): void {
@@ -124,6 +128,21 @@
     item: ConversationPreviewListItem<ContextMenuItemHandlerProps>,
     props: ContextMenuItemHandlerProps,
   ): void {
+    // TODO(DESK-1852): Uncomment the following block
+    // If this is a left group, deletion means removing it from the database.
+    // if (item.receiver.type === 'group' && item.receiver.isLeft) {
+    //  modalState = {
+    //    type: 'delete-group',
+    //    props: {
+    //      receiver: {
+    //        ...item.receiver,
+    //        delete: async () => await props.viewModelBundle.viewModelController.deleteGroup(),
+    //      },
+    //    },
+    //  };
+    //  return;
+    // }
+    //
     modalState = {
       type: 'delete-conversation',
       props: {
@@ -180,11 +199,12 @@
   }
 
   // Current search results.
-  $: conversationSearchResults = $viewModelStore?.listItemSetStore;
-  $: conversationPreviewListProps =
+  const conversationSearchResults = $derived($viewModelStore?.listItemSetStore);
+  const conversationPreviewListProps = $derived(
     conversationSearchResults === undefined
       ? undefined
-      : conversationListItemSetStoreToConversationPreviewListPropsStore(conversationSearchResults);
+      : conversationListItemSetStoreToConversationPreviewListPropsStore(conversationSearchResults),
+  );
 
   onMount(async () => {
     await backend.viewModel
@@ -244,11 +264,12 @@
     <!-- eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -->
     {#if $profileViewModelStore !== undefined}
       <TopBar
-        profilePicture={$profileViewModelStore.profilePicture}
         initials={$profileViewModelStore.initials}
-        on:clickreceiverlistbutton={handleClickReceiverListButton}
-        on:clickprofilepicture={handleClickProfilePicture}
-        on:clicksettingsbutton={handleClickSettingsButton}
+        onclickprofilepicture={handleClickProfilePicture}
+        onclickreceiverlistbutton={handleClickReceiverListButton}
+        onclicksettingsbutton={handleClickSettingsButton}
+        profilePicture={$profileViewModelStore.profilePicture}
+        {services}
       />
     {/if}
   </div>
@@ -257,9 +278,9 @@
     <SearchBar
       bind:this={searchBarComponent}
       bind:term={searchTerm}
-      onRequestRefresh={handleRequestRefreshSearchResults}
+      onclear={handleClearSearchBar}
+      onrequestrefresh={handleRequestRefreshSearchResults}
       placeholder={$i18n.t('search.label--search-input-placeholder', 'Search...')}
-      on:clear={handleClearSearchBar}
     />
   </div>
 
@@ -285,9 +306,11 @@
 {#if modalState.type === 'none'}
   <!-- No modal is displayed in this state. -->
 {:else if modalState.type === 'clear-conversation'}
-  <ClearConversationModal {...modalState.props} on:close={handleCloseModal} />
+  <ClearConversationModal {...modalState.props} onclose={handleCloseModal} />
 {:else if modalState.type === 'delete-conversation'}
-  <DeleteConversationModal {...modalState.props} on:close={handleCloseModal} />
+  <DeleteConversationModal {...modalState.props} onclose={handleCloseModal} />
+{:else if modalState.type === 'delete-group'}
+  <DeleteGroupModal {...modalState.props} onclose={handleCloseModal} />
 {:else}
   {unreachable(modalState)}
 {/if}

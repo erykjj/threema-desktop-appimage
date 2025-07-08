@@ -1019,23 +1019,26 @@ export class Backend {
         }
 
         // Subscribe reflection queue to update loading screen.
-        backendServices.loadingInfo.loadedStore.subscribe((value) => {
-            if (value !== 0) {
-                backend._connectionManager
-                    .reflectionQueueLength()
-                    .then(async (reflectionQueueLength) => {
-                        log.info(
-                            `Processed ${value} message(s) of total reflection queue length of ${reflectionQueueLength}`,
-                        );
-                        await loadingState.updateState({
-                            state: 'processing-reflection-queue',
-                            reflectionQueueLength,
-                            reflectionQueueProcessed: value,
-                        });
-                    })
-                    .catch(assertUnreachable);
-            }
-        });
+        const loadingInfoStoreUnsubscriber = backendServices.loadingInfo.loadedStore.subscribe(
+            (value) => {
+                if (value !== 0) {
+                    backend._connectionManager
+                        .reflectionQueueLength()
+                        .then(async (reflectionQueueLength) => {
+                            await loadingState.updateState({
+                                state: 'processing-reflection-queue',
+                                reflectionQueueLength,
+                                reflectionQueueProcessed: value,
+                            });
+                            log.debug(
+                                `Processed ${value} message(s) of total reflection queue length of ${reflectionQueueLength}, 
+                                    loadingState set to 'processing-reflection-queue'`,
+                            );
+                        })
+                        .catch(assertUnreachable);
+                }
+            },
+        );
 
         // Start connection
         backend._connectionManager.start().catch(() => {
@@ -1060,9 +1063,11 @@ export class Backend {
                     backend._connectionManager
                         .reflectionQueueDry()
                         .then(async () => {
+                            loadingInfoStoreUnsubscriber();
                             await loadingState.updateState({
                                 state: 'ready',
                             });
+                            log.info(`ReflectionQueueDry received, loadingState set to 'ready'`);
                         })
                         .catch(assertUnreachable);
                     break;

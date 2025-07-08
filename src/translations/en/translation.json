@@ -1,12 +1,17 @@
 {
+  "common": {
+    "action--cancel": "Cancel",
+    "action--edit": "Edit",
+    "action--next": "Next"
+  },
+  "compose-bar": {
+    "label--attach-file": "Attach File",
+    "label--create-poll": "Create Poll"
+  },
   "contacts": {
     "action--add-contact": "New Contact",
-    "action--add-contact-cancel": "Cancel",
     "action--add-contact-from-work-directory": "Add Contact from Company Directory",
-    "action--add-contact-next": "Next",
     "action--edit": "Edit",
-    "action--group-members-show-all": "Show All",
-    "action--group-members-show-less": "Show Less",
     "error--add-contact": "Unable to add contact. Please check your Internet connection.",
     "error--add-contact-exists-already": "Could not create contact, please try again",
     "error--add-contact-threema-id-already-added": "This {shortAppName} ID is already part of your contact list.",
@@ -25,13 +30,9 @@
     "label--contact-detail": "Contact Details",
     "label--contacts": "Contacts",
     "label--first-name": "First Name",
-    "label--group-detail": "Group Details",
-    "label--group-members-count-long": "{n, plural, =0 {No Group Members} =1 {1 Group Member} other {# Group Members}}",
-    "label--group-members-count-short": "{n, plural, =1 {1 Member} other {# Members}}",
     "label--last-name": "Last Name",
     "label--nickname": "Nickname",
     "label--own-name": "Me",
-    "label--search-groups": "Search Groups",
     "label--search-private-contacts": "Search Contacts",
     "label--search-work-contacts": "Search Company Contacts",
     "label--status-archived": "Archived",
@@ -85,6 +86,11 @@
     "label--title": "Clear Logs",
     "prose--description-disable": "The following files will be cleared irrevocably:"
   },
+  "dialog--close-poll": {
+    "action--close-poll": "Close Poll",
+    "action--title": "Close Poll",
+    "prose--close-poll": "If you close the poll, the results will become available, and voting is no longer possible."
+  },
   "dialog--common": {
     "action--back": "Back",
     "action--cancel": "Cancel",
@@ -97,13 +103,29 @@
     "action--next": "Next",
     "action--ok": "OK",
     "action--relink": "Relink Device",
-    "action--retry": "Retry"
+    "action--retry": "Retry",
+    "action--save": "Save",
+    "action--send": "Send"
   },
   "dialog--compose-media-message": {
     "hint--drop-files-to-add": "Drop files to send",
     "label--media-message-caption": "Add a Caption",
     "label--send-as-file-option": "Send as File (Original Size)",
     "label--title": "Send File to {name}"
+  },
+  "dialog--copy-poll": {
+    "prose--created-by": "Created by {creator}"
+  },
+  "dialog--create-poll-message": {
+    "label--add-choice": "Add Choice",
+    "label--copy-existing": "Copy existing poll",
+    "label--copy-title": "Copy Poll",
+    "label--create-title": "Create Poll",
+    "label--intermediate-results": "Show intermediate results",
+    "label--multiple-answers": "Allow multiple answers",
+    "label--options-title": "Options",
+    "label--poll-title": "Title",
+    "prose--copy-existing-condition": "Only available if the fields below are still empty"
   },
   "dialog--d2d-protocol-version-incompatible": {
     "error--no-connection": "Failed to unlink the device. Please check your internet connection and try again.",
@@ -162,6 +184,17 @@
     "action--title": "Edit Device Name",
     "error--device-name-empty": "Device name must not be empty"
   },
+  "dialog--edit-group": {
+    "error--edit-group": "Failed to edit group",
+    "error--edit-group-members": "Failed to edit group members",
+    "label--group-name": "Group Name",
+    "label--title": "Edit Group",
+    "success--edit-group-members": "Group members successfully edited",
+    "success--edit-group-name": "Group name successfully edited"
+  },
+  "dialog--edit-group-members": {
+    "label--title": "Edit Group Members"
+  },
   "dialog--empty-conversation": {
     "action--contact-conversation-confirm": "Empty Chat",
     "action--distribution-list-conversation-confirm": "Empty Chat",
@@ -176,11 +209,11 @@
     "label--title": "Connection Failed",
     "markup--backup": "The message history will be restored after relinking.",
     "markup--client-update-required-p1": "This {shortAppName} version is no longer supported (outdated protocol version).",
-    "markup--client-update-required-p2": "Please <1>update to the latest version</1> to continue using {shortAppName}.",
+    "markup--client-update-required-p2": "Please <slot_1>update to the latest version</slot_1> to continue using {shortAppName}.",
     "markup--client-was-dropped-p1": "This device has been unlinked, which is why you currently can’t send or receive new messages.",
     "markup--client-was-dropped-p2": "If unlinking was not triggered by you, please note that this might happen during the beta phase for technical reasons. We apologize for the inconvenience.",
     "markup--device-slot-mismatch-p1": "Due to an unexpected error, this device must be re-linked with the server.",
-    "markup--see-faq": "For more information, see <1>FAQ</1>.",
+    "markup--see-faq": "For more information, see <slot_1>FAQ</slot_1>.",
     "prose--mediator-update-required-p1": "This {shortAppName} version is not compatible with your mediator server. The server uses an outdated protocol version and must be updated first.",
     "prose--mediator-update-required-p2": "Please contact your {shortAppName} server administrator."
   },
@@ -193,6 +226,9 @@
     "prose--step-2-list-step-2": "Select the “Relink Device” button below to start the linking process"
   },
   "dialog--forward-message": {
+    "error--forwarding-failed": "Failed to forward the message",
+    "label--submit": "Forward Message",
+    "label--success": "Message successfully forwarded",
     "label--title": "Select Recipient"
   },
   "dialog--id-information": {
@@ -246,9 +282,9 @@
     "prose--message-generic": "An error occurred during linking. Please try again.",
     "prose--message-invalid-identity": "The {shortAppName} ID used for linking is unknown to the server or has been revoked.",
     "prose--message-invalid-work-credentials": "The credentials for {fullAppName} are invalid or expired. Please restart the app on your mobile device and retry linking, or contact your {fullAppName} administrator.",
-    "prose--message-wrong-app-variant-consumer-error": "It is not possible to link your {shortAppName} ID with this app. If you use {fullAppName} on your mobile device, download the desktop app from <1 />.",
+    "prose--message-wrong-app-variant-consumer-error": "It is not possible to link your {shortAppName} ID with this app. If you use {fullAppName} on your mobile device, download the desktop app from <slot_1 />.",
     "prose--message-wrong-app-variant-custom-error": "It is not possible to link your {shortAppName} ID with this app.",
-    "prose--message-wrong-app-variant-work-error": "It is not possible to link your {shortAppName} ID with this app. If you use the consumer version of {shortAppName} on your mobile device, download the desktop app from <1 />.",
+    "prose--message-wrong-app-variant-work-error": "It is not possible to link your {shortAppName} ID with this app. If you use the consumer version of {shortAppName} on your mobile device, download the desktop app from <slot_1 />.",
     "prose--restoration-failed": "Restoring existing messages failed. Please try again or relink without restoring your existing messages."
   },
   "dialog--linking-old-profile-password": {
@@ -269,7 +305,7 @@
     "label--username": "Username",
     "prose--enter-config": "{fullAppName} is the self-hosted secure messenger for companies. Please enter the credentials provided by your company.",
     "prose--forget-credentials": "Forgot your credentials? Please contact your {fullAppName} administrator.",
-    "prose--private-user": "If you are a private user, please visit <1 /> to download {shortAppName}."
+    "prose--private-user": "If you are a private user, please visit <slot_1 /> to download {shortAppName}."
   },
   "dialog--linking-restoration-identity-mismatch": {
     "label--continue": "Link Without Chat History",
@@ -283,10 +319,10 @@
     "label--step-3": "Step 3:",
     "label--title": "Link Your Mobile Device",
     "markup--intro-s1": "This beta version can be used in connection with the {mobileAppName} mobile app. Please note that some features are not yet available.",
-    "markup--intro-s2": " <1>Learn more</1>",
+    "markup--intro-s2": " <slot_1>Learn more</slot_1>",
     "markup--step-1": "Open the {mobileAppName} app on your mobile device",
-    "markup--step-2-android": "In the Android app, go to the main menu, select “<1>{shortAppName} 2.0 for desktop (beta)</1>,” and tap “<1>Add device</1>”",
-    "markup--step-2-ios": "In the iOS app, go to “<1>Settings</1> > <1>{shortAppName} 2.0 for Desktop (Beta)</1>,” and tap “<1>Add Device</1>”",
+    "markup--step-2-android": "In the Android app, go to the main menu, select “<slot_1>{shortAppName} 2.0 for desktop (beta)</slot_1>,” and tap “<slot_1>Add device</slot_1>”",
+    "markup--step-2-ios": "In the iOS app, go to “<slot_1>Settings</slot_1> > <slot_1>{shortAppName} 2.0 for Desktop (Beta)</slot_1>,” and tap “<slot_1>Add Device</slot_1>”",
     "markup--step-3": "Scan this QR code"
   },
   "dialog--linking-set-password": {
@@ -305,7 +341,7 @@
   "dialog--linking-success": {
     "action--confirm": "Start Using {shortAppName}",
     "label--title": "Device Linked Successfully",
-    "markup--description": "{mobileAppName} can now be used on this computer <1/>(even when your mobile device is turned off or isn’t connected to the Internet)."
+    "markup--description": "{mobileAppName} can now be used on this computer <slot_1 />(even when your mobile device is turned off or isn’t connected to the Internet)."
   },
   "dialog--linking-sync": {
     "label--title-encrypting": "Encrypting Data with Your Password",
@@ -315,11 +351,11 @@
   },
   "dialog--manual-app-update": {
     "label--title": "Update Available: {current} → {latest}",
-    "markup--linux-p1": "Please install the update through your system package manager or by running <1>flatpak update</1> in your terminal.",
-    "markup--linux-p2": "For more information about this update, see <1 />.",
-    "markup--macos-p1": "Please update by downloading and installing the latest release from <1 />.",
+    "markup--linux-p1": "Please install the update through your system package manager or by running <slot_1>flatpak update</slot_1> in your terminal.",
+    "markup--linux-p2": "For more information about this update, see <slot_1 />.",
+    "markup--macos-p1": "Please update by downloading and installing the latest release from <slot_1 />.",
     "markup--other-os-p1": "Please update {name}.",
-    "markup--windows-p1": "Please update by downloading and installing the latest release from <1 />.",
+    "markup--windows-p1": "Please update by downloading and installing the latest release from <slot_1 />.",
     "prose--intro": "An update for {shortAppName} is available!"
   },
   "dialog--media-message-viewer": {
@@ -408,8 +444,48 @@
     "label--most-used": "Most used"
   },
   "groups": {
+    "action--add-group": "New Group",
+    "action--delete": "Delete Group",
+    "action--disband-delete-group": "Dissolve and Delete Group",
+    "action--disband-group": "Dissolve Group",
+    "action--dissolve": "Dissolve Group",
+    "action--edit-members": "Edit Members",
+    "action--group-members-show-all": "Show All",
+    "action--group-members-show-less": "Show Less",
+    "action--leave": "Leave Group",
+    "action--leave-and-delete": "Leave and Delete Group",
+    "action--leave-delete-group": "Leave and Delete Group",
+    "action--leave-group": "Leave Group",
+    "action--remove-member": "Remove {name}",
+    "error--creation-failed": "Failed to create group",
     "error--group-detail-load": "Details could not be loaded",
-    "hint--profile-picture": "Profile picture of {name}"
+    "error--group-edit-not-creator": "You cannot edit the group because you are not the creator",
+    "hint--profile-picture": "Profile picture of \"{name}\"",
+    "label--delete-error": "Could not delete the group",
+    "label--delete-group-title": "Delete \"{groupName}\"",
+    "label--delete-success": "Successfully deleted the group",
+    "label--disband-success": "Successfully dissolved the group",
+    "label--dissolve-and-delete-group-title": "Dissolve and Delete \"{groupName}\" Permanently",
+    "label--dissolve-error": "Could not dissolve the group",
+    "label--dissolve-group-title": "Dissolve \"{groupName}\"",
+    "label--group-detail": "Group Details",
+    "label--group-management": "Group Management",
+    "label--group-members": "{n, plural, =0 {No Group Members} =1 {Group Member} other {Group Members}}",
+    "label--group-members-count-long": "{n, plural, =0 {No Group Members} =1 {1 Group Member} other {# Group Members}}",
+    "label--group-members-count-short": "{n, plural, =1 {1 Member} other {# Members}}",
+    "label--group-name": "Group Name",
+    "label--leave-and-delete-group-title": "Leave and Delete \"{groupName}\" Permanently",
+    "label--leave-error": "Could not leave the group",
+    "label--leave-group-title": "Leave \"{groupName}\"",
+    "label--leave-success": "Successfully left the group",
+    "label--new-group": "New Group",
+    "label--remove-member-failure": "Could not remove group member",
+    "label--remove-member-success": "Successfully removed group member",
+    "label--search-groups": "Search Groups",
+    "prose--delete": "If you delete the group, the group chat and its content will be permanently deleted.",
+    "prose--disband": "If you dissolve the group, it can no longer be used or managed by anyone.",
+    "prose--disband-and-delete": "Deleting this group chat will remove all messages, media, and documents from this device and your linked devices.",
+    "prose--leave": "If you leave the group, you can no longer participate in the conversation."
   },
   "messaging": {
     "action--conversation-option-archive": "Archive",
@@ -428,6 +504,7 @@
     "action--message-option-forward": "Forward",
     "action--message-option-quote": "Quote",
     "action--message-option-save-as-file": "Save as File",
+    "action--open-details": "Details",
     "action--sync-audio-download": "Download voice message",
     "action--sync-audio-upload": "Upload voice message",
     "action--sync-file-download": "Download file",
@@ -447,6 +524,7 @@
     "error--call-group-left-kicked-or-removed": "Group call ended because you left the group",
     "error--call-not-running": "Call has already ended",
     "error--call-unexpected-error": "Call ended due to an unexpected error",
+    "error--chunking-failed": "Could not send message",
     "error--contact-blocked": "You cannot send a message to this contact because it is blocked.",
     "error--contact-invalid": "You cannot send a message to this contact because it is invalid.",
     "error--conversation-list-load": "Chats could not be loaded",
@@ -489,6 +567,7 @@
     "label--default-audio-message-preview": "Voice Message",
     "label--default-file-message-preview": "File",
     "label--default-image-message-preview": "Image",
+    "label--default-poll-message-preview": "Poll",
     "label--default-sender-self": "Me: {text}",
     "label--default-video-message-preview": "Video",
     "label--deleted-message-preview": "This message was deleted",
@@ -497,9 +576,10 @@
     "label--mention-me": "Me",
     "label--prefix-draft": "Draft:",
     "label--protected-conversation": "Private",
+    "label--quote-poll-message": "Poll",
     "label--timestamp-yesterday": "Yesterday {time}",
     "label--unread-messages": "New Messages",
-    "markup--chat-empty-state": "This chat is linked with your mobile device. <1/>All future messages will appear here.",
+    "markup--chat-empty-state": "This chat is linked with your mobile device. <slot_1 />All future messages will appear here.",
     "prose--edit-message": "Edit Message",
     "prose--edit-not-supported": "Cannot edit the message because the recipient’s app version does not support this feature.",
     "prose--edit-not-supported-group": "Cannot edit the message because no group member supports this feature.",
@@ -519,6 +599,18 @@
     "success--copy-message-image": "Image copied to clipboard",
     "success--copy-message-link": "Link copied to clipboard",
     "success--copy-message-selection": "Selected text copied to clipboard"
+  },
+  "polls": {
+    "error--close-polls": "Closing the poll failed",
+    "label--answer-type-multiple": "Select one or more options",
+    "label--answer-type-single": "Select one option",
+    "label--choice-votes": "{totalAmountVotes} vote(s)",
+    "label--close-poll": "Close Poll",
+    "label--number-of-participants": "{voted}/{total} participants",
+    "label--poll-state-closed": "The poll has ended, and voting is no longer available",
+    "label--results-title": "Poll Votes",
+    "label--view-votes": "View Votes",
+    "prose--poll-closed": "Check the votes for “{description}”"
   },
   "search": {
     "action--search-more": "Find more",
@@ -567,7 +659,6 @@
     "label--application-name": "Application Name",
     "label--application-version": "Application Version",
     "label--copyright": "Copyright",
-    "label--credits-font": "Font Credits",
     "label--debug": "Debug",
     "label--git-revision": "Git Revision",
     "label--licenses-title": "Licenses",
@@ -577,10 +668,9 @@
     "label--title": "About {shortAppName} for Desktop",
     "label--troubleshooting": "Troubleshooting",
     "label--version-title": "Version Information",
-    "prose--font-credits": "The font software <1/> is the property of <2/> and licensed to Threema GmbH. All rights reserved. May not be used by any third party without acquiring a license from <3/>.",
     "prose--logging-turned-off": "Logging is currently turned off",
     "prose--logging-turned-on": "Logging is turned on",
-    "prose--third-party-code": "<1/> contains code from open source libraries. Please check out the file <2/> for detailed license information."
+    "prose--third-party-code": "<slot_1 /> contains code from open source libraries. Please check out the file <slot_2 /> for detailed license information."
   },
   "settings--appearance": {
     "label--24-hour-time-format-title": "Time Format",
@@ -619,9 +709,11 @@
     "label--auto-download-on": "Always download",
     "label--auto-download-on-restricted": "Download if smaller than {restrictedSize} MB",
     "label--auto-save": "Auto-Download Incoming Media",
+    "label--gifs": "GIFs",
     "label--section-media": "Media",
     "label--title": "Media and Storage",
-    "prose--subtitle": "Automatically download media"
+    "prose--play-gifs": "Automatically play GIFs if smaller than 5 MB",
+    "prose--subtitle": "Automatically download media, GIFs"
   },
   "settings--privacy": {
     "prose--subtitle": "Contacts, Chats, Lists"
@@ -649,7 +741,7 @@
     "prose--chat-restored": "This device was relinked. Future messages will appear below.",
     "prose--group-call-ended": "Group call has ended",
     "prose--group-call-started": "{startedBy} has started a group call",
-    "prose--group-created-name": "Group created with name \"{name}\"",
+    "prose--group-created-name": "The group name was changed to \"{name}\"",
     "prose--group-member-changed": "{addedCount, plural, =0 {} =1 {{addedMembers} was added to the group} other {{addedMembers} were added to the group}}{and, plural, =0 {} other {, and }}{removedCount, plural, =0 {} =1 {{removedMembers} was removed from the group} other {{removedMembers} were removed from the group}}",
     "prose--group-name-changed": "The group name was changed from \"{old}\" to \"{new}\"",
     "prose--startup-processing-reflection-queue": "Syncing messages…",

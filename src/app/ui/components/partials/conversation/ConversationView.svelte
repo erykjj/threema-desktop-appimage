@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {onDestroy, onMount} from 'svelte';
+  import {onDestroy, onMount, tick} from 'svelte';
 
   import {globals} from '~/app/globals';
   import {ROUTE_DEFINITIONS} from '~/app/routing/routes';
@@ -39,6 +39,7 @@
     RemoteConversationViewModelStoreValue,
   } from '~/app/ui/components/partials/conversation/types';
   import {conversationListEvent} from '~/app/ui/components/partials/conversation-nav/helpers';
+  import CreatePollModal from '~/app/ui/components/partials/modals/create-poll-modal/CreatePollModal.svelte';
   import ReceiverPreviewList from '~/app/ui/components/partials/receiver-preview-list/ReceiverPreviewList.svelte';
   import {i18n} from '~/app/ui/i18n';
   import MediaMessage from '~/app/ui/modal/MediaMessage.svelte';
@@ -55,6 +56,7 @@
   import {EDIT_MESSAGE_GRACE_PERIOD_IN_MINUTES} from '~/common/network/protocol/constants';
   import {FEATURE_MASK_FLAG, type MessageId} from '~/common/network/types';
   import {assertUnreachable, ensureError, unreachable, unwrap} from '~/common/utils/assert';
+  import {UTF8} from '~/common/utils/codec';
   import type {SingleUnicodeEmoji} from '~/common/utils/emoji';
   import type {Remote} from '~/common/utils/endpoint';
   import {getSanitizedFileNameDetails} from '~/common/utils/file';
@@ -65,19 +67,24 @@
     type IQueryableStore,
     type StoreUnsubscriber,
   } from '~/common/utils/store';
+  import {
+    getGraphemeClusters,
+    getLongestValidMatchingGraphemeSequence,
+  } from '~/common/utils/string';
   import {TIMER} from '~/common/utils/timer';
   import type {ConversationViewModelBundle} from '~/common/viewmodel/conversation/main';
-  import type {SendMessageEventDetail} from '~/common/viewmodel/conversation/main/controller/types';
-  import type {ConversationRegularMessageViewModelBundle} from '~/common/viewmodel/conversation/main/message/regular-message';
+  import type {
+    SendFileBasedMessageInformation,
+    SendPollBasedMessageInformation,
+    TextMessageWithByteLength,
+  } from '~/common/viewmodel/conversation/main/controller/types';
   import type {FeatureSupport} from '~/common/viewmodel/conversation/main/store/types';
   import type {AnyReceiverData, ContactReceiverData} from '~/common/viewmodel/utils/receiver';
 
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.conversation-view');
 
-  type $$Props = ConversationViewProps;
-
-  export let services: $$Props['services'];
+  const {services}: ConversationViewProps = $props();
 
   const {
     router,
@@ -87,48 +94,50 @@
     },
   } = services;
 
-  // Unsubscriber for the view model store
-  let viewModelStoreUnsubscriber: StoreUnsubscriber | undefined = undefined;
+  // Unsubscriber for the view model store.
+  let viewModelStoreUnsubscriber = $state<StoreUnsubscriber | undefined>(undefined);
   // Params of the current route.
-  let routeParams: ConversationRouteParams | undefined = undefined;
+  let routeParams = $state<ConversationRouteParams | undefined>(undefined);
 
   // ViewModelBundle of the current conversation.
-  let viewModelStore: IQueryableStore<RemoteConversationViewModelStoreValue | undefined> =
-    new ReadableStore(undefined);
-  let viewModelController: Remote<ConversationViewModelBundle>['viewModelController'] | undefined =
-    undefined;
+  let viewModelStore = $state<IQueryableStore<RemoteConversationViewModelStoreValue | undefined>>(
+    new ReadableStore(undefined),
+  );
+  let viewModelController = $state<
+    Remote<ConversationViewModelBundle>['viewModelController'] | undefined
+  >(undefined);
 
   // The message to bring into view initially.
-  let initiallyVisibleMessageId: MessageId | undefined = undefined;
+  let initiallyVisibleMessageId = $state<MessageId | undefined>(undefined);
 
   // Initialize an empty draft store, which will be replaced with the actual store as soon as the
   // receiver of the current conversation is known.
-  let draftStore: ConversationDraftStore = conversationDrafts.getOrCreateStore(undefined);
+  let draftStore = $state<ConversationDraftStore>(conversationDrafts.getOrCreateStore(undefined));
 
-  let messageListComponent: SvelteNullableBinding<MessageList> = null;
-  let composeBarComponent: SvelteNullableBinding<ComposeBar> = null;
-  let focusMoverProviderComponent: SvelteNullableBinding<FocusMoverProvider> = null;
+  let messageListComponent = $state<SvelteNullableBinding<MessageList>>(null);
+  let composeBarComponent = $state<SvelteNullableBinding<ComposeBar>>(null);
+  let focusMoverProviderComponent = $state<SvelteNullableBinding<FocusMoverProvider>>(null);
 
-  let composeBarState: ComposeBarState = {
+  let composeBarState = $state<ComposeBarState>({
     type: 'insert',
     quotedMessage: undefined,
     editedMessage: undefined,
     mentionString: undefined,
     emojiSearchString: undefined,
-  };
+  });
 
-  let modalState: ModalState = {type: 'none'};
+  let modalState = $state.raw<ModalState>({type: 'none'});
 
-  let deleteMessageFeatureSupport: FeatureSupport;
-  let editMessageFeatureSupport: FeatureSupport;
-  let emojiReactionsFeatureSupport: FeatureSupport;
+  let deleteMessageFeatureSupport = $state<FeatureSupport>({supported: false});
+  let editMessageFeatureSupport = $state<FeatureSupport>({supported: false});
+  let emojiReactionsFeatureSupport = $state<FeatureSupport>({supported: false});
 
-  // Setup isTyping timer to 5s
+  // Setup `isTyping` timer to 5s.
   const resetIsTypingTimer = TIMER.debounce(() => {
     dispatchIsTyping(false);
   }, 5000);
 
-  // Set and dispatch isTyping event
+  // Set and dispatch `isTyping` event.
   function dispatchIsTyping(isTyping: boolean): void {
     viewModelController?.sendIsTyping(isTyping).catch(assertUnreachable);
   }
@@ -143,12 +152,12 @@
     router.go({activity: ROUTE_DEFINITIONS.activity.call.withParams({receiverLookup, intent})});
   }
 
-  function handleClickDeleteMessageLocally(event: CustomEvent<AnyMessageListMessage>): void {
-    switch (event.detail.type) {
+  function handleClickDeleteMessageLocally(message: AnyMessageListMessage): void {
+    switch (message.type) {
       case 'deleted-message':
       case 'regular-message':
-        viewModelController?.removeMessage(event.detail.id).catch((error: unknown) => {
-          log.error(`Could not delete message with id ${event.detail.id}`, error);
+        viewModelController?.removeMessage(message.id).catch((error: unknown) => {
+          log.error(`Could not delete message with id ${message.id}`, error);
           toast.addSimpleFailure(
             $i18n.t('messaging.error--delete-message', 'Could not delete message'),
           );
@@ -156,8 +165,8 @@
         break;
 
       case 'status-message':
-        viewModelController?.removeStatusMessage(event.detail.id).catch((error: unknown) => {
-          log.error(`Could not delete status message with id ${event.detail.id}`, error);
+        viewModelController?.removeStatusMessage(message.id).catch((error: unknown) => {
+          log.error(`Could not delete status message with id ${message.id}`, error);
           toast.addSimpleFailure(
             $i18n.t('messaging.error--delete-status-message', 'Could not delete status message'),
           );
@@ -165,20 +174,18 @@
         break;
 
       default:
-        unreachable(event.detail);
+        unreachable(message);
     }
   }
 
-  function handleClickDeleteMessageForEveryone(
-    event: CustomEvent<MessageListRegularMessage>,
-  ): void {
-    if (event.detail.status.deleted !== undefined) {
+  function handleClickDeleteMessageForEveryone(message: MessageListRegularMessage): void {
+    if (message.status.deleted !== undefined) {
       log.warn('Tried to delete an already deleted message on all devices');
       return;
     }
 
-    viewModelController?.markMessageAsDeleted(event.detail.id).catch((error: unknown) => {
-      log.error(`Could not delete message with id ${event.detail.id}`, error);
+    viewModelController?.markMessageAsDeleted(message.id).catch((error: unknown) => {
+      log.error(`Could not delete message with id ${message.id}`, error);
       toast.addSimpleFailure($i18n.t('messaging.error--delete-message'));
     });
   }
@@ -218,20 +225,21 @@
           conversationReceiverLookup,
           services,
         ),
-        onError: (error) =>
+        onerror: (error) =>
           log.error(
             `An error occurred in a child component: ${extractErrorMessage(error, 'short')}`,
           ),
+        poll: quotedMessageProps.pollData,
         sender: quotedMessageProps.sender,
       },
     };
   }
 
-  function handleClickQuoteMessage(event: CustomEvent<MessageListRegularMessage>): void {
+  function handleClickQuoteMessage(message: MessageListRegularMessage): void {
     if (composeBarState.type === 'edit') {
       composeBarComponent?.clear();
     }
-    const quotedMessage = getComposeBarQuoteComponent(event.detail);
+    const quotedMessage = getComposeBarQuoteComponent(message);
     if (quotedMessage === undefined) {
       composeBarState = {
         type: 'insert',
@@ -331,14 +339,16 @@
     draftStore.set(undefined);
   }
 
-  function handleAddFiles(
-    event: CustomEvent<FileResult> | CustomEvent<FileLoadResult> | CustomEvent<File[]>,
-  ): void {
+  function handleAddFiles(files: FileResult | File[]): void {
     resetIsTypingTimer();
     dispatchIsTyping(true);
     if (!isReceiverDisabled) {
-      openMediaComposeModal(event.detail).catch(assertUnreachable);
+      openMediaComposeModal(files).catch(assertUnreachable);
     }
+  }
+
+  function handleClickCreatePoll(): void {
+    modalState = {type: 'create-poll'};
   }
 
   function handleChangeRouterState(): void {
@@ -391,8 +401,11 @@
       };
     }
 
+    // Because Svelte `$state` uses proxies under the hood, the current value needs to be unwrapped
+    // to make it serializable for sending it to the backend.
+    const unproxiedReceiver = $state.snapshot(receiver) as unknown as DbReceiverLookup;
     await backend.viewModel
-      .conversation(receiver)
+      .conversation(unproxiedReceiver)
       .then(async (viewModelBundle) => {
         if (viewModelBundle === undefined) {
           throw new Error('ViewModelBundle returned by the repository was undefined');
@@ -430,25 +443,13 @@
           draftStore = conversationDrafts.getOrCreateStore($viewModelStore.receiver.lookup);
         }
         const draft = draftStore.get();
-        const forwardedMessageText = (
-          await getForwardedMessageViewModelBundle()
-        )?.viewModelStore.get().text?.raw;
 
         const preloadedFiles = getPreloadedFiles();
 
-        // Load initial data. Note: If there is both a draft and a forwarded message, the forwarded
-        // message text has priority.
+        // Load initial data.
 
         // Compose bar state
-        if (forwardedMessageText !== undefined) {
-          composeBarState = {
-            type: 'insert',
-            editedMessage: undefined,
-            quotedMessage: undefined,
-            mentionString: undefined,
-            emojiSearchString: undefined,
-          };
-        } else if (draft?.extended?.type === 'edit') {
+        if (draft?.extended?.type === 'edit') {
           composeBarState = {
             type: 'edit',
             editedMessage: draft.extended.edit,
@@ -466,8 +467,11 @@
           };
         }
 
+        // We need to tick here to make sure that the compose bar is properly mounted.
+        await tick();
+
         // Text
-        insertComposeBarText($viewModelStore?.receiver, forwardedMessageText ?? draft?.text ?? '');
+        insertComposeBarText($viewModelStore?.receiver, draft?.text ?? '');
 
         // Files
         if (preloadedFiles !== undefined) {
@@ -518,58 +522,106 @@
     composeBarComponent?.focus();
   }
 
-  async function handleClickApplyEdit(event: CustomEvent<string>): Promise<void> {
+  async function handleClickApplyEdit(text: string): Promise<void> {
     if (composeBarState.editedMessage === undefined) {
       log.warn('Cannot edit message because no message to edit is set.');
       return;
     }
-    if (event.detail === composeBarState.editedMessage.text?.raw) {
+    if (text === composeBarState.editedMessage.text?.raw) {
       resetComposeBar();
       draftStore.set(undefined);
       return;
     }
 
     // For file messages, we allow empty captions.
-    if (event.detail.trim() === '' && composeBarState.quotedMessage?.props.file === undefined) {
+    if (text.trim() === '' && composeBarState.quotedMessage?.props.file === undefined) {
       log.warn('Cannot change message to empty message');
       resetComposeBar();
       draftStore.set(undefined);
       return;
     }
 
-    await composeBarState.editedMessage.actions.edit(event.detail).catch((error: unknown) => {
+    await composeBarState.editedMessage.actions.edit(text).catch((error: unknown) => {
       log.error('Failed to update message with error:', error);
     });
     resetComposeBar();
     draftStore.set(undefined);
   }
 
-  function handleClickSend(event: CustomEvent<string | SendMessageEventDetail>): void {
-    switch (typeof event.detail) {
-      case 'object':
-        viewModelController?.sendMessage(event.detail).catch(assertUnreachable);
+  function handleClickSend(
+    message:
+      | TextMessageWithByteLength
+      | SendFileBasedMessageInformation
+      | SendPollBasedMessageInformation,
+  ): void {
+    switch (message.type) {
+      case 'poll':
+      case 'files':
+        viewModelController?.sendMessage(message).catch(assertUnreachable);
         break;
 
-      case 'string': {
-        const text = event.detail;
+      case 'text': {
+        const {byteLength, text} = message;
 
         // Do not send empty messages.
         if (text.trim() === '') {
           return;
         }
 
-        viewModelController
-          ?.sendMessage({
-            type: 'text',
+        // If the message is small, just send it.
+        if (byteLength <= import.meta.env.MAX_TEXT_MESSAGE_BYTES) {
+          viewModelController
+            ?.sendMessage({
+              type: 'text',
+              text,
+              quotedMessageId: composeBarState.quotedMessage?.id,
+            })
+            .catch(assertUnreachable);
+          break;
+        }
+
+        // Otherwise we need to slice the message.
+        const encodedUtf8Text = UTF8.encode(text);
+        const graphemeClusteredText = getGraphemeClusters(text, text.length);
+        let stringIndex = 0;
+        let graphemeIndex = 0;
+        for (let byteIndex = 0; byteIndex < byteLength; ) {
+          // We walk back until we find a string segment that matches, meaning that no
+          // grapheme-cluster was cut.
+          const chunkingResult = getLongestValidMatchingGraphemeSequence(
+            byteIndex,
+            byteIndex + import.meta.env.MAX_TEXT_MESSAGE_BYTES,
+            stringIndex,
+            graphemeIndex,
+            graphemeClusteredText,
             text,
-            quotedMessageId: composeBarState.quotedMessage?.id,
-          })
-          .catch(assertUnreachable);
+            encodedUtf8Text,
+            log,
+          );
+
+          if (chunkingResult === undefined) {
+            toast.addSimpleFailure(
+              $i18n.t('messaging.error--chunking-failed', 'Could not send message'),
+            );
+            return;
+          }
+
+          stringIndex += chunkingResult.text.length;
+          byteIndex = chunkingResult.newStartByteIndex;
+          graphemeIndex = chunkingResult.newGraphemeStartIndex;
+          viewModelController
+            ?.sendMessage({
+              type: 'text',
+              text: chunkingResult.text,
+              quotedMessageId: composeBarState.quotedMessage?.id,
+            })
+            .catch(assertUnreachable);
+        }
         break;
       }
 
       default:
-        break;
+        unreachable(message);
     }
 
     resetComposeBar();
@@ -598,19 +650,6 @@
     };
   }
 
-  async function getForwardedMessageViewModelBundle(): Promise<
-    Remote<ConversationRegularMessageViewModelBundle> | undefined
-  > {
-    if (routeParams?.forwardedMessage === undefined) {
-      return undefined;
-    }
-
-    return await viewModelController?.findForwardedMessage(
-      routeParams.forwardedMessage.receiverLookup,
-      routeParams.forwardedMessage.messageId,
-    );
-  }
-
   function getPreloadedFiles(): File[] | undefined {
     if (routeParams?.preloadedFiles === undefined) {
       return undefined;
@@ -621,15 +660,15 @@
     );
   }
 
-  function handleClickDeleteMessage(event: CustomEvent<AnyMessageListMessage>): void {
-    if (event.detail.type === 'status-message') {
-      handleClickDeleteMessageLocally(event);
+  function handleClickDeleteMessage(message: AnyMessageListMessage): void {
+    if (message.type === 'status-message') {
+      handleClickDeleteMessageLocally(message);
       return;
     }
 
     modalState = {
       type: 'delete-message',
-      props: event.detail,
+      props: message,
     };
   }
 
@@ -644,15 +683,15 @@
     };
   }
 
-  function handleClickInlineEmoji(event: CustomEvent<SingleUnicodeEmoji>): void {
-    composeBarComponent?.insertInlineEmoji(event.detail);
+  function handleClickInlineEmoji(emoji: SingleUnicodeEmoji): void {
+    composeBarComponent?.insertInlineEmoji(emoji);
     composeBarState = {
       ...composeBarState,
       emojiSearchString: undefined,
     };
   }
 
-  function handleClickMentionReceiver(event: CustomEvent<{lookup: DbReceiverLookup}>): void {
+  function handleClickMentionReceiver(event: {lookup: DbReceiverLookup}): void {
     if ($viewModelStore?.receiver.type !== 'group') {
       log.error('Mentioning is only allowed in groups');
       return;
@@ -664,8 +703,8 @@
       .find(
         (member): member is ContactReceiverData =>
           member.type === 'contact' &&
-          member.lookup.type === event.detail.lookup.type &&
-          member.lookup.uid === event.detail.lookup.uid,
+          member.lookup.type === event.lookup.type &&
+          member.lookup.uid === event.lookup.uid,
       );
     if (receiver === undefined) {
       log.error("Mentioned receiver couldn't be found in the current group");
@@ -783,6 +822,11 @@
           message.type === 'regular-message' && message.id === lastMessage.id,
       );
 
+    // Don't support editing audio and poll messages.
+    if (messageToEdit?.file?.type === 'audio' || messageToEdit?.pollData !== undefined) {
+      return;
+    }
+
     if (
       messageToEdit?.status.sent !== undefined &&
       Date.now() - messageToEdit.status.sent.at.getTime() <
@@ -846,9 +890,9 @@
     }
   }
 
-  function handleIsTyping(event: CustomEvent<boolean>): void {
+  function handleIsTyping(isTyping: boolean): void {
     resetIsTypingTimer();
-    dispatchIsTyping(event.detail);
+    dispatchIsTyping(isTyping);
   }
 
   function handleMatchMention(
@@ -911,31 +955,40 @@
     }
   }
 
-  $: reactive(handleChangeRouterState, [$router]);
-  $: reactive(handleChangeConversation, [
-    routeParams?.receiverLookup,
-    routeParams?.initialMessage,
-  ]).catch(assertUnreachable);
+  $effect(() => {
+    reactive(handleChangeRouterState, [$router]);
+  });
+
+  $effect(() => {
+    reactive(handleChangeConversation, [
+      routeParams?.receiverLookup,
+      routeParams?.initialMessage,
+    ]).catch(assertUnreachable);
+  });
 
   /**
    * Whether the current receiver is able to be contacted.
    */
-  $: isReceiverDisabled =
+  const isReceiverDisabled = $derived(
     ($viewModelStore?.receiver.type === 'contact' && $viewModelStore.receiver.isInvalid) ||
-    ($viewModelStore?.receiver.type === 'contact' && $viewModelStore.receiver.isBlocked) ||
-    ($viewModelStore?.receiver.type === 'group' && $viewModelStore.receiver.isLeft);
+      ($viewModelStore?.receiver.type === 'contact' && $viewModelStore.receiver.isBlocked) ||
+      ($viewModelStore?.receiver.type === 'group' && $viewModelStore.receiver.isLeft),
+  );
 
-  $: messagesStore =
+  const messagesStore = $derived(
     $viewModelStore === undefined
       ? undefined
-      : messageSetStoreToMessageListMessagesStore($viewModelStore.messageSetStore, $i18n);
+      : messageSetStoreToMessageListMessagesStore($viewModelStore.messageSetStore, $i18n),
+  );
 
-  $: if (
-    $viewModelStore?.receiver.type === 'contact' &&
-    $viewModelStore.receiver.acquaintanceLevel === 'group-or-deleted'
-  ) {
-    router.goToWelcome();
-  }
+  $effect(() => {
+    if (
+      $viewModelStore?.receiver.type === 'contact' &&
+      $viewModelStore.receiver.acquaintanceLevel === 'group-or-deleted'
+    ) {
+      router.goToWelcome();
+    }
+  });
 
   onMount(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -953,7 +1006,7 @@
     overlay={{
       message: $i18n.t('messaging.hint--drop-files-to-send', 'Drop files here to send'),
     }}
-    on:dropfiles={handleAddFiles}
+    ondropfiles={handleAddFiles}
   >
     <div class="conversation">
       <div class="header">
@@ -999,10 +1052,20 @@
               }
             },
           }}
-          receiver={$viewModelStore.receiver}
-          {services}
-          on:clickjoincall={({detail: {intent}}) =>
+          onclickjoincall={({intent}) =>
             handleclickjoincall(unwrap($viewModelStore).receiver.lookup, intent)}
+          receiver={$viewModelStore.receiver.type !== 'group'
+            ? $viewModelStore.receiver
+            : {
+                ...$viewModelStore.receiver,
+                delete: async () => {
+                  if (viewModelController === undefined) {
+                    return false;
+                  }
+                  return await viewModelController.group.deleteGroup();
+                },
+              }}
+          {services}
         />
       </div>
 
@@ -1043,15 +1106,20 @@
                     log.error('Could not mark all messages as read in conversation', error),
                   );
               },
-              receiver: $viewModelStore.receiver,
+              receiver: {
+                ...$viewModelStore.receiver,
+                closePoll: async (lookup) => {
+                  await viewModelController?.sendPollCloseMessage(lookup).catch(assertUnreachable);
+                },
+              },
               setCurrentViewportMessages: viewModelController.setCurrentViewportMessages,
               unreadMessagesCount: $viewModelStore.unreadMessagesCount,
             }}
             {messagesStore}
+            onclickdelete={handleClickDeleteMessage}
+            onclickedit={handleClickEditMessage}
+            onclickquote={handleClickQuoteMessage}
             {services}
-            on:clickdelete={handleClickDeleteMessage}
-            on:clickedit={(event) => handleClickEditMessage(event.detail)}
-            on:clickquote={handleClickQuoteMessage}
           />
         </div>
 
@@ -1090,7 +1158,7 @@
 
                   <IconButton
                     flavor="naked"
-                    on:click={composeBarState.type === 'edit'
+                    onclick={composeBarState.type === 'edit'
                       ? handleClickEditClose
                       : handleClickCloseQuote}
                   >
@@ -1103,9 +1171,9 @@
               <div class="mention-list">
                 <FocusMoverProvider bind:this={focusMoverProviderComponent}>
                   <EveryoneMentionListItem
+                    onclick={handleClickMentionEveryone}
                     receiver={$viewModelStore.receiver}
                     {services}
-                    on:click={handleClickMentionEveryone}
                   />
                   <ReceiverPreviewList
                     highlights={composeBarState.mentionString}
@@ -1113,8 +1181,8 @@
                       $viewModelStore.receiver,
                       composeBarState.mentionString,
                     )}
+                    onclickitem={handleClickMentionReceiver}
                     {services}
-                    on:clickitem={handleClickMentionReceiver}
                   />
                 </FocusMoverProvider>
               </div>
@@ -1122,9 +1190,9 @@
               <div class="emoji-list">
                 <FocusMoverProvider bind:this={focusMoverProviderComponent}>
                   <InlineEmojiSeachList
+                    onclickitem={handleClickInlineEmoji}
                     {services}
                     searchTerm={composeBarState.emojiSearchString}
-                    on:clickitem={handleClickInlineEmoji}
                   />
                 </FocusMoverProvider>
               </div>
@@ -1132,9 +1200,17 @@
             <ComposeBar
               {services}
               bind:this={composeBarComponent}
+              enterKeyMode={$chat.onEnterSubmit ? 'submit' : 'newline'}
               mode={composeBarState.type}
+              onattachfiles={handleAddFiles}
+              onclickapplyedit={handleClickApplyEdit}
+              onclickcreatepoll={handleClickCreatePoll}
+              onclicksend={handleClickSend}
+              onistyping={handleIsTyping}
+              onpaste={(text) => insertComposeBarText($viewModelStore.receiver, text)}
+              onpastefiles={handleAddFiles}
               options={{
-                showAttachFilesButton: composeBarState.quotedMessage === undefined,
+                showAddButton: composeBarState.quotedMessage === undefined,
                 allowEmptyMessages:
                   composeBarState.type === 'edit' &&
                   composeBarState.quotedMessage.props.file !== undefined,
@@ -1159,13 +1235,6 @@
                   },
                 },
               ]}
-              onPaste={(text) => insertComposeBarText($viewModelStore.receiver, text)}
-              enterKeyMode={$chat.onEnterSubmit ? 'submit' : 'newline'}
-              on:attachfiles={handleAddFiles}
-              on:clicksend={handleClickSend}
-              on:pastefiles={handleAddFiles}
-              on:clickapplyedit={handleClickApplyEdit}
-              on:istyping={handleIsTyping}
             />
           {/if}
         </div>
@@ -1178,21 +1247,24 @@
   <!-- No modal is displayed in this state. -->
 {:else if modalState.type === 'media-compose'}
   <MediaMessage
+    onclose={handleCloseModal}
+    onclicksend={handleClickSend}
     {services}
     {...modalState.props}
-    on:close={handleCloseModal}
-    on:clicksend={handleClickSend}
   />
 {:else if modalState.type === 'delete-message'}
   {@const receiver = $viewModelStore?.receiver}
+
   <DeleteMessageModal
-    message={{...modalState.props}}
     featureSupport={deleteMessageFeatureSupport}
+    message={{...modalState.props}}
+    onclickdeleteforeveryone={handleClickDeleteMessageForEveryone}
+    onclickdeletelocally={handleClickDeleteMessageLocally}
+    onclose={handleCloseModal}
     showDeleteForEveryoneButton={!(receiver?.type === 'group' && receiver.isLeft)}
-    on:close={handleCloseModal}
-    on:clickdeletelocally={handleClickDeleteMessageLocally}
-    on:clickdeleteforeveryone={handleClickDeleteMessageForEveryone}
   />
+{:else if modalState.type === 'create-poll'}
+  <CreatePollModal onsend={handleClickSend} onclose={handleCloseModal} {services}></CreatePollModal>
 {:else}
   {unreachable(modalState)}
 {/if}

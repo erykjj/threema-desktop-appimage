@@ -8,24 +8,47 @@
   } from '~/app/ui/components/partials/settings/internal/media-settings/helpers';
   import type {MediaSettingsProps} from '~/app/ui/components/partials/settings/internal/media-settings/props';
   import {i18n} from '~/app/ui/i18n';
+  import {AnimatedImageMode} from '~/common/enum';
 
-  type $$Props = MediaSettingsProps;
+  const {actions, services, settings}: MediaSettingsProps = $props();
 
-  export let actions: $$Props['actions'];
-  export let settings: $$Props['settings'];
+  const autoDownloadDropdownItems = $derived(
+    createDropdownItems(getAutodownloadDropdown($i18n), (newValue) => {
+      actions.updateSettings({autoDownload: newValue});
+    }),
+  );
 
-  $: autoDownloadDropdownItems = createDropdownItems(getAutodownloadDropdown($i18n), (newValue) => {
-    actions.updateSettings({autoDownload: newValue});
-  });
+  function onToggleAnimatedImageModeSettings(): void {
+    actions.updateSettings({
+      animatedImageMode:
+        settings.animatedImageMode === AnimatedImageMode.LOOP
+          ? AnimatedImageMode.DONT_LOOP
+          : AnimatedImageMode.LOOP,
+    });
+    // Clear the blob-cache so that the setting can be correctly applied when going back to the
+    // converation view.
+    services.thumbnailCache.clearCache();
+  }
 </script>
 
 <KeyValueList>
   <KeyValueList.Section title={$i18n.t('settings--media.label--section-media', 'Media')}>
     <KeyValueList.ItemWithDropdown
-      key={$i18n.t('settings--media.label--auto-save', 'Auto-Download Incoming Media')}
       items={autoDownloadDropdownItems}
+      key={$i18n.t('settings--media.label--auto-save', 'Auto-Download Incoming Media')}
     >
       <Text text={getAutoDownloadLabel(settings.autoDownload, $i18n)}></Text>
     </KeyValueList.ItemWithDropdown>
+    <KeyValueList.ItemWithSwitch
+      checked={settings.animatedImageMode === AnimatedImageMode.LOOP}
+      onswitch={onToggleAnimatedImageModeSettings}
+      key={$i18n.t('settings--media.label--gifs', 'GIFs')}
+      ><Text
+        text={$i18n.t(
+          'settings--media.prose--play-gifs',
+          'Automatically play GIFs if smaller than 5 MB',
+        )}
+      ></Text>
+    </KeyValueList.ItemWithSwitch>
   </KeyValueList.Section>
 </KeyValueList>

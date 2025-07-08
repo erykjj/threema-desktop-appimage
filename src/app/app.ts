@@ -1,6 +1,7 @@
 import '../sass/app.scss';
 
 import initComposeArea from '@threema/compose-area/web';
+import {mount, unmount} from 'svelte';
 
 import {APP_CONFIG} from '~/app/config';
 import {globals} from '~/app/globals';
@@ -22,7 +23,6 @@ import {BackendController} from '~/common/dom/backend/controller';
 import {randomBytes} from '~/common/dom/crypto/random';
 import {ElectronIpcService} from '~/common/dom/electron-service';
 import {DOM_CONSOLE_LOGGER} from '~/common/dom/logging';
-import {BlobCacheService} from '~/common/dom/ui/blob-cache';
 import {EmojiService} from '~/common/dom/ui/emoji-service';
 import {LocalStorageController} from '~/common/dom/ui/local-storage';
 import {FrontendMediaService} from '~/common/dom/ui/media';
@@ -32,6 +32,7 @@ import {SettingsService} from '~/common/dom/ui/settings';
 import {appVisibility, getAppVisibility} from '~/common/dom/ui/state';
 import {FrontendSystemDialogService} from '~/common/dom/ui/system-dialog';
 import {applyThemeBranding} from '~/common/dom/ui/theme';
+import {ThumbnailCacheService} from '~/common/dom/ui/thumbnail-cache';
 import {initCrashReportingInSandboxBuilds} from '~/common/dom/utils/crash-reporting';
 import {createEndpointService, ensureEndpoint} from '~/common/dom/utils/endpoint';
 import {WebRtcServiceProvider} from '~/common/dom/webrtc';
@@ -62,9 +63,9 @@ export interface Elements {
 function attachLoadingScreen(
     elements: Elements,
     loadingState: IQueryableStore<LoadingState>,
-): LoadingScreen {
+): ReturnType<typeof LoadingScreen> {
     elements.container.innerHTML = '';
-    return new LoadingScreen({
+    return mount(LoadingScreen, {
         target: elements.container,
         props: {
             loadingState,
@@ -79,9 +80,9 @@ function attachLinkingWizard(
     elements: Elements,
     params: LinkingParams,
     electron: ElectronIpcService,
-): LinkingWizard {
+): ReturnType<typeof LinkingWizard> {
     elements.container.innerHTML = '';
-    return new LinkingWizard({
+    return mount(LinkingWizard, {
         target: elements.container,
         props: {
             services: {electron},
@@ -99,9 +100,9 @@ function attachPasswordInput(
     systemInfo: SystemInfo,
     electron: ElectronIpcService,
     previouslyAttemptedPassword?: string,
-): PasswordInput {
+): ReturnType<typeof PasswordInput> {
     elements.container.innerHTML = '';
-    return new PasswordInput({
+    return mount(PasswordInput, {
         target: elements.container,
         props: {
             services: {electron},
@@ -118,9 +119,9 @@ function attachPasswordInput(
 function attachMissingWorkCredentialsModal(
     elements: Elements,
     electron: ElectronIpcService,
-): MissingWorkCredentialsModal {
+): ReturnType<typeof MissingWorkCredentialsModal> {
     elements.container.innerHTML = '';
-    return new MissingWorkCredentialsModal({
+    return mount(MissingWorkCredentialsModal, {
         target: elements.container,
         props: {
             services: {electron},
@@ -131,7 +132,7 @@ function attachMissingWorkCredentialsModal(
 /**
  * Attach app to DOM.
  */
-function attachApp(services: AppServices, elements: Elements): App {
+function attachApp(services: AppServices, elements: Elements): object {
     const log = services.logging.logger('attach');
 
     // Hide splash screen and remove it entirely after 1s
@@ -142,7 +143,7 @@ function attachApp(services: AppServices, elements: Elements): App {
 
     // Create app
     elements.container.innerHTML = '';
-    const app = new App({
+    const app = mount(App, {
         target: elements.container,
         props: {
             services,
@@ -158,7 +159,7 @@ function attachApp(services: AppServices, elements: Elements): App {
 
 // Creates the application state and returns a destroy function to purge the app and its associated
 // state from the DOM.
-async function main(): Promise<() => void> {
+async function main(): Promise<() => Promise<void>> {
     // Promise that resolves when the 'DOMContentLoaded' event happens
     const domContentLoaded = new Promise<void>((resolve) => {
         document.addEventListener('DOMContentLoaded', () => {
@@ -467,7 +468,7 @@ async function main(): Promise<() => void> {
         crypto: {randomBytes},
         electron,
         logging,
-        blobCache: new BlobCacheService(backend, logging.logger('blob-cache')),
+        thumbnailCache: new ThumbnailCacheService(backend, logging.logger('thumbnail-cache')),
         profilePicture: new ProfilePictureService(backend, logging.logger('profile-picture')),
         storage: localStorageController,
         systemDialog,
@@ -512,15 +513,16 @@ async function main(): Promise<() => void> {
         // Loading screen is still `"pending"` (i.e., it was not used), so we just set it to
         // `"ready"` to close it.
         loadingStateStore.set({state: 'ready'});
+        log.debug(`Loading screen is still 'pending', loadingState force set to 'ready'`);
     }
     await loadingCompleted;
     log.debug('Attaching app');
     const app = attachApp(services, elements);
 
     // Return a destructor
-    return () => {
+    return async () => {
         totalUnreadMessageCountUnsubscriber();
-        app.$destroy();
+        await unmount(app);
     };
 }
 

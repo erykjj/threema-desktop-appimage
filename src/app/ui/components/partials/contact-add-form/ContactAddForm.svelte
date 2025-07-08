@@ -1,6 +1,4 @@
 <script lang="ts">
-  import {createEventDispatcher} from 'svelte';
-
   import {globals} from '~/app/globals';
   import StepOne from '~/app/ui/components/partials/contact-add-form/internal/step-one/StepOne.svelte';
   import StepTwo from '~/app/ui/components/partials/contact-add-form/internal/step-two/StepTwo.svelte';
@@ -9,27 +7,23 @@
   import type {CurrentStep} from '~/app/ui/components/partials/contact-add-form/types';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
+  import {MAX_CONTACT_NAME_BYTES} from '~/app/ui/utils/constants';
   import {ReceiverType} from '~/common/enum';
   import {isIdentityString} from '~/common/network/types';
   import {unreachable} from '~/common/utils/assert';
-
-  type $$Props = ContactAddFormProps;
+  import {UTF8} from '~/common/utils/codec';
 
   const log = globals.unwrap().uiLogging.logger('ui.component.contact-add-form');
 
-  export let services: $$Props['services'];
-  export let actions: $$Props['actions'];
-
+  const {actions, services, onclickback, onclickcancel, oncreatesuccess}: ContactAddFormProps =
+    $props();
   const {router} = services;
 
-  const dispatch = createEventDispatcher<{contactcreated: undefined}>();
+  let identity = $state<string>('');
+  let identityFieldError = $state<string | undefined>(undefined);
+  let currentStep = $state<CurrentStep>({step: 'step-one'});
 
-  let identity: string = '';
-  let identityFieldError: string | undefined = undefined;
-
-  let currentStep: CurrentStep = {step: 'step-one'};
-
-  async function handleStepOneNextClicked(): Promise<void> {
+  async function handleContinueStepOne(): Promise<void> {
     if (!isIdentityString(identity)) {
       return;
     }
@@ -95,11 +89,17 @@
     }
   }
 
-  async function handleStepTwoNextClicked(
+  async function handleContinueStepTwo(
     contact: StepTwoProps['contact'],
     firstName: string,
     lastName: string,
   ): Promise<void> {
+    if (
+      UTF8.encode(firstName).byteLength > MAX_CONTACT_NAME_BYTES ||
+      UTF8.encode(lastName).byteLength > MAX_CONTACT_NAME_BYTES
+    ) {
+      return;
+    }
     let uid;
     try {
       if (contact.type === 'existing') {
@@ -146,7 +146,7 @@
         uid,
       },
     });
-    dispatch('contactcreated');
+    oncreatesuccess?.();
   }
 
   function handleClickBackFromStepTwo(): void {
@@ -162,19 +162,27 @@
 
 {#if currentStep.step === 'step-one'}
   <StepOne
-    handleNextClicked={handleStepOneNextClicked}
     bind:identity
     {identityFieldError}
-    on:back
-    on:cancel
+    oncontinue={() => {
+      handleContinueStepOne().catch((error) => {
+        log.error(`Failed to continue in step one: ${error}`);
+      });
+    }}
+    {onclickback}
+    {onclickcancel}
   />
 {:else if currentStep.step === 'step-two'}
   <StepTwo
-    {identity}
-    handleNextClicked={handleStepTwoNextClicked}
     bind:contact={currentStep.contact}
-    on:back={handleClickBackFromStepTwo}
-    on:cancel
+    {identity}
+    oncontinue={(...data) => {
+      handleContinueStepTwo(...data).catch((error) => {
+        log.error(`Failed to continue in step two: ${error}`);
+      });
+    }}
+    onclickback={handleClickBackFromStepTwo}
+    {onclickcancel}
   />
 {:else}
   {unreachable(currentStep)}

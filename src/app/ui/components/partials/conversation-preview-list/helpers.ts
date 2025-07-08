@@ -54,39 +54,23 @@ export function getReceiverCardBottomLeftItemOptions(
         case 'contact': {
             const {isInactive, isInvalid} = receiver;
 
-            if (!isInactive && !isInvalid && lastMessageItem.length === 0) {
-                return undefined;
-            }
-
             return [
-                ...(!isArchived && !isInactive && !isInvalid
-                    ? []
-                    : [
-                          {
-                              type: 'tags',
-                              isArchived,
-                              isInactive,
-                              isInvalid,
-                          } as const,
-                      ]),
+                {
+                    type: 'tags',
+                    isArchived,
+                    isInactive,
+                    isInvalid,
+                } as const,
                 ...lastMessageItem,
             ];
         }
 
         case 'group': {
-            if (!isArchived && lastMessageItem.length === 0) {
-                return undefined;
-            }
-
             return [
-                ...(!isArchived
-                    ? []
-                    : [
-                          {
-                              type: 'tags',
-                              isArchived,
-                          } as const,
-                      ]),
+                {
+                    type: 'tags',
+                    isArchived,
+                } as const,
                 ...lastMessageItem,
             ];
         }
@@ -105,7 +89,7 @@ function getLastMessagePreviewText(
     receiver: Pick<AnyReceiverData, 'type'>,
     lastMessage: Pick<
         NonNullable<ConversationPreviewProps['lastMessage']>,
-        'file' | 'sender' | 'text' | 'status'
+        'file' | 'sender' | 'text' | 'status' | 'pollData'
     >,
 ): SanitizedHtml {
     let text: SanitizedHtml | undefined = undefined;
@@ -124,6 +108,17 @@ function getLastMessagePreviewText(
             shouldParseLinks: false,
             shouldParseMarkup: true,
         });
+    } else if (lastMessage.pollData !== undefined) {
+        text = sanitizeAndParseTextToHtml(
+            `${i18n.t('messaging.label--default-poll-message-preview', 'Poll')}: ${lastMessage.pollData.description}`,
+            i18n.t,
+            {
+                shouldLinkMentions: false,
+                shouldParseMentionsAsRawText: true,
+                shouldParseLinks: false,
+                shouldParseMarkup: true,
+            },
+        );
     } else if (lastMessage.file !== undefined) {
         switch (lastMessage.file.type) {
             case 'audio':

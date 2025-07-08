@@ -1,4 +1,10 @@
-import {ImageRenderingType, MessageType} from '~/common/enum';
+import {
+    ImageRenderingType,
+    MessageDirection,
+    MessageType,
+    PollAnnounceType,
+    PollState,
+} from '~/common/enum';
 import type {Logger} from '~/common/logging';
 import type {ConversationModelStore} from '~/common/model/conversation';
 import type {
@@ -19,6 +25,7 @@ import {getConversationDeletedMessageViewModelBundle} from '~/common/viewmodel/c
 import {getConversationRegularMessageViewModelBundle} from '~/common/viewmodel/conversation/main/message/regular-message';
 import type {ConversationRegularMessageViewModel} from '~/common/viewmodel/conversation/main/message/regular-message/store/types';
 import {getMentions} from '~/common/viewmodel/utils/mentions';
+import {getSelfReceiverData} from '~/common/viewmodel/utils/receiver';
 import {getSenderData} from '~/common/viewmodel/utils/sender';
 
 /**
@@ -138,10 +145,43 @@ export function getMessageText(
                       mentions: getMentions(services, messageModel, getAndSubscribe),
                       raw: messageModel.view.caption,
                   };
-
+        case 'poll':
+            return undefined;
         default:
             return unreachable(messageModel);
     }
+}
+
+/**
+ * Returns poll data related to a message for the {@link ConversationRegularMessageViewModel}.
+ */
+export function getMessagePoll(
+    services: Pick<ServicesForViewModel, 'device' | 'model'>,
+    messageModel: AnyNonDeletedMessageModel,
+    getAndSubscribe: GetAndSubscribeFunction,
+): ConversationRegularMessageViewModel['pollData'] {
+    if (messageModel.type === 'poll') {
+        const selfReceiverData = getSelfReceiverData(services, getAndSubscribe);
+
+        // If announceType is set to ON_CLOSE, display only the user’s votes on the UI, even if the
+        // user is the poll creator. This behavior is consistent with iOS and Android.
+        const choices =
+            messageModel.view.announceType !== PollAnnounceType.ON_EVERY_VOTE &&
+            messageModel.view.pollState === PollState.OPEN
+                ? messageModel.view.choices.map((choice) => ({
+                      ...choice,
+                      votes: choice.votes.filter(
+                          (vote) => vote.senderIdentity === services.device.identity.string,
+                      ),
+                  }))
+                : messageModel.view.choices;
+        const numberOfParticipants =
+            messageModel.ctx === MessageDirection.INBOUND
+                ? messageModel.controller.getParticipants().length
+                : messageModel.controller.getParticipantsAndVotes().participants.length;
+        return {...messageModel.view, choices, numberOfParticipants, selfReceiverData};
+    }
+    return undefined;
 }
 
 export function getMessageHistory(
@@ -157,7 +197,7 @@ export function getMessageFile(
     messageModel: AnyNonDeletedMessageModel,
 ): ConversationRegularMessageViewModel['file'] {
     const {type} = messageModel;
-    if (type === 'text') {
+    if (type === 'text' || type === 'poll') {
         return undefined;
     }
 

@@ -1,40 +1,38 @@
 <!--
-  @component
-  Renders a chat message bubble.
+  @component Renders a chat message bubble.
 -->
 <script lang="ts">
-  import {createEventDispatcher} from 'svelte';
-
   import type {BubbleProps} from '~/app/ui/components/molecules/message/internal/bubble/props';
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
 
-  type $$Props = BubbleProps;
+  let {
+    children,
+    clickable = false,
+    direction,
+    highlighted = $bindable(false),
+    onclick,
+    oncompletehighlightanimation,
+    padding = 'md',
+  }: BubbleProps = $props();
 
-  export let clickable: NonNullable<$$Props['clickable']> = false;
-  export let direction: $$Props['direction'];
-  export let highlighted: NonNullable<$$Props['highlighted']> = false;
-  export let padding: NonNullable<$$Props['padding']> = 'md';
+  let element: SvelteNullableBinding<Element> = $state(null);
 
-  const dispatch = createEventDispatcher<{
-    completehighlightanimation: undefined;
-  }>();
-
-  let element: SvelteNullableBinding<Element> = null;
-
-  function handleChangeHighlight(enable: boolean): void {
-    if (enable) {
+  function handleChangeHighlight(currentHighlighted: boolean): void {
+    if (currentHighlighted) {
       element?.addEventListener(
         'animationend',
         () => {
           highlighted = false;
-          dispatch('completehighlightanimation');
+          oncompletehighlightanimation?.();
         },
         {once: true},
       );
     }
   }
 
-  $: handleChangeHighlight(highlighted);
+  $effect(() => {
+    handleChangeHighlight(highlighted);
+  });
 </script>
 
 <button
@@ -42,9 +40,9 @@
   class={`bubble ${direction} ${padding}`}
   class:highlighted
   data-disabled={!clickable}
-  on:click
+  {onclick}
 >
-  <slot />
+  {@render children?.()}
 </button>
 
 <style lang="scss">
@@ -103,8 +101,6 @@
     }
 
     &:not([data-disabled='true']) {
-      @include clicktarget-button-rect;
-
       &::after {
         transition: background-color 0.15s;
       }
@@ -114,6 +110,22 @@
 
         &::after {
           background-color: var(--mc-message-highlight-overlay-color);
+        }
+      }
+
+      &:focus-visible {
+        // Workaround to prevent the border from increasing the size. Unfortunately, `border-box` does
+        // not work here.
+
+        &::after {
+          content: '';
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          top: 0;
+          left: 0;
+          border-radius: inherit;
+          border: solid em(1px) var(--c-icon-button-naked-outer-border-color--focus);
         }
       }
     }

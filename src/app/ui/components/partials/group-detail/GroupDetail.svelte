@@ -3,42 +3,50 @@
 -->
 <script lang="ts">
   import {globals} from '~/app/globals';
+  import {ROUTE_DEFINITIONS} from '~/app/routing/routes';
   import GroupContent from '~/app/ui/components/partials/group-detail/internal/group-content/GroupContent.svelte';
   import TopBar from '~/app/ui/components/partials/group-detail/internal/top-bar/TopBar.svelte';
   import type {GroupDetailProps} from '~/app/ui/components/partials/group-detail/props';
+  import {groupReceiverDataToGroupContentItemProps} from '~/app/ui/components/partials/group-detail/transformers';
   import type {
+    ContextMenuItemHandlerProps,
     GroupDetailRouteParams,
     ModalState,
     RemoteGroupDetailViewModelController,
     RemoteGroupDetailViewModelStoreValue,
   } from '~/app/ui/components/partials/group-detail/types';
+  import DeleteGroupModal from '~/app/ui/components/partials/modals/delete-group-modal/DeleteGroupModal.svelte';
+  import DisbandGroupModal from '~/app/ui/components/partials/modals/disband-group-modal/DisbandGroupModal.svelte';
+  import EditGroupNameModal from '~/app/ui/components/partials/modals/edit-group-name-modal/EditGroupNameModal.svelte';
+  import LeaveGroupModal from '~/app/ui/components/partials/modals/leave-group-modal/LeaveGroupModal.svelte';
   import ProfilePictureModal from '~/app/ui/components/partials/modals/profile-picture-modal/ProfilePictureModal.svelte';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
   import {reactive} from '~/app/ui/utils/svelte';
-  import type {DbReceiverLookup} from '~/common/db';
+  import type {DbGroupReceiverLookup, DbReceiverLookup} from '~/common/db';
   import {ReceiverType, ReceiverTypeUtils} from '~/common/enum';
+  import type {DisbandGroupIntent, LeaveGroupIntent} from '~/common/model/types/group';
   import {assertUnreachable, ensureError, unreachable} from '~/common/utils/assert';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
+  import type {GroupReceiverData} from '~/common/viewmodel/utils/receiver';
 
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.group-detail');
 
-  type $$Props = GroupDetailProps;
-
-  export let services: $$Props['services'];
+  const {services}: GroupDetailProps = $props();
 
   const {backend, profilePicture, router} = services;
 
   // Params of the current route.
-  let routeParams: GroupDetailRouteParams | undefined = undefined;
+  let routeParams = $state<GroupDetailRouteParams | undefined>(undefined);
 
   // ViewModelBundle containing all the group details.
-  let viewModelStore: IQueryableStore<RemoteGroupDetailViewModelStoreValue | undefined> =
-    new ReadableStore(undefined);
-  let viewModelController: RemoteGroupDetailViewModelController | undefined = undefined;
+  let viewModelStore = $state<IQueryableStore<RemoteGroupDetailViewModelStoreValue | undefined>>(
+    new ReadableStore(undefined),
+  );
+  let viewModelController = $state<RemoteGroupDetailViewModelController | undefined>(undefined);
 
-  let modalState: ModalState = {type: 'none'};
+  let modalState = $state<ModalState>({type: 'none'});
 
   function handleClickBack(): void {
     router.go({aside: 'close'});
@@ -100,31 +108,34 @@
   }
 
   async function handleChangeGroupDetail(): Promise<void> {
-    let receiver: DbReceiverLookup | undefined = undefined;
+    // Because Svelte `$state` uses proxies under the hood, the current value needs to be unwrapped
+    // to make it serializable for sending it to the backend.
+    let unproxiedReceiver: DbGroupReceiverLookup | undefined = undefined;
+
     if (routeParams !== undefined) {
-      receiver = routeParams;
+      unproxiedReceiver = $state.snapshot(routeParams) as unknown as DbGroupReceiverLookup;
     }
 
     const viewModelStoreValue = $viewModelStore;
 
     // If the receiver is the same, it's not necessary to reload the `viewModelBundle`.
     if (
-      receiver !== undefined &&
-      receiver.type === viewModelStoreValue?.receiver.lookup.type &&
-      receiver.uid === viewModelStoreValue.receiver.lookup.uid
+      unproxiedReceiver !== undefined &&
+      unproxiedReceiver.type === viewModelStoreValue?.receiver.lookup.type &&
+      unproxiedReceiver.uid === viewModelStoreValue.receiver.lookup.uid
     ) {
       return;
     }
 
     // If the receiver is undefined, reset `viewModelStore` and -controller.
-    if (receiver === undefined) {
+    if (unproxiedReceiver === undefined) {
       viewModelStore = new ReadableStore(undefined);
       viewModelController = undefined;
       return;
     }
 
     await backend.viewModel
-      .groupDetail(receiver)
+      .groupDetail(unproxiedReceiver)
       .then((viewModelBundle) => {
         if (viewModelBundle === undefined) {
           throw new Error('ViewModelBundle returned by the repository was undefined');
@@ -134,7 +145,7 @@
       })
       .catch((error: unknown) => {
         log.error(
-          `Failed to load detail for group with uid ${receiver.uid}: ${ensureError(error)}`,
+          `Failed to load detail for group with uid ${unproxiedReceiver.uid}: ${ensureError(error)}`,
         );
 
         toast.addSimpleFailure(
@@ -146,44 +157,230 @@
       });
   }
 
-  async function handleClickItem(
-    event: CustomEvent<{lookup: DbReceiverLookup; active: boolean}>,
-  ): Promise<void> {
-    if (event.detail.lookup.type !== ReceiverType.CONTACT) {
+  function handleClickEditGroupName(): void {
+    if ($viewModelStore === undefined) {
+      log.error('Error opening group edit modal because the view model store is not defined');
+      return;
+    }
+
+    const {receiver} = $viewModelStore;
+    modalState = {
+      type: 'edit-group-name',
+      props: {
+        receiver: {
+          ...receiver,
+          edit: async (update) => {
+            if (viewModelController === undefined) {
+              log.error('Error editing receiver: GroupDetailViewModelController was undefined');
+              return false;
+            }
+            return await viewModelController.edit(update);
+          },
+        },
+        services,
+      },
+    };
+  }
+
+  function handleClickEditGroupMembers(): void {
+    if ($viewModelStore === undefined) {
       log.error(
-        `Called the clickGroupMember callback with lookup of type ${ReceiverTypeUtils.nameOf(event.detail.lookup.type)} instead of contact`,
+        'Error opening group members edit modal because the view model store is not defined',
       );
       return;
     }
 
-    await viewModelController?.setAcquaintanceLevelDirect(event.detail.lookup).catch((error) => {
+    if ($viewModelStore.receiver.creator.type !== 'self') {
+      log.error('Error opening group members because the user is not the creator');
+      return;
+    }
+
+    router.go({
+      ...$router,
+      modal: ROUTE_DEFINITIONS.modal.editGroupMembers.withParams({
+        ...$viewModelStore.receiver.lookup,
+      }),
+    });
+  }
+
+  async function handleClickItem(item: {
+    readonly lookup: DbReceiverLookup;
+    readonly active: boolean;
+  }): Promise<void> {
+    if (item.lookup.type !== ReceiverType.CONTACT) {
+      log.error(
+        `Called the clickGroupMember callback with lookup of type ${ReceiverTypeUtils.nameOf(item.lookup.type)} instead of contact`,
+      );
+      return;
+    }
+
+    await viewModelController?.setAcquaintanceLevelDirect(item.lookup).catch((error) => {
       log.error(`Failed to set acquaintance level, routing to welcome: ${error}`);
       router.goToWelcome();
     });
 
-    if (event.detail.active) {
+    if (item.active) {
       router.goToWelcome();
     } else {
-      router.goToConversation({receiverLookup: event.detail.lookup});
+      router.goToConversation({receiverLookup: item.lookup});
     }
   }
 
-  $: reactive(handleChangeRouterState, [$router]);
-  $: reactive(handleChangeGroupDetail, [routeParams]).catch(assertUnreachable);
+  async function handleClickRemoveMember(props: ContextMenuItemHandlerProps): Promise<void> {
+    if (props === undefined) {
+      return;
+    }
+
+    if ($viewModelStore === undefined) {
+      return;
+    }
+
+    if (props.receiver.type !== 'contact') {
+      log.error('Failed to remove group member, the selected receiver is not a contact');
+      return;
+    }
+
+    if ($viewModelStore.receiver.creator.type !== 'self') {
+      log.error('Failed to remove group member, user is not the creator');
+    }
+
+    await viewModelController
+      ?.removeMember(props.receiver.lookup)
+      .then((success) => {
+        if (success) {
+          toast.addSimpleSuccess(
+            $i18n.t('groups.label--remove-member-success', 'Successfully removed group member'),
+          );
+          return;
+        }
+        toast.addSimpleFailure(
+          $i18n.t('groups.label--remove-member-failure', 'Could not remove group member'),
+        );
+      })
+      .catch((error) => {
+        toast.addSimpleFailure(
+          $i18n.t('groups.label--remove-member-failure', 'Could not remove group member'),
+        );
+        log.error('Removing group member failed with error: ', error);
+      });
+  }
+
+  function setDisbandModalState(intent: DisbandGroupIntent, receiver: GroupReceiverData): void {
+    modalState = {
+      type: 'disband-group',
+      props: {
+        receiver: {
+          ...receiver,
+          disband: async () => {
+            if (viewModelController === undefined) {
+              log.error('Error disbanding group: GroupDetailViewModelController was undefined');
+              return false;
+            }
+            return await viewModelController.disband(intent);
+          },
+        },
+        intent,
+        services,
+      },
+    };
+  }
+
+  function setLeaveModalState(intent: LeaveGroupIntent, receiver: GroupReceiverData): void {
+    modalState = {
+      type: 'leave-group',
+      props: {
+        receiver: {
+          ...receiver,
+          leave: async () => {
+            if (viewModelController === undefined) {
+              log.error('Error leaving group: GroupDetailViewModelController was undefined');
+              return false;
+            }
+            return await viewModelController.leave(intent);
+          },
+        },
+        intent,
+        services,
+      },
+    };
+  }
+
+  function handleClickDeleteGroup(): void {
+    if ($viewModelStore === undefined) {
+      return;
+    }
+
+    modalState = {
+      type: 'delete-group',
+      props: {
+        receiver: {
+          ...$viewModelStore.receiver,
+          delete: async () => {
+            if (viewModelController === undefined) {
+              log.error('Error deleting group: GroupDetailViewModelController was undefined');
+              return false;
+            }
+            return await viewModelController.delete();
+          },
+        },
+      },
+    };
+  }
+
+  function handleClickLeaveGroup(): void {
+    if ($viewModelStore === undefined) {
+      return;
+    }
+    if ($viewModelStore.receiver.creator.type === 'self') {
+      setDisbandModalState('disband', $viewModelStore.receiver);
+    } else {
+      setLeaveModalState('leave', $viewModelStore.receiver);
+    }
+  }
+
+  function handleClickLeaveAndDeleteGroup(): void {
+    if ($viewModelStore === undefined) {
+      return;
+    }
+    if ($viewModelStore.receiver.creator.type === 'self') {
+      setDisbandModalState('disband-and-delete', $viewModelStore.receiver);
+    } else {
+      setLeaveModalState('leave-and-delete', $viewModelStore.receiver);
+    }
+  }
+
+  $effect(() => {
+    reactive(handleChangeRouterState, [$router]);
+  });
+
+  $effect(() => {
+    reactive(handleChangeGroupDetail, [routeParams]).catch(assertUnreachable);
+  });
+
+  const receiverPreviewListProps = $derived(
+    groupReceiverDataToGroupContentItemProps(viewModelStore),
+  );
 </script>
 
 {#if $viewModelStore !== undefined && viewModelController !== undefined}
   <div class="container">
     <div class="top-bar">
-      <TopBar on:clickback={handleClickBack} on:clickclose={handleClickClose} />
+      <TopBar onclickback={handleClickBack} onclickclose={handleClickClose} />
     </div>
 
     <div class="content">
       <GroupContent
+        onclickeditmembers={handleClickEditGroupMembers}
+        onclickeditname={handleClickEditGroupName}
+        onclickitem={handleClickItem}
+        onclickprofilepicture={handleOpenProfilePictureModal}
+        onclickremovemember={handleClickRemoveMember}
+        onclickleavegroup={handleClickLeaveGroup}
+        onlclickleaveanddeletegroup={handleClickLeaveAndDeleteGroup}
+        onclickdeletegroup={handleClickDeleteGroup}
+        contactPreviewList={$receiverPreviewListProps}
         receiver={$viewModelStore.receiver}
         {services}
-        on:clickprofilepicture={handleOpenProfilePictureModal}
-        on:clickitem={handleClickItem}
       />
     </div>
   </div>
@@ -192,7 +389,15 @@
 {#if modalState.type === 'none'}
   <!-- No modal is displayed in this state. -->
 {:else if modalState.type === 'profile-picture'}
-  <ProfilePictureModal {...modalState.props} on:close={handleCloseModal} />
+  <ProfilePictureModal {...modalState.props} onclose={handleCloseModal} />
+{:else if modalState.type === 'edit-group-name'}
+  <EditGroupNameModal {...modalState.props} onclose={handleCloseModal} />
+{:else if modalState.type === 'disband-group'}
+  <DisbandGroupModal {...modalState.props} onclose={handleCloseModal} />
+{:else if modalState.type === 'leave-group'}
+  <LeaveGroupModal {...modalState.props} onclose={handleCloseModal} />
+{:else if modalState.type === 'delete-group'}
+  <DeleteGroupModal {...modalState.props} onclose={handleCloseModal} />
 {:else}
   {unreachable(modalState)}
 {/if}

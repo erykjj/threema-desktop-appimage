@@ -1,23 +1,26 @@
+import type {Snippet} from 'svelte';
+import type {HTMLButtonAttributes} from 'svelte/elements';
+
 import type {Constraints} from '~/app/ui/components/atoms/lazy-image/types';
 import type {ProfilePictureBlobStoreValue} from '~/common/dom/ui/profile-picture';
+import type {ThumbnailStoreValue} from '~/common/dom/ui/thumbnail-cache';
 import type {Dimensions} from '~/common/types';
 import type {IQueryableStore} from '~/common/utils/store';
 
 /**
  * Props accepted by the `LazyImage` component.
  */
-export interface LazyImageProps {
+export interface LazyImageProps extends Pick<HTMLButtonAttributes, 'onclick'> {
     /**
-     * Bytes of the image.
+     * Bytes and dimensions of the image.
      *
-     * Profile pictures are loaded once and kept in memory. Therefore, their dimensions must be
-     * calculated upfront upon fetching.
+     * The dimensions of the blob must be calculated upon fetching.
      *
      * Note: Please ensure the {@link Blob} has a defined media type, or it will be rendered as
      * failed.
      */
     readonly byteStore: IQueryableStore<
-        'loading' | Blob | ProfilePictureBlobStoreValue | undefined
+        'loading' | ThumbnailStoreValue | ProfilePictureBlobStoreValue | undefined
     >;
     /**
      * Constraints to control the display size of an image.
@@ -33,7 +36,7 @@ export interface LazyImageProps {
      */
     readonly dimensions?: Dimensions;
     /**
-     * Whether the `LazyImage` is clickable and should emit `on:click` events. Defaults to `false`.
+     * Whether the `LazyImage` is clickable and should emit `onclick` events. Defaults to `false`.
      */
     readonly isClickable?: boolean;
     /**
@@ -46,4 +49,12 @@ export interface LazyImageProps {
      * or height. Defaults to `false`.
      */
     readonly responsive?: boolean;
+    /**
+     * Optional snippet to display as content if loading the image has failed.
+     */
+    readonly snippetFailed?: Snippet;
+    /**
+     * Optional snippet to display as content while the image is loading.
+     */
+    readonly snippetLoading?: Snippet;
 }

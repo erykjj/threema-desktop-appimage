@@ -262,9 +262,9 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
         /**
          * TODO(SE-266): Update (message) size limitation.
          */
-        MAX_TEXT_MESSAGE_BYTES: 7000,
+        MAX_TEXT_MESSAGE_BYTES: 6000,
         MAX_FILE_MESSAGE_BYTES: 100 * MiB,
-        MAX_FILE_MESSAGE_CAPTION_BYTES: 1000,
+        MAX_FILE_MESSAGE_CAPTION_BYTES: 6000,
 
         // Version info
         GIT_REVISION: process.env.GIT_REVISION ?? '',
@@ -295,13 +295,26 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
                       {
                           domain: '*.threema.ch',
                           spkis: [
-                              '8kTK9HP1KHIP0sn6T2AFH3Bq+qq3wn2i/OJSMjewpFw=',
-                              'KKBJHJn1PQSdNTmoAfhxqWTO61r8O8bPi/JeGtP/6gg=',
-                              'h2gHawxPZyMCiZSkJN0dQ4RsDxowVuTmuiNQyjeU+Sk=',
-                              'HXqz8rMr6nBDdUX3CdyIwln8ym3qFUBwv4QGyMN2uEg=',
-                              '2Vpy8qUQCqc2+Lg6BgRO8G6e6vh7NmvVHTljfwP/Pfk=',
                               'vGQZ8hm2h+km+q7rnJ7kF9S17BwSY0rbhwjz6nIupf0=',
-                              'jsQHAHKQ2oOf3rvMn9GJVIKslkhLpODGOMPSxgLeIyo=',
+                              '3L0bKTNfTwVUCjYqqhZXJIO03qC00bSnuxZFsb09OUo=',
+                              'NN6Lb+2AE7CN3HWZKoWOe6mmHROOnywWoKZYWL1oHIU=',
+                              'efJCZofFPR3oV/bBk0wmehqnhy3Vv+s9P+3sjhHem/E=',
+                              '2Vpy8qUQCqc2+Lg6BgRO8G6e6vh7NmvVHTljfwP/Pfk=',
+                              'KKBJHJn1PQSdNTmoAfhxqWTO61r8O8bPi/JeGtP/6gg=',
+                          ].map((value) => ({
+                              algorithm: 'sha256',
+                              value,
+                          })),
+                      },
+                      {
+                          domain: '*.threema.com',
+                          spkis: [
+                              'saKwtUPx8bCj9CW+c55nU2jb4aOpr0vBD8XMJveXq34=',
+                              'nZWRY8rNSEqxjQDQjaunWlUL+YBOTK1xN5Bb0wMq/K0=',
+                              '5AfgU7xFqhx5AS69cQZlAGv6JpmLm0A+Z6yBrLPOCP8=',
+                              'GGSYKwkV3h6SRIY16Ixsh8LEKuGuhx3B4CamRde4xgY=',
+                              'oD0JGdy32wZtoUT4n9ac3HLOgEosnx2kq+qaJnmtsQk=',
+                              'j4n4RTr0MLfQ3gBmONIFreXDq5/Kkb2oquVTmq0n5pI=',
                           ].map((value) => ({
                               algorithm: 'sha256',
                               value,
@@ -451,12 +464,12 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
             env.entry === 'app'
                 ? svelte({
                       configFile: '../svelte.config.js',
-                      // TODO(DESK-1714) Investigate this warning
+                      // TODO(DESK-1714): Investigate this warning.
                       onwarn(warning, defaultHandler) {
                           if (warning.code === 'vite-plugin-svelte-preprocess-many-dependencies') {
                               return;
                           }
-                          defaultHandler?.(warning);
+                          defaultHandler(warning);
                       },
                   })
                 : undefined,

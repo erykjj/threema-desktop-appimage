@@ -8,6 +8,7 @@ import type {
 import type {GroupModelStore} from '~/common/model/group';
 import type {OngoingGroupCall} from '~/common/model/group-call';
 import type {
+    ControllerCustomUpdate,
     ControllerUpdate,
     ControllerUpdateFromLocal,
     ControllerUpdateFromSource,
@@ -52,16 +53,18 @@ export interface GroupView {
      * - the creator, and
      * - the user itself (the user's membership must be checked via `userState`).
      */
-    readonly members: Set<ModelStore<Contact>>;
+    readonly members: ReadonlySet<ModelStore<Contact>>;
 }
 
 export type GroupInit = Omit<GroupView, 'displayName' | 'members' | 'color'> &
     ConversationInitMixin;
 
 /**
- * Update the group properties. These do not include the member and the user state which are handled separately.
+ * Update the group properties. These do not include the members which are handled
+ * separately.
  *
- * Note: When you extend this type, make sure to extend the corresponding `groupSync.Update` handling.
+ * Note: When you extend this type, make sure to extend {@link getD2dGroupSyncUpdate}
+ * handling.
  */
 export type GroupUpdate = Partial<
     Pick<
@@ -72,10 +75,10 @@ export type GroupUpdate = Partial<
         | 'userState'
     >
 >;
-export type GroupUpdateFromLocal = Pick<
-    GroupUpdate,
-    'notificationTriggerPolicyOverride' | 'notificationSoundPolicyOverride'
->;
+export type GroupCreateOrUpdateFromLocal = Pick<GroupUpdate, 'name' | 'userState'>;
+
+export type DisbandGroupIntent = 'disband' | 'disband-and-delete';
+export type LeaveGroupIntent = 'leave' | 'leave-and-delete';
 
 export type GroupController = ReceiverController & {
     readonly uid: UidOf<DbGroup>;
@@ -88,27 +91,15 @@ export type GroupController = ReceiverController & {
     readonly call: ReadableStore<ChosenGroupCall | undefined>;
 
     /**
-     * Add given contacts to the group (if they are not in it already).
-     *
-     * Returns the number of added contacts.
-     *
-     * Note: If the creator is in the list, it will be ignored.
-     */
-    readonly addMembers: ControllerUpdateFromLocal<
-        [contacts: ModelStore<Contact>[], createdAt: Date],
-        u53
-    >;
-
-    /**
      * Remove the given contacts from a group (if they are in it).
      *
      * Returns the number of removed contacts.
      *
      * Note: If the creator is in the list, it will be ignored.
      */
-    readonly removeMembers: ControllerUpdate<
-        [contacts: ModelStore<Contact>[], createdAt: Date],
-        u53
+    readonly removeMembers: Omit<
+        ControllerUpdate<[contacts: ModelStore<Contact>[], createdAt: Date], u53>,
+        'fromLocal'
     >;
 
     /**
@@ -125,16 +116,13 @@ export type GroupController = ReceiverController & {
      *
      * @returns the number of added and removed contacts.
      */
-    readonly setMembers: Omit<
-        ControllerUpdate<
-            [
-                contacts: ModelStore<Contact>[],
-                createdAt: Date,
-                newUserState?: GroupUserState.MEMBER,
-            ],
-            {added: u53; removed: u53}
-        >,
-        'fromLocal'
+    readonly setMembers: ControllerUpdate<
+        [
+            contacts: readonly ModelStore<Contact>[],
+            createdAt: Date,
+            newUserState?: GroupUserState.MEMBER,
+        ],
+        {added: u53; removed: u53} | 'failed'
     >;
 
     /**
@@ -144,15 +132,18 @@ export type GroupController = ReceiverController & {
     readonly update: ControllerUpdateFromSync<[update: GroupUpdate, createdAt: Date]>;
 
     /**
-     * Update a group's name.
+     * Update a group's name. Return true if the update was successful.
      */
-    readonly name: ControllerUpdate<[name: string, createdAt: Date]>;
-
-    /**
-     * Remove the group and the corresponding conversation, and deactivate the controller. In case
-     * the remove is called locally, sync the update to other devices.
-     */
-    readonly remove: Omit<ControllerUpdateFromSource, 'fromRemote'>;
+    readonly name: ControllerCustomUpdate<
+        [name: string, createdAt: Date], // FromLocal
+        [name: string, createdAt: Date], // FromSync
+        [name: string, createdAt: Date], // FromRemote
+        [name: string, createdAt: Date], // Direct
+        boolean,
+        void,
+        void,
+        void
+    >;
 
     /**
      * Mark group membership as {@link GroupUserState.KICKED}. This means that we were removed from
@@ -163,12 +154,12 @@ export type GroupController = ReceiverController & {
     /**
      * Mark group membership as {@link GroupUserState.LEFT}. This means that we left the group.
      */
-    readonly leave: Omit<ControllerUpdate<[createdAt: Date]>, 'fromRemote'>;
+    readonly leave: Omit<ControllerUpdate<[createdAt: Date]>, 'fromLocal' | 'fromRemote'>;
 
     /**
-     * Dissolve a group that we created.
+     * Disband a group that we created.
      */
-    readonly dissolve: Omit<ControllerUpdateFromSource, 'fromLocal' | 'fromRemote'>;
+    readonly disband: Omit<ControllerUpdateFromSource, 'fromLocal' | 'fromRemote'>;
 
     /**
      * Returns true if the given contact is a member (or the creator) of this group.
@@ -237,12 +228,50 @@ export type GroupRepository = {
      * @param init The group data
      * @param members The members list (including the creator)
      */
-    readonly add: ControllerUpdate<
-        [init: GroupInit, members: ModelStore<Contact>[]],
-        ModelStore<Group>
+    readonly add: ControllerCustomUpdate<
+        [init: Pick<GroupInit, 'name'>, members: ModelStore<Contact>[]], // FromLocal
+        [init: GroupInit, members: ModelStore<Contact>[]], // FromSync
+        [init: GroupInit, members: ModelStore<Contact>[]], // FromRemote
+        [init: GroupInit, members: ModelStore<Contact>[]], // Direct
+        ModelStore<Group> | undefined, // FromLocal
+        ModelStore<Group>, // FromSync
+        ModelStore<Group>, // FromRemote
+        ModelStore<Group> // Direct
     >;
 
-    readonly remove: ControllerUpdateFromSync<[uid: DbGroupUid]>;
+    /**
+     * Disband a group where the user is the creator.
+     *
+     * The intent specifies whether the group should be disbanded
+     * {@link protobuf.d2d.GroupSync.Update}, or disbanded and completely deleted
+     * {@link protobuf.d2d.GroupSync.Delete}.
+     */
+    readonly disband: ControllerUpdateFromLocal<
+        [uid: DbGroupUid, intent: DisbandGroupIntent], // FromLocal
+        boolean
+    >;
+
+    /**
+     * Leave a group where the user is not the creator.
+     *
+     * The intent specifies whether the group should be left (corresponds to
+     * {@link protobuf.d2d.GroupSync.Update}), or left and completely deleted (corresponds to
+     * {@link protobuf.d2d.GroupSync.Delete}).
+     */
+    readonly leave: ControllerUpdateFromLocal<
+        [uid: DbGroupUid, intent: LeaveGroupIntent], // FromLocal
+        boolean
+    >;
+
+    /**
+     * Remove a group from the database.
+     *
+     * This function does not send any CSP message nor does it change the group membership.
+     */
+    readonly remove: Omit<
+        ControllerUpdateFromSource<[uid: DbGroupUid], boolean>,
+        'fromRemote' | 'direct'
+    >;
 
     /**
      * Return the `ModelStore` of a group.

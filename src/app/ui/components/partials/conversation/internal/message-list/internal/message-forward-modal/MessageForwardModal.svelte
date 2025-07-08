@@ -3,65 +3,156 @@
 -->
 <script lang="ts">
   import {onMount} from 'svelte';
+  import {SvelteSet} from 'svelte/reactivity';
 
   import {globals} from '~/app/globals';
   import Modal from '~/app/ui/components/hocs/modal/Modal.svelte';
   import AddressBook from '~/app/ui/components/partials/address-book/AddressBook.svelte';
-  import type {TabState} from '~/app/ui/components/partials/address-book/types';
   import type {MessageForwardModalProps} from '~/app/ui/components/partials/conversation/internal/message-list/internal/message-forward-modal/props';
-  import {receiverListViewModelStoreToReceiverPreviewListPropsStore} from '~/app/ui/components/partials/receiver-nav/transformers';
-  import type {
-    ContextMenuItemHandlerProps,
-    RemoteReceiverListViewModelStoreValue,
-  } from '~/app/ui/components/partials/receiver-nav/types';
+  import {receiverListViewModelStoreToReceiverPreviewListItemsStore} from '~/app/ui/components/partials/conversation/internal/message-list/internal/message-forward-modal/transformers';
+  import {receiverListToGroupedAddressBookItems} from '~/app/ui/components/partials/receiver-nav/helpers';
+  import type {RemoteReceiverListViewModelStoreValue} from '~/app/ui/components/partials/receiver-nav/types';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
-  import type {DbContactUid, DbReceiverLookup} from '~/common/db';
-  import type {AnyReceiver, ContactInit} from '~/common/model';
-  import type {IdentityString} from '~/common/network/types';
-  import {ensureError} from '~/common/utils/assert';
+  import type {DbGroupUid, DbContactUid, DbReceiverLookup} from '~/common/db';
+  import {ReceiverType} from '~/common/enum';
+  import type {ContactInit} from '~/common/model';
+  import type {IdentityString, MessageId} from '~/common/network/types';
+  import {ensureError, unreachable} from '~/common/utils/assert';
   import type {Remote} from '~/common/utils/endpoint';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
   import type {ReceiverListViewModelBundle} from '~/common/viewmodel/receiver/list';
   import type {ContactLookupResult} from '~/common/viewmodel/receiver/list/controller';
+  import type {AnyReceiverDataOrSelf} from '~/common/viewmodel/utils/receiver';
 
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.message-forward-modal');
 
-  type $$Props = MessageForwardModalProps;
+  const {id, onclose, receiverLookup, services}: MessageForwardModalProps = $props();
+  const {
+    backend,
+    router,
+    settings: {
+      views: {appearance},
+    },
+  } = services;
 
-  export let id: $$Props['id'];
-  export let receiverLookup: $$Props['receiverLookup'];
-  export let services: $$Props['services'];
-
-  const {backend, router} = services;
+  const selectedContacts = new SvelteSet<DbContactUid>();
+  const selectedGroups = new SvelteSet<DbGroupUid>();
 
   // ViewModelBundle containing all receivers.
-  let viewModelStore: IQueryableStore<RemoteReceiverListViewModelStoreValue | undefined> =
-    new ReadableStore(undefined);
-  let viewModelController: Remote<ReceiverListViewModelBundle>['viewModelController'] | undefined =
-    undefined;
+  let viewModelStore = $state<IQueryableStore<RemoteReceiverListViewModelStoreValue | undefined>>(
+    new ReadableStore(undefined),
+  );
+  let viewModelController = $state<
+    Remote<ReceiverListViewModelBundle>['viewModelController'] | undefined
+  >(undefined);
 
-  let modalComponent: SvelteNullableBinding<Modal> = null;
+  let submitButtonLoading = $state(false);
 
-  let addressBookComponent: SvelteNullableBinding<
-    AddressBook<ContextMenuItemHandlerProps<AnyReceiver>>
-  > = null;
-  let addressBookTabState: TabState = 'contact';
+  let modalComponent = $state<SvelteNullableBinding<Modal>>(null);
 
-  function handleClickItem(event: CustomEvent<{lookup: DbReceiverLookup}>): void {
-    const messageToForward = {
-      receiverLookup,
+  let addressBookComponent = $state<SvelteNullableBinding<AddressBook>>(null);
+
+  function handleSelectReceiver(selected: boolean, receiver: AnyReceiverDataOrSelf): void {
+    switch (receiver.type) {
+      case 'self':
+      case 'distribution-list':
+        log.debug('GroupAddForm receiver list should only contain contacts');
+        break;
+
+      case 'contact':
+        if (!selected) {
+          selectedContacts.delete(receiver.lookup.uid);
+        } else {
+          selectedContacts.add(receiver.lookup.uid);
+        }
+        break;
+
+      case 'group':
+        if (!selected) {
+          selectedGroups.delete(receiver.lookup.uid);
+        } else {
+          selectedGroups.add(receiver.lookup.uid);
+        }
+        break;
+
+      default:
+        unreachable(receiver);
+    }
+  }
+
+  function isReceiverSelected(receiver: AnyReceiverDataOrSelf): boolean {
+    switch (receiver.type) {
+      case 'self':
+      case 'distribution-list':
+        log.debug('GroupAddForm receiver list should only contain contacts');
+        return false;
+
+      case 'contact':
+        return selectedContacts.has(receiver.lookup.uid);
+
+      case 'group':
+        return selectedGroups.has(receiver.lookup.uid);
+
+      default:
+        return unreachable(receiver);
+    }
+  }
+
+  async function handleSubmit(): Promise<void> {
+    const lookups = [
+      ...[...selectedContacts].map((uid) => ({type: ReceiverType.CONTACT, uid}) as const),
+      ...[...selectedGroups].map((uid) => ({type: ReceiverType.GROUP, uid}) as const),
+    ];
+
+    if (viewModelController === undefined) {
+      log.error('Cannot forward message, viewmodelcontroller is undefined');
+      return;
+    }
+
+    submitButtonLoading = true;
+
+    // Because Svelte `$state` uses proxies under the hood, values need to be unwrapped using
+    // `$state.snapshot` to make them usable outside of Svelte contexts.
+    const messageToForward = $state.snapshot({
+      lookup: receiverLookup,
       messageId: id,
+    }) as unknown as {
+      readonly lookup: DbReceiverLookup;
+      readonly messageId: MessageId;
     };
 
-    router.goToConversation({
-      receiverLookup: event.detail.lookup,
-      forwardedMessage: messageToForward,
-    });
+    await viewModelController
+      .forwardMessage(messageToForward, lookups)
+      .then(() => {
+        toast.addSimpleSuccess(
+          $i18n.t('dialog--forward-message.label--success', 'Message successfully forwarded'),
+        );
 
-    modalComponent?.close();
+        // If we only forwarded to one receiver, we can open this chat.
+        if (lookups.length === 1) {
+          router.goToConversation({
+            receiverLookup: $state.snapshot(lookups[0]) as unknown as DbReceiverLookup,
+          });
+        }
+
+        modalComponent?.close();
+      })
+      .catch((error) => {
+        log.error('An error occurred when forwarding message:', ensureError(error));
+        toast.addSimpleFailure(
+          $i18n.t(
+            'dialog--forward-message.error--forwarding-failed',
+            'Failed to forward the message',
+          ),
+        );
+        modalComponent?.close();
+        router.goToWelcome();
+      });
+
+    submitButtonLoading = false;
   }
 
   async function updateContactAcquaintanceLevelAndName(
@@ -91,20 +182,41 @@
   }
 
   // Current list items.
-  $: receiverPreviewListPropsStore = receiverListViewModelStoreToReceiverPreviewListPropsStore(
-    viewModelStore,
-    addressBookTabState,
+  const receiverPreviewListItemsStore = $derived(
+    receiverListViewModelStoreToReceiverPreviewListItemsStore(viewModelStore),
   );
 
-  // Filter out the current recipient since forwarding to the same conversation is an operation
-  // without use-case.
-  $: filteredReceiverPreviewListProps = $receiverPreviewListPropsStore?.filter(
-    (item) =>
-      item.receiver.type !== 'self' &&
-      !(
-        item.receiver.lookup.type === receiverLookup.type &&
-        item.receiver.lookup.uid === receiverLookup.uid
-      ),
+  const groupedAddressBookItems = $derived(
+    receiverListToGroupedAddressBookItems(
+      $receiverPreviewListItemsStore
+        ?.filter((item) => {
+          // Exclude `self`.
+          if (item.receiver.type === 'self') {
+            return false;
+          }
+
+          // Exclude receiver of original message to forward.
+          if (
+            item.receiver.lookup.type === receiverLookup.type &&
+            item.receiver.lookup.uid === receiverLookup.uid
+          ) {
+            return false;
+          }
+
+          return true;
+        })
+        .map((item) => ({
+          ...item,
+          interaction: {
+            mode: 'select',
+            isSelected: isReceiverSelected(item.receiver),
+            onselect: (selected: boolean) => handleSelectReceiver(selected, item.receiver),
+          },
+        })),
+      $appearance,
+      log,
+      {filterLeftGroups: true, filterInvalidContacts: true},
+    ),
   );
 
   onMount(async () => {
@@ -119,7 +231,7 @@
         log.error(`Failed to load ReceiverListViewModelBundle: ${ensureError(error)}`);
 
         toast.addSimpleFailure(
-          i18n.get().t('contacts.error--contact-list-load', 'Contacts could not be loaded'),
+          $i18n.t('contacts.error--contact-list-load', 'Receivers could not be loaded'),
         );
       });
   });
@@ -127,31 +239,42 @@
 
 <Modal
   bind:this={modalComponent}
+  {onclose}
   wrapper={{
     type: 'card',
     actions: [
       {
         iconName: 'close',
-        onClick: 'close',
+        onclick: 'close',
+      },
+    ],
+    buttons: [
+      {
+        label: $i18n.t('dialog--common.action--cancel', 'Cancel'),
+        type: 'naked',
+        onclick: 'close',
+      },
+      {
+        label: $i18n.t('dialog--forward-message.label--submit', 'Forward Message'),
+        type: 'filled',
+        onclick: handleSubmit,
+        state: submitButtonLoading ? 'loading' : 'default',
       },
     ],
     title: $i18n.t('dialog--forward-message.label--title', 'Select Recipient'),
     maxWidth: 460,
   }}
-  on:close
 >
   <div class="content">
     <AddressBook
       bind:this={addressBookComponent}
-      bind:tabState={addressBookTabState}
-      items={filteredReceiverPreviewListProps}
+      items={groupedAddressBookItems}
       options={{
         allowReceiverCreation: false,
         allowReceiverEditing: false,
         highlightActiveReceiver: false,
       }}
       {services}
-      on:clickitem={handleClickItem}
       actions={{
         createContact,
         lookupContact,

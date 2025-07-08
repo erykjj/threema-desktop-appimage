@@ -6,22 +6,48 @@
   import ProfilePicture from '~/app/ui/components/partials/profile-picture/ProfilePicture.svelte';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
+  import {MAX_CONTACT_NAME_BYTES} from '~/app/ui/utils/constants';
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
+  import {UTF8} from '~/common/utils/codec';
+  import {TIMER} from '~/common/utils/timer';
 
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.edit-contact-modal');
 
-  type $$Props = EditContactModalProps;
+  const {onclose, receiver, services}: EditContactModalProps = $props();
 
-  export let receiver: $$Props['receiver'];
-  export let services: $$Props['services'];
+  let modalComponent = $state<SvelteNullableBinding<Modal>>(null);
 
-  let modalComponent: SvelteNullableBinding<Modal> = null;
+  let firstNameInputValue = $state<string>(receiver.firstName);
+  let lastNameInputValue = $state<string>(receiver.lastName);
 
-  let firstNameInputValue = receiver.firstName;
-  let lastNameInputValue = receiver.lastName;
+  let firstNameByteSize = $state(UTF8.encode(receiver.firstName).byteLength);
+  let lastNameByteSize = $state(UTF8.encode(receiver.lastName).byteLength);
+
+  let submitButtonLoading = $state(false);
+
+  const handleMutation = TIMER.debounce(() => {
+    firstNameByteSize = UTF8.encode(firstNameInputValue).byteLength;
+    lastNameByteSize = UTF8.encode(lastNameInputValue).byteLength;
+  }, 200);
 
   async function handleSubmit(): Promise<void> {
+    if (firstNameInputValue === receiver.firstName && lastNameInputValue === receiver.lastName) {
+      modalComponent?.close();
+      return;
+    }
+
+    // Reject names that are too long.
+    const firstNameLength = UTF8.encode(firstNameInputValue).byteLength;
+    const lastNameLength = UTF8.encode(lastNameInputValue).byteLength;
+    if (firstNameLength > MAX_CONTACT_NAME_BYTES || lastNameLength > MAX_CONTACT_NAME_BYTES) {
+      firstNameByteSize = firstNameLength;
+      lastNameByteSize = lastNameLength;
+      return;
+    }
+
+    submitButtonLoading = true;
+
     await receiver
       .edit({
         type: 'contact',
@@ -40,7 +66,7 @@
           $i18n.t('dialog--edit-contact.error--edit-contact', 'Failed to edit contact'),
         );
       });
-
+    submitButtonLoading = false;
     modalComponent?.close();
   }
 </script>
@@ -52,19 +78,22 @@
     actions: [
       {
         iconName: 'close',
-        onClick: 'close',
+        onclick: 'close',
       },
     ],
     buttons: [
       {
         label: $i18n.t('dialog--common.action--cancel', 'Cancel'),
         type: 'naked',
-        onClick: 'close',
+        onclick: 'close',
       },
       {
         label: $i18n.t('dialog--common.action--ok', 'OK'),
-        onClick: 'submit',
+        onclick: 'submit',
         type: 'filled',
+        disabled:
+          firstNameByteSize > MAX_CONTACT_NAME_BYTES || lastNameByteSize > MAX_CONTACT_NAME_BYTES,
+        state: submitButtonLoading ? 'loading' : 'default',
       },
     ],
     title: $i18n.t('dialog--edit-contact.label--title', 'Edit {name}', {
@@ -72,11 +101,11 @@
     }),
     maxWidth: 460,
   }}
+  {onclose}
+  onsubmit={handleSubmit}
   options={{
     allowSubmittingWithEnter: true,
   }}
-  on:submit={handleSubmit}
-  on:close
 >
   <div class="content">
     <div class="profile-picture">
@@ -93,12 +122,14 @@
     <div class="inputs">
       <Input
         bind:value={firstNameInputValue}
+        oninput={handleMutation}
         autofocus
         id="first-name"
         label={$i18n.t('dialog--edit-contact.label--first-name', 'First Name')}
       />
       <Input
         bind:value={lastNameInputValue}
+        oninput={handleMutation}
         autofocus
         id="last-name"
         label={$i18n.t('dialog--edit-contact.label--last-name', 'Last Name')}

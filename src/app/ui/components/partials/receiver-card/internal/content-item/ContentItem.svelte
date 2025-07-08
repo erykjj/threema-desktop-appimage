@@ -14,9 +14,7 @@
   import {unreachable} from '~/common/utils/assert';
   import {hasProperty} from '~/common/utils/object';
 
-  type $$Props = ContentItemProps;
-
-  export let options: $$Props['options'];
+  const {onclickjoincall, options}: ContentItemProps = $props();
 </script>
 
 <span class="item" data-type={options.type}>
@@ -34,7 +32,7 @@
       isTyping={options.isTyping}
       isPrivate={options.isPrivate}
       notificationPolicy={options.notificationPolicy}
-      on:clickjoincall
+      {onclickjoincall}
     />
   {:else if options.type === 'receiver-name'}
     {@const textContentItemOptions = getTextContentItemOptionsFromReceiverNameContentItemOptions(
@@ -63,12 +61,14 @@
       options={options.options}
     />
   {:else if options.type === 'tags'}
-    <Tags
-      isArchived={options.isArchived}
-      isCreator={options.isCreator}
-      isInactive={options.isInactive}
-      isInvalid={options.isInvalid}
-    />
+    {#if options.isArchived === true || options.isCreator === true || options.isInactive === true || options.isInvalid === true}
+      <Tags
+        isArchived={options.isArchived}
+        isCreator={options.isCreator}
+        isInactive={options.isInactive}
+        isInvalid={options.isInvalid}
+      />
+    {/if}
   {:else if options.type === 'text'}
     <span
       class="nowrap"
@@ -109,6 +109,10 @@
     &[data-type='relative-timestamp'],
     &[data-type='verification-dots'] {
       flex: 0 0 auto;
+    }
+
+    &:empty {
+      display: none;
     }
 
     .blocked-icon {

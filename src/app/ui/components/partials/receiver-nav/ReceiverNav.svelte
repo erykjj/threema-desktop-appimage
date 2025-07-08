@@ -7,11 +7,12 @@
   import {globals} from '~/app/globals';
   import {ROUTE_DEFINITIONS} from '~/app/routing/routes';
   import AddressBook from '~/app/ui/components/partials/address-book/AddressBook.svelte';
-  import type {TabState} from '~/app/ui/components/partials/address-book/types';
+  import type {AddressBookState} from '~/app/ui/components/partials/address-book/types';
   import EditContactModal from '~/app/ui/components/partials/modals/edit-contact-modal/EditContactModal.svelte';
+  import {receiverListToGroupedAddressBookItems} from '~/app/ui/components/partials/receiver-nav/helpers';
   import TopBar from '~/app/ui/components/partials/receiver-nav/internal/top-bar/TopBar.svelte';
   import type {ReceiverNavProps} from '~/app/ui/components/partials/receiver-nav/props';
-  import {receiverListViewModelStoreToReceiverPreviewListPropsStore} from '~/app/ui/components/partials/receiver-nav/transformers';
+  import {receiverListViewModelStoreToReceiverPreviewListItemsStore} from '~/app/ui/components/partials/receiver-nav/transformers';
   import type {
     ContextMenuItemHandlerProps,
     ModalState,
@@ -19,9 +20,9 @@
   } from '~/app/ui/components/partials/receiver-nav/types';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
-  import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
-  import type {DbContactUid, DbReceiverLookup} from '~/common/db';
-  import type {AnyReceiver, ContactInit} from '~/common/model';
+  import {reactive, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
+  import type {DbContactUid, DbGroupUid, DbReceiverLookup} from '~/common/db';
+  import type {AnyReceiver, ContactInit, GroupInit} from '~/common/model';
   import type {IdentityString} from '~/common/network/types';
   import {DEFAULT_CATEGORY} from '~/common/settings';
   import {ensureError, unreachable} from '~/common/utils/assert';
@@ -33,38 +34,42 @@
   const {uiLogging, hotkeyManager} = globals.unwrap();
   const log = uiLogging.logger('ui.component.receiver-nav');
 
-  type $$Props = ReceiverNavProps;
+  const {services}: ReceiverNavProps = $props();
 
-  export let services: $$Props['services'];
+  const {
+    backend,
+    router,
+    settings: {
+      views: {appearance},
+    },
+  } = services;
 
-  const {backend, router} = services;
+  let viewModelStore = $state<IQueryableStore<RemoteReceiverListViewModelStoreValue | undefined>>(
+    new ReadableStore(undefined),
+  );
+  let viewModelController = $state<
+    Remote<ReceiverListViewModelBundle>['viewModelController'] | undefined
+  >(undefined);
 
-  let viewModelStore: IQueryableStore<RemoteReceiverListViewModelStoreValue | undefined> =
-    new ReadableStore(undefined);
-  let viewModelController: Remote<ReceiverListViewModelBundle>['viewModelController'] | undefined =
-    undefined;
+  let modalState = $state<ModalState>({type: 'none'});
 
-  let modalState: ModalState = {type: 'none'};
-
-  let addressBookComponent: SvelteNullableBinding<
-    AddressBook<ContextMenuItemHandlerProps<AnyReceiver>>
-  > = null;
-  let addressBookTabState: TabState = 'contact';
+  let addressBookComponent = $state<SvelteNullableBinding<AddressBook>>(null);
+  let addressBookState = $state<AddressBookState | undefined>(undefined);
 
   function handleHotkeyControlF(): void {
     addressBookComponent?.focusAndSelectSearchBar();
   }
 
-  function handleClickBackButton(): void {
+  function handleClickBack(): void {
     router.go({nav: ROUTE_DEFINITIONS.nav.conversationList.withoutParams()});
   }
 
-  function handleClickSettingsButton(): void {
+  function handleClickSettings(): void {
     router.goToSettings({category: DEFAULT_CATEGORY});
   }
 
-  function handleClickEditItem(event: CustomEvent<ContextMenuItemHandlerProps<AnyReceiver>>): void {
-    const {receiver} = event.detail.viewModelBundle.viewModelStore.get();
+  function handleClickEditItem(item: ContextMenuItemHandlerProps<AnyReceiver>): void {
+    const {receiver} = item.viewModelBundle.viewModelStore.get();
     if (receiver.type !== 'contact') {
       return;
     }
@@ -75,7 +80,7 @@
         receiver: {
           ...receiver,
           edit: async (update) => {
-            await event.detail.viewModelBundle.viewModelController.edit(update);
+            await item.viewModelBundle.viewModelController.edit(update);
           },
         },
         services,
@@ -89,13 +94,14 @@
     };
   }
 
-  function handleClickReceiverListItem(
-    event: CustomEvent<{lookup: DbReceiverLookup; active: boolean}>,
-  ): void {
-    if (event.detail.active) {
+  function handleClickReceiverListItem(item: {
+    readonly lookup: DbReceiverLookup;
+    readonly active: boolean;
+  }): void {
+    if (item.active) {
       router.goToWelcome();
     } else {
-      router.goToConversation({receiverLookup: event.detail.lookup});
+      router.goToConversation({receiverLookup: item.lookup});
     }
   }
 
@@ -124,10 +130,32 @@
     }
     return await viewModelController.lookupContact(identityString);
   }
+
+  async function createGroup(
+    groupInit: Pick<GroupInit, 'name'>,
+    members: ReadonlySet<DbContactUid>,
+  ): Promise<DbGroupUid | undefined> {
+    if (viewModelController === undefined) {
+      throw new Error('Error creating group: The ReceiverListViewModelController was undefined');
+    }
+    return await viewModelController.createGroup(groupInit, members);
+  }
+
+  function handleChangeRouterState(): void {
+    const routerState = $router;
+
+    if (routerState.nav.id === 'receiverList') {
+      addressBookState = routerState.nav.params.addressBookState;
+    }
+  }
+
   // Current list items.
-  $: receiverPreviewListPropsStore = receiverListViewModelStoreToReceiverPreviewListPropsStore(
-    viewModelStore,
-    addressBookTabState,
+  const receiverPreviewListItemsStore = $derived(
+    receiverListViewModelStoreToReceiverPreviewListItemsStore(viewModelStore),
+  );
+
+  const groupedAddressBookItems = $derived(
+    receiverListToGroupedAddressBookItems($receiverPreviewListItemsStore, $appearance, log),
   );
 
   onMount(async () => {
@@ -154,35 +182,39 @@
       hotkeyManager.unregisterHotkey(handleHotkeyControlF);
     };
   });
+
+  $effect(() => {
+    reactive(handleChangeRouterState, [$router]);
+  });
 </script>
 
 <div class="container">
   <AddressBook
     bind:this={addressBookComponent}
-    bind:tabState={addressBookTabState}
-    items={$receiverPreviewListPropsStore}
-    {services}
-    on:clickedititem={handleClickEditItem}
-    on:clickitem={handleClickReceiverListItem}
     actions={{
       createContact,
+      createGroup,
       lookupContact,
       updateContactAcquaintanceLevelAndName,
     }}
+    componentState={addressBookState}
+    items={groupedAddressBookItems}
+    onclickedititem={handleClickEditItem}
+    onclickitem={handleClickReceiverListItem}
+    {services}
   >
-    <div slot="topbar">
-      <TopBar
-        on:clickbackbutton={handleClickBackButton}
-        on:clicksettingsbutton={handleClickSettingsButton}
-      />
-    </div>
+    {#snippet snippetTopbar()}
+      <div>
+        <TopBar onclickback={handleClickBack} onclicksettings={handleClickSettings} />
+      </div>
+    {/snippet}
   </AddressBook>
 </div>
 
 {#if modalState.type === 'none'}
   <!-- No modal is displayed in this state. -->
 {:else if modalState.type === 'edit-contact'}
-  <EditContactModal {...modalState.props} on:close={handleCloseModal} />
+  <EditContactModal {...modalState.props} onclose={handleCloseModal} />
 {:else}
   {unreachable(modalState)}
 {/if}

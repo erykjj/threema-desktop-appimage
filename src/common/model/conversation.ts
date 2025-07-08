@@ -11,6 +11,7 @@ import {
     ReceiverType,
     TriggerSource,
     TypingIndicatorPolicy,
+    type PollMessageType,
     type StatusMessageType,
 } from '~/common/enum';
 import {TRANSFER_HANDLER} from '~/common/index';
@@ -32,6 +33,7 @@ import type {
     AnyNonDeletedMessageModelStore,
     AnyNonDeletedMessageType,
     AnyOutboundNonDeletedMessageModelStore,
+    AnyPollMessageModelStore,
     DirectedMessageFor,
     SetOfAnyLocalMessageModelStore,
 } from '~/common/model/types/message';
@@ -64,6 +66,8 @@ import {
     type StatusMessageId,
     isStatusMessageId,
     statusMessageIdtoStatusMessageUid,
+    type PollId,
+    type IdentityString,
 } from '~/common/network/types';
 import type {i53, Mutable, u53} from '~/common/types';
 import {assert, assertUnreachable, isNotUndefined, unreachable} from '~/common/utils/assert';
@@ -514,18 +518,13 @@ export class ConversationModelController implements ConversationController {
                 case ReceiverType.GROUP: {
                     const group_ = this.receiver();
                     assert(group_.type === ReceiverType.GROUP);
-                    syncTask = new ReflectGroupSyncTransactionTask(
-                        this._services,
-                        group_.get(),
-                        precondition,
-                        {
-                            type: 'update',
-                            groupId: conversationId.groupId,
-                            creatorIdentity: conversationId.creatorIdentity,
-                            group: {},
-                            conversation: conversationChange,
-                        },
-                    );
+                    syncTask = new ReflectGroupSyncTransactionTask(this._services, precondition, {
+                        type: 'update',
+                        groupId: conversationId.groupId,
+                        creatorIdentity: conversationId.creatorIdentity,
+                        groupUpdate: {},
+                        conversationUpdate: conversationChange,
+                    });
                     break;
                 }
                 default:
@@ -717,6 +716,24 @@ export class ConversationModelController implements ConversationController {
     public getMessage(id: MessageId): AnyMessageModelStore | undefined {
         return this.lifetimeGuard.run(() =>
             message.getByMessageId(this._services, this._handle, MESSAGE_FACTORY, id),
+        );
+    }
+
+    /** @inheritdoc */
+    public getMessageByPollId(
+        creatorIdentity: IdentityString,
+        pollId: PollId,
+        pollMessageType: PollMessageType,
+    ): AnyPollMessageModelStore | undefined {
+        return this.lifetimeGuard.run(() =>
+            message.getByPollId(
+                this._services,
+                this._handle,
+                MESSAGE_FACTORY,
+                pollId,
+                pollMessageType,
+                creatorIdentity,
+            ),
         );
     }
 
@@ -1155,14 +1172,13 @@ export class ConversationModelController implements ConversationController {
                         assert(group_.type === ReceiverType.GROUP);
                         syncTask = new ReflectGroupSyncTransactionTask(
                             this._services,
-                            group_.get(),
                             precondition,
                             {
                                 type: 'update',
                                 groupId: conversationId.groupId,
                                 creatorIdentity: conversationId.creatorIdentity,
-                                group: {},
-                                conversation: conversationChange,
+                                groupUpdate: {},
+                                conversationUpdate: conversationChange,
                             },
                         );
                     }

@@ -113,6 +113,10 @@ $config: config-merge(components.$config, (
       --mc-message-quote-text-color,
       --mc-message-quote-background-color--hover,
 
+      // Poll message
+      --mc-message-poll-choice-color--disabled,
+      --mc-message-poll-track-color--disabled,
+
       // File Message
       --mc-message-file-icon-background-image,
       --mc-message-file-icon-width,
@@ -155,6 +159,7 @@ $config: config-merge(components.$config, (
       --cc-profile-picture-button-box-shadow-color--hover,
       --cc-profile-picture-button-counter-background-color,
       --cc-profile-picture-button-counter-text-color,
+      --cc-profile-picture-button-text-color,
 
       // Conversation
       --cc-conversation-header-background-color,

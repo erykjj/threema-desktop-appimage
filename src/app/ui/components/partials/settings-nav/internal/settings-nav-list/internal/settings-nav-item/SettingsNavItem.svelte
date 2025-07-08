@@ -1,27 +1,21 @@
 <!--
-  @component
-  Renders a single list item in the settings navigation sidebar.
+  @component Renders a single list item in the settings navigation sidebar.
 -->
 <script lang="ts">
   import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import type {SettingsNavItemProps} from '~/app/ui/components/partials/settings-nav/internal/settings-nav-list/internal/settings-nav-item/props';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
 
-  type $$Props = SettingsNavItemProps;
-
-  export let iconName: $$Props['iconName'];
-  export let isActive: NonNullable<$$Props['isActive']> = false;
-  export let subtitle: $$Props['subtitle'];
-  export let title: $$Props['title'];
+  const {iconName, isActive = false, onclick, title, subtitle}: SettingsNavItemProps = $props();
 </script>
 
-<button class="container" class:active={isActive} on:click>
+<button class="container" class:active={isActive} {onclick}>
   <span class="icon">
     <MdIcon theme="Outlined">{iconName}</MdIcon>
   </span>
   <div class="content">
-    <Text text={title} color="mono-high" family="secondary" size="body" />
-    <Text text={subtitle} color="mono-low" family="secondary" size="body-small" />
+    <Text text={title} alignment="start" color="mono-high" family="secondary" size="body" />
+    <Text text={subtitle} alignment="start" color="mono-low" family="secondary" size="body-small" />
   </div>
 </button>
 
