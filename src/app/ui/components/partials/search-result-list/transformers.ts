@@ -1,3 +1,4 @@
+import type {ConversationPreviewListId} from '~/app/ui/components/partials/conversation-nav/types';
 import type {ConversationPreviewListProps} from '~/app/ui/components/partials/conversation-preview-list/props';
 import type {
     AnyQuotedMessage,
@@ -8,11 +9,11 @@ import type {I18nType} from '~/app/ui/i18n-types';
 import {transformMessageSenderProps} from '~/app/ui/utils/sender';
 import {ConversationCategory, ConversationVisibility} from '~/common/enum';
 import {conversationCompareFn} from '~/common/model/utils/conversation';
-import type {u53} from '~/common/types';
+import {tag, type u53} from '~/common/types';
 import {chunkBy} from '~/common/utils/array';
 import {assert, unreachable, unwrap} from '~/common/utils/assert';
 import type {Remote} from '~/common/utils/endpoint';
-import type {IQueryableStore} from '~/common/utils/store';
+import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
 import {derive} from '~/common/utils/store/derived-store';
 import type {RemoteSetStore} from '~/common/utils/store/set-store';
 import type {ConversationRegularMessageViewModelBundle} from '~/common/viewmodel/conversation/main/message/regular-message';
@@ -34,7 +35,7 @@ export function conversationSearchResultSetStoreToConversationPreviewListPropsSt
      * used.
      */
     limit?: u53,
-): IQueryableStore<Omit<ConversationPreviewListProps, 'services'>> {
+): IQueryableStore<Pick<ConversationPreviewListProps, 'items'>> {
     return derive(
         [conversationSearchResultSetStore],
         ([{currentValue: conversationSearchResultSet}], getAndSubscribe) => ({
@@ -49,8 +50,9 @@ export function conversationSearchResultSetStoreToConversationPreviewListPropsSt
                         lastMessageViewModelStore === undefined
                             ? undefined
                             : getAndSubscribe(lastMessageViewModelStore);
-                    let lastMessage: ConversationPreviewListProps['items'][u53]['lastMessage'] =
-                        undefined;
+                    let lastMessage: ReturnType<
+                        ConversationPreviewListProps['items'][u53]['get']
+                    >['lastMessage'] = undefined;
                     if (lastMessageViewModel !== undefined) {
                         switch (lastMessageViewModel.type) {
                             case 'deleted-message':
@@ -81,8 +83,9 @@ export function conversationSearchResultSetStoreToConversationPreviewListPropsSt
                         }
                     }
 
-                    return {
+                    return new ReadableStore({
                         handlerProps: undefined,
+                        id: tag<ConversationPreviewListId>(result.id),
                         isArchived: result.visibility === ConversationVisibility.ARCHIVED,
                         isPinned: result.visibility === ConversationVisibility.PINNED,
                         isPrivate: result.category === ConversationCategory.PROTECTED,
@@ -90,7 +93,7 @@ export function conversationSearchResultSetStoreToConversationPreviewListPropsSt
                         receiver: result.receiver,
                         totalMessageCount: result.totalMessageCount,
                         unreadMessageCount: result.unreadMessageCount,
-                    };
+                    });
                 }),
         }),
     );
@@ -108,7 +111,7 @@ export function messageSearchResultSetStoreToMessagePreviewListPropsStore(
      * used.
      */
     limit?: u53,
-): IQueryableStore<Omit<MessagePreviewListProps, 'services'>> {
+): IQueryableStore<Pick<MessagePreviewListProps, 'items'>> {
     return derive(
         [messageSearchResultSetStore],
         ([{currentValue: messageSearchResultSet}], getAndSubscribe) => ({
@@ -191,7 +194,7 @@ export function receiverSearchResultSetStoreToReceiverPreviewListPropsStore(
      * used.
      */
     limit?: u53,
-): IQueryableStore<Omit<ReceiverPreviewListProps, 'services'>> {
+): IQueryableStore<Pick<ReceiverPreviewListProps, 'items'>> {
     return derive([receiverSearchResultSetStore], ([{currentValue: receiverSearchResultSet}]) => ({
         items: [...receiverSearchResultSet]
             .slice(0, limit)

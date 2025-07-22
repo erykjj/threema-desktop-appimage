@@ -24,7 +24,7 @@
   import {getTextContent} from '~/app/ui/components/partials/conversation/internal/message-list/internal/regular-message/helpers';
   import {transformMessageFileProps} from '~/app/ui/components/partials/conversation/internal/message-list/internal/regular-message/transformers';
   import type {
-    AnyMessageListMessage,
+    AnyMessageListMessageStore,
     MessageListRegularMessage,
   } from '~/app/ui/components/partials/conversation/internal/message-list/props';
   import TopBar from '~/app/ui/components/partials/conversation/internal/top-bar/TopBar.svelte';
@@ -66,6 +66,7 @@
     ReadableStore,
     type IQueryableStore,
     type StoreUnsubscriber,
+    type IQueryableStoreValue,
   } from '~/common/utils/store';
   import {
     getGraphemeClusters,
@@ -152,7 +153,9 @@
     router.go({activity: ROUTE_DEFINITIONS.activity.call.withParams({receiverLookup, intent})});
   }
 
-  function handleClickDeleteMessageLocally(message: AnyMessageListMessage): void {
+  function handleClickDeleteMessageLocally(
+    message: IQueryableStoreValue<AnyMessageListMessageStore>,
+  ): void {
     switch (message.type) {
       case 'deleted-message':
       case 'regular-message':
@@ -391,7 +394,7 @@
     // Before the new `viewModelBundle` is loaded, check if another conversation is already loaded
     // and clear quote and save draft if necessary.
     if ($viewModelStore !== undefined) {
-      saveDraftAndClearComposeBar($viewModelStore.receiver.lookup);
+      saveDraftAndClearComposeBar();
       composeBarState = {
         type: 'insert',
         editedMessage: undefined,
@@ -660,7 +663,9 @@
     );
   }
 
-  function handleClickDeleteMessage(message: AnyMessageListMessage): void {
+  function handleClickDeleteMessage(
+    message: IQueryableStoreValue<AnyMessageListMessageStore>,
+  ): void {
     if (message.type === 'status-message') {
       handleClickDeleteMessageLocally(message);
       return;
@@ -769,7 +774,8 @@
   /**
    * Save the message draft for the specified receiver and clear the compose area.
    */
-  function saveDraftAndClearComposeBar(currentReceiverLookup?: DbReceiverLookup): void {
+  function saveDraftAndClearComposeBar(): void {
+    const currentReceiverLookup = $viewModelStore?.receiver.lookup;
     draftStore = conversationDrafts.getOrCreateStore(currentReceiverLookup);
     const currentText = composeBarComponent?.getText();
 
@@ -815,12 +821,14 @@
     const lastMessage = $viewModelStore.lastMessage;
     // While searching for a match, also ensure that the message is a `MessageListRegularMessage`,
     // because that's the only type of message which can be edited.
-    const messageToEdit = messagesStore
+    const messageToEditStore = messagesStore
       ?.get()
       .find(
-        (message): message is MessageListRegularMessage =>
-          message.type === 'regular-message' && message.id === lastMessage.id,
+        (message): message is IQueryableStore<MessageListRegularMessage> =>
+          message.get().type === 'regular-message' && message.get().id === lastMessage.id,
       );
+
+    const messageToEdit = messageToEditStore?.get();
 
     // Don't support editing audio and poll messages.
     if (messageToEdit?.file?.type === 'audio' || messageToEdit?.pollData !== undefined) {
@@ -995,7 +1003,6 @@
   });
 
   onDestroy(() => {
-    saveDraftAndClearComposeBar($viewModelStore?.receiver.lookup);
     window.removeEventListener('keydown', handleKeyDown);
     viewModelStoreUnsubscriber?.();
   });
@@ -1200,6 +1207,7 @@
             <ComposeBar
               {services}
               bind:this={composeBarComponent}
+              onbeforeunmount={saveDraftAndClearComposeBar}
               enterKeyMode={$chat.onEnterSubmit ? 'submit' : 'newline'}
               mode={composeBarState.type}
               onattachfiles={handleAddFiles}
