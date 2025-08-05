@@ -1,7 +1,7 @@
 # Clone git repository recursively
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  NODE_VERSION: '20.19.0'
+  NODE_VERSION: '22.17.0'
   # Should be kept in sync with src/rust/{common, helper, launcher}/rust-toolchain.toml and libthreema.
   RUST_VERSION: '1.85'
   FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 'true'
@@ -344,7 +344,7 @@ test:mocha:windows:
     # Install dependencies
     - npm ci --cache .npm
     # Run tests (with increased timeout of 10s, to avoid test failures when load on CI runner is high)
-    - npm run "test:mocha" -- --timeout 10000
+    - npm run "test:mocha" -- --timeout=10000
 
 package-lock-in-sync:
   stage: test
@@ -948,7 +948,7 @@ package:macos-publish:
     - npm ci --cache .npm
 
     # Build MSIX package
-    - npm run package msixSigned consumer-live,work-sandbox,work-live,work-onprem
+    - npm run package msixSigned "consumer-live,work-sandbox,work-live,work-onprem"
 
     # Upload
     - dir build\out\

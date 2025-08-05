@@ -256,7 +256,7 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
         BUILD_FLAVOR: buildFlavor,
         SHORT_APP_NAME: shortAppName,
         APP_NAME: appName,
-        MOBILE_APP_NAME: determineMobileAppName(buildFlavor, appName),
+        MOBILE_APP_NAME: determineMobileAppName(buildFlavor, shortAppName),
         URLS: determineUrls(buildFlavor, presetOppfUrl),
 
         // Defaults
@@ -568,7 +568,7 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
             target:
                 // Highest bar is currently: FinalizationRegistry
                 // https://caniuse.com/mdn-javascript_builtins_finalizationregistry
-                ['chrome110', 'node20'],
+                ['chrome110', 'node22'],
             outDir: `../build/${env.target}/${env.entry}`,
             emptyOutDir: true,
             assetsDir: '',

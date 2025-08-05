@@ -694,7 +694,7 @@ async function buildDmg(
 
     // Sign
     if (sign) {
-        const {signAsync} = await import('@electron/osx-sign');
+        const {sign: signAsync} = await import('@electron/osx-sign');
         log.minor(`Start signing at ${new Date().toLocaleTimeString()}`);
         // Docs: https://www.npmjs.com/package/@electron/osx-sign
         const appleTeamId = unwrap(process.env.APPLE_TEAM_ID, 'Missing APPLE_TEAM_ID env var');
@@ -740,7 +740,6 @@ async function buildDmg(
             'Missing APPLE_NOTARIZE_KEYCHAIN_PROFILE env var',
         );
         await notarizeAsync({
-            tool: 'notarytool',
             appPath,
             keychain,
             keychainProfile,
@@ -1016,11 +1015,11 @@ function buildFlatpaks(dirs: Directories, appName: string, args: string[]): void
     requireCommand('python3');
 
     // Layer dependencies
-    const layerDependenciesVersion = '23.08';
+    const layerDependenciesVersion = '24.08';
     const dependencies = [
         'org.electronjs.Electron2.BaseApp',
         'org.freedesktop.Sdk',
-        'org.freedesktop.Sdk.Extension.node20',
+        'org.freedesktop.Sdk.Extension.node22',
         'org.freedesktop.Sdk.Extension.rust-stable',
     ];
 
