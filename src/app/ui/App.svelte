@@ -63,7 +63,7 @@
     }
   }
 
-  function handleToggleExpandActivity(event: Event): void {
+  function handleToggleExpandActivity(event?: Event): void {
     activityDisplayState = activityDisplayState === 'collapsed' ? 'expanded' : 'collapsed';
   }
 
@@ -257,6 +257,10 @@
         'app' 1fr
         'debug' auto;
     }
+
+    > footer {
+      z-index: $z-index-plus;
+    }
   }
 
   .app {
@@ -294,7 +298,7 @@
       display: grid;
       grid-template: 100% / minmax(0, 1fr);
 
-      container: activity / inline-size;
+      container: activity / size;
       background-color: var(--t-aside-background-color);
       border-left: 1px solid var(--t-panel-gap-color);
     }

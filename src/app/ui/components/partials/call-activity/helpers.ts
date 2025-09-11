@@ -3,6 +3,7 @@ import {
     transformOngoingGroupCallProps,
     type AugmentedOngoingGroupCallViewModelBundle,
 } from '~/app/ui/components/partials/call-activity/transformer';
+import type {ElectronIpcService} from '~/common/dom/electron-service';
 import {
     DEFAULT_CAMERA_TRACK_CONSTRAINTS,
     DEFAULT_MICROPHONE_TRACK_CONSTRAINTS,
@@ -36,12 +37,13 @@ export type CaptureDevice =
 export interface CaptureDevices {
     readonly microphone: CaptureDevice;
     readonly camera: CaptureDevice;
+    readonly screen: CaptureDevice;
 }
 
 export type ActivityLayout = 'pocket' | 'regular';
 
 export type CaptureDevicesGuard = AsyncLock<
-    'initial-setup' | 'select-microphone' | 'select-camera' | 'attach' | 'stop',
+    'initial-setup' | 'select-microphone' | 'select-camera' | 'select-screen' | 'attach' | 'stop',
     WritableStore<CaptureDevices>
 >;
 
@@ -59,7 +61,11 @@ export function createCaptureDevices(): {
     readonly store: ReadableStore<CaptureDevices>;
 } {
     const guard: CaptureDevicesGuard = new AsyncLock(
-        new WritableStore<CaptureDevices>({microphone: undefined, camera: undefined}),
+        new WritableStore<CaptureDevices>({
+            microphone: undefined,
+            camera: undefined,
+            screen: undefined,
+        }),
     );
     return {
         guard,
@@ -216,6 +222,58 @@ export async function selectCameraDevice(
     }, 'select-camera');
 }
 
+export async function startScreenSharing(
+    electron: ElectronIpcService,
+    guard: CaptureDevicesGuard,
+    store: WritableStore<CaptureDevices>,
+    call: AugmentedOngoingGroupCallViewModelBundle | undefined,
+    message: string,
+    buttonLabel: string,
+): Promise<void> {
+    const streams = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+            width: {max: 1920},
+            height: {max: 1080},
+            frameRate: {ideal: 10, max: 10},
+        },
+    });
+
+    const [track] = streams.getVideoTracks();
+    if (track === undefined) {
+        return undefined;
+    }
+    track.enabled = true;
+    track.onended = async () => {
+        await stopScreenSharing(electron, guard, call);
+    };
+
+    return await attachLocalDeviceAndAnnounceCaptureState(guard, call, store, 'screen', {
+        track,
+        state: 'on',
+    }).then(() => electron.showScreenSharingReminder(message, buttonLabel));
+}
+
+async function stopScreenSharing(
+    electron: ElectronIpcService,
+    guard: CaptureDevicesGuard,
+    call: AugmentedOngoingGroupCallViewModelBundle | undefined,
+): Promise<void> {
+    await guard.with(async (store) => {
+        const screen = store.get().screen;
+
+        if (screen !== undefined) {
+            screen.track.stop();
+            screen.track.enabled = false;
+            return await attachLocalDeviceAndAnnounceCaptureState(guard, call, store, 'screen', {
+                track: screen.track,
+                state: 'off',
+            }).then(() => electron.closeScreenSharingReminder());
+        }
+
+        return undefined;
+    }, 'select-screen');
+}
+
 /**
  * Select the default microphone and camera device.
  */
@@ -234,17 +292,20 @@ export async function selectInitialCaptureDevices(
         // Sanity-check
         assert(
             store.run(
-                (devices) => devices.camera === undefined && devices.microphone === undefined,
+                (devices) =>
+                    devices.camera === undefined &&
+                    devices.microphone === undefined &&
+                    devices.screen === undefined,
             ),
         );
 
         // Request microphone and camera access
-        log.debug('Setting up microphone/camera');
+        log.debug('Setting up microphone/camera/screen');
         let microphone: CaptureDevices['microphone'];
         try {
             microphone = await selectMicrophoneDeviceInternal(undefined, {
                 device: options?.preferredDevices?.microphone ?? {type: 'default'},
-                state: state.microphone,
+                state: state.microphone.state,
             });
         } catch {
             log.debug('No microphone device to capture from');
@@ -254,14 +315,17 @@ export async function selectInitialCaptureDevices(
             camera = await selectCameraDeviceInternal(undefined, {
                 device: options?.preferredDevices?.camera ?? {type: 'default'},
                 facing: 'user',
-                state: state.camera,
+                state: state.camera.state,
             });
         } catch {
             log.debug('No camera device to capture from');
         }
 
+        // Do not request screen sharing before the user does so.
+        const screen = undefined;
+
         // Update capture devices store
-        store.update(() => ({microphone, camera}));
+        store.update(() => ({microphone, camera, screen}));
     }, 'initial-setup');
 }
 
@@ -278,7 +342,7 @@ export async function attachLocalDeviceAndAnnounceCaptureState(
     guard: CaptureDevicesGuard,
     call: AugmentedOngoingGroupCallViewModelBundle | undefined,
     store: WritableStore<CaptureDevices>,
-    kind: 'microphone' | 'camera',
+    kind: 'microphone' | 'camera' | 'screen',
     updated:
         | {
               readonly track: MediaStreamTrack;
@@ -319,7 +383,7 @@ export async function attachLocalDeviceAndAnnounceCaptureState(
     // Announce capture state, if needed
     {
         const state = target?.state ?? 'off';
-        if (call !== undefined && state !== call.state.get().local.capture[kind]) {
+        if (call !== undefined && state !== call.state.get().local.capture[kind].state) {
             await call.controller.localCaptureState(kind, state);
         }
     }
@@ -353,6 +417,32 @@ export async function updateRemoteParticipantRemoteCameras({
 }): Promise<void> {
     return await remoteDevicesLock.with(async () => {
         await controller.remoteCamera(
+            participantId,
+            dimensions !== undefined
+                ? {
+                      type: 'subscribe',
+                      resolution: dimensions,
+                  }
+                : {type: 'unsubscribe'},
+        );
+    });
+}
+
+/**
+ * Update the `remoteScreen` subscription for a specific participant.
+ *
+ */
+export async function updateRemoteParticipantScreens({
+    controller,
+    participantId,
+    dimensions,
+}: {
+    readonly controller: AugmentedOngoingGroupCallViewModelBundle['controller'];
+    readonly participantId: ParticipantId;
+    readonly dimensions: Dimensions | undefined;
+}): Promise<void> {
+    return await remoteDevicesLock.with(async () => {
+        await controller.remoteScreen(
             participantId,
             dimensions !== undefined
                 ? {

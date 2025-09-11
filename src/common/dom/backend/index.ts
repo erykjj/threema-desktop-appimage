@@ -28,7 +28,11 @@ import {
     type IdentityData,
     type ThreemaWorkData,
 } from '~/common/device';
-import {workLicenseCheckJob} from '~/common/dom/backend/background-jobs';
+import {
+    autoUpdateCheckJob,
+    workLicenseCheckJob,
+    workSyncJob,
+} from '~/common/dom/backend/background-jobs';
 import {DeviceJoinProtocol, type DeviceJoinResult} from '~/common/dom/backend/join';
 import * as oppf from '~/common/dom/backend/onprem/oppf';
 import {OPPF_FILE_SCHEMA} from '~/common/dom/backend/onprem/oppf';
@@ -44,7 +48,6 @@ import {
     RendezvousConnection,
     type RendezvousProtocolSetup,
 } from '~/common/dom/network/protocol/rendezvous';
-import {Updater} from '~/common/dom/update';
 import type {SystemInfo} from '~/common/electron-ipc';
 import type {IFrontendElectronService} from '~/common/electron-service';
 import {CloseCodeUtils, ConnectionState, NonceScope, TransferTag} from '~/common/enum';
@@ -61,10 +64,10 @@ import {TRANSFER_HANDLER} from '~/common/index';
 import type {ThreemaWorkCredentials} from '~/common/internal-protobuf/key-storage-file';
 import {
     type KeyStorage,
-    type KeyStorageContents,
     KeyStorageError,
     type ServicesForKeyStorageFactory,
     type KeyStorageOppfConfig,
+    type InnerKeyStorageFileContentsV2,
 } from '~/common/key-storage';
 import {LoadingInfo} from '~/common/loading';
 import type {Logger, LoggerFactory} from '~/common/logging';
@@ -146,11 +149,15 @@ const MAX_DISCONNECTS_THRESHOLD = 1;
  * - handled-linking-error: An error happened during linking. The error was already propagated to
  *   the UI through the linking state, no further actions are needed.
  * - key-storage-error: An error related to the key storage occurred.
+ * - key-storage-migration-error: An error related to a key storage migration occurred.
+ * - onprem-configuration-error: An error related to the onprem configuration occurred.
+ * - missing-work-credentials: This is a work app but no credentials could be found in the key storage.
  */
 export type BackendCreationErrorType =
     | 'no-identity'
     | 'handled-linking-error'
     | 'key-storage-error'
+    | 'key-storage-migration-error'
     | 'key-storage-error-wrong-password'
     | 'onprem-configuration-error'
     | 'missing-work-credentials';
@@ -541,7 +548,7 @@ function initBackendServices(
     db: DatabaseBackend,
     identityData: IdentityData,
     deviceIds: DeviceIds,
-    deviceCookie: DeviceCookie | undefined,
+    deviceCookie: DeviceCookie,
     dgk: RawDeviceGroupKey,
     nonces: NonceService,
     workData: IQueryableStore<ThreemaWorkData> | undefined,
@@ -641,7 +648,7 @@ async function writeKeyStorage(
     password: string,
     identityData: IdentityData,
     deviceIds: DeviceIds,
-    deviceCookie: DeviceCookie | undefined,
+    deviceCookie: DeviceCookie,
     ck: RawClientKey,
     dgk: RawDeviceGroupKey,
     databaseKey: RawDatabaseKey,
@@ -750,7 +757,7 @@ export class Backend {
 
         const crypto = new TweetNaClBackend(randomBytes);
         const keyStorage = factories.keyStorage({crypto}, logging.logger('key-storage'));
-        if (keyStorage.isPresent()) {
+        if (keyStorage.isAnyGenerationPresent()) {
             log.info('Identity found');
             return true;
         }
@@ -796,7 +803,7 @@ export class Backend {
         //
         // TODO(DESK-383): We might need to move this whole section into a pre-step
         //                 before the backend is actually attempted to be created.
-        let keyStorageContents: KeyStorageContents;
+        let keyStorageContents: InnerKeyStorageFileContentsV2;
         try {
             keyStorageContents = await phase1Services.keyStorage.read(keyStoragePassword);
         } catch (error) {
@@ -829,6 +836,13 @@ export class Backend {
                     throw new BackendCreationError(
                         'key-storage-error-wrong-password',
                         'Key storage cannot be decrypted, wrong password?',
+                        {from: error},
+                    );
+                case 'migration-error':
+                    // Something went wrong when migrating the key storage.
+                    throw new BackendCreationError(
+                        'key-storage-migration-error',
+                        'Key storage could not be migrated',
                         {from: error},
                     );
                 case 'internal-error':
@@ -922,19 +936,6 @@ export class Backend {
             config = createDefaultConfig();
         }
 
-        if (!import.meta.env.DEBUG && import.meta.env.BUILD_MODE !== 'testing' && checkForUpdates) {
-            const updater = new Updater(phase1Services);
-            await updater
-                .checkAndPerformUpdate({
-                    forceManualUpdate:
-                        // Force manual update for sandbox builds.
-                        import.meta.env.BUILD_ENVIRONMENT === 'sandbox',
-                })
-                .catch((error: unknown) => {
-                    log.error(`Update check or download failed: ${error}`);
-                });
-        }
-
         const workData =
             import.meta.env.BUILD_VARIANT === 'work' || import.meta.env.BUILD_VARIANT === 'custom'
                 ? phase1Services.keyStorage.workData
@@ -1001,9 +1002,7 @@ export class Backend {
             db,
             identityData,
             deviceIds,
-            keyStorageContents.deviceCookie !== undefined
-                ? ensureDeviceCookie(keyStorageContents.deviceCookie)
-                : undefined,
+            ensureDeviceCookie(keyStorageContents.deviceCookie),
             dgk,
             nonces,
             import.meta.env.BUILD_VARIANT === 'work' || import.meta.env.BUILD_VARIANT === 'custom'
@@ -1011,12 +1010,6 @@ export class Backend {
                 : undefined,
         );
         const backend = new Backend(backendServices);
-
-        if (backendServices.device.csp.deviceCookie === undefined) {
-            backendServices.systemDialog
-                .openOnce({type: 'missing-device-cookie'})
-                .catch(assertUnreachable);
-        }
 
         // Subscribe reflection queue to update loading screen.
         const loadingInfoStoreUnsubscriber = backendServices.loadingInfo.loadedStore.subscribe(
@@ -1031,7 +1024,7 @@ export class Backend {
                                 reflectionQueueProcessed: value,
                             });
                             log.debug(
-                                `Processed ${value} message(s) of total reflection queue length of ${reflectionQueueLength}, 
+                                `Processed ${value} message(s) of total reflection queue length of ${reflectionQueueLength},
                                     loadingState set to 'processing-reflection-queue'`,
                             );
                         })
@@ -1078,7 +1071,7 @@ export class Backend {
         });
 
         // Schedule background jobs
-        backend._scheduleBackgroundJobs();
+        backend._scheduleBackgroundJobs(checkForUpdates);
 
         // Expose the backend on a new channel
         const {local, remote} = endpoint.createEndpointPair<BackendHandle>();
@@ -1226,6 +1219,7 @@ export class Backend {
         let oppfConfig: OppfFetchConfig | undefined;
         let oppfFile: {readonly parsed: oppf.OppfFile; readonly string: string} | undefined;
         let workCredentials: ThreemaWorkCredentials | undefined;
+        let checkForUpdates: boolean = true;
 
         // Handle OnPrem (if necessary)
         if (import.meta.env.BUILD_ENVIRONMENT === 'onprem') {
@@ -1251,6 +1245,10 @@ export class Backend {
 
             await phase1Services.electron.updatePublicKeyPins(oppfFile.parsed.publicKeyPinning);
             config = createConfigFromOppf(oppfFile.parsed);
+            checkForUpdates =
+                oppfFile.parsed.updates?.desktop?.autoUpdate === true &&
+                // Turn off the auto updater in custom builds.
+                import.meta.env.BUILD_VARIANT !== 'custom';
         } else {
             config = createDefaultConfig();
         }
@@ -1784,7 +1782,7 @@ export class Backend {
         }
 
         // Schedule background jobs
-        backend._scheduleBackgroundJobs();
+        backend._scheduleBackgroundJobs(checkForUpdates);
 
         // Expose the backend on a new channel
         const {local, remote} = endpoint.createEndpointPair<BackendHandle>();
@@ -1853,19 +1851,41 @@ export class Backend {
     /**
      * Schedule backend background jobs.
      */
-    private _scheduleBackgroundJobs(): void {
+    private _scheduleBackgroundJobs(checkForUpdates: boolean): void {
         this._log.info('Scheduling background jobs');
 
-        // Schedule license check every 12h
+        // Schedule auto updater check every 24h
+        if (!import.meta.env.DEBUG && import.meta.env.BUILD_MODE !== 'testing' && checkForUpdates) {
+            this._backgroundJobScheduler.scheduleRecurringJob(
+                (log) => autoUpdateCheckJob(this._services, log),
+                {
+                    tag: 'auto-updater',
+                    intervalS: 24 * 3600,
+                    initialTimeoutS: 1,
+                },
+            );
+        }
+
         if (
             import.meta.env.BUILD_VARIANT === 'work' ||
             import.meta.env.BUILD_VARIANT === 'custom'
         ) {
+            // Schedule license check every 12h
             this._backgroundJobScheduler.scheduleRecurringJob(
                 (log) => workLicenseCheckJob(this._services, log),
                 {
                     tag: 'work-license-check',
                     intervalS: 12 * 3600,
+                    initialTimeoutS: 1,
+                },
+            );
+
+            // Schedule work sync every 24h (initially)
+            this._backgroundJobScheduler.scheduleRecurringJob(
+                (log, cancel, update) => workSyncJob(this._services, log, cancel, update),
+                {
+                    tag: 'work-sync',
+                    intervalS: 24 * 3600,
                     initialTimeoutS: 1,
                 },
             );

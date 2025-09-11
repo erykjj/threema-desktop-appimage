@@ -4,6 +4,7 @@ import type {Model} from '~/common/model/types/common';
 import {ModelLifetimeGuard} from '~/common/model/utils/model-lifetime-guard';
 import {ModelStore} from '~/common/model/utils/model-store';
 import type {Call} from '~/common/network/protocol/call';
+import type {SfuSupportedFeatures} from '~/common/network/protocol/call/flags';
 import type {
     ServicesForGroupCall,
     GroupCallBaseData,
@@ -29,7 +30,10 @@ export type OngoingGroupCallController = {
      *
      * IMPORTANT: The caller must mute the appropriate local `RTCRtpTransceiver` itself!
      */
-    readonly localCaptureState: (device: 'microphone' | 'camera', state: 'on' | 'off') => void;
+    readonly localCaptureState: (
+        device: 'microphone' | 'camera' | 'screen',
+        state: 'on' | 'off',
+    ) => Promise<void>;
 
     /** Subscribe to or unsubscribe from a participant's microphone stream. */
     readonly remoteMicrophone: (
@@ -44,6 +48,14 @@ export type OngoingGroupCallController = {
             | {readonly type: 'unsubscribe'}
             | {readonly type: 'subscribe'; readonly resolution: Dimensions},
     ) => void;
+
+    /** Subscribe to or unsubscribe from a participant's screen stream. */
+    readonly remoteScreen: (
+        participantId: ParticipantId,
+        intent:
+            | {readonly type: 'unsubscribe'}
+            | {readonly type: 'subscribe'; readonly resolution: Dimensions},
+    ) => void;
 } & ProxyMarked;
 
 export interface OngoingGroupCallContext {
@@ -51,6 +63,7 @@ export interface OngoingGroupCallContext {
     readonly callId: GroupCallId;
     readonly startedAt: Date;
     readonly maxParticipants: u53;
+    readonly supportedFeatures: SfuSupportedFeatures;
 }
 
 /**
@@ -87,6 +100,7 @@ export class OngoingGroupCall
                 localCaptureState: call.localCaptureState.bind(call),
                 remoteMicrophone: call.remoteMicrophone.bind(call),
                 remoteCamera: call.remoteCamera.bind(call),
+                remoteScreen: call.remoteScreen.bind(call),
             },
             context,
             'group-call',

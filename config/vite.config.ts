@@ -165,12 +165,14 @@ function determineUrls(
     let downloadAndInfoShort;
     let downloadAndInfoForOtherVariantShort;
     let overviewFull;
+    let support;
     switch (buildFlavor) {
         case 'consumer-live':
         case 'consumer-sandbox':
             downloadAndInfoShort = 'three.ma/md';
             downloadAndInfoForOtherVariantShort = 'three.ma/mdw';
             overviewFull = 'https://threema.ch/faq/md_overview';
+            support = {full: 'https://threema.com/support-request'};
             break;
 
         case 'work-live':
@@ -178,12 +180,14 @@ function determineUrls(
             downloadAndInfoShort = 'three.ma/mdw';
             downloadAndInfoForOtherVariantShort = 'three.ma/md';
             overviewFull = 'https://threema.ch/work/support/mdw_overview';
+            support = 'hidden' as const;
             break;
 
         case 'work-onprem':
             downloadAndInfoShort = 'three.ma/mdo';
             downloadAndInfoForOtherVariantShort = 'three.ma/md';
             overviewFull = 'https://threema.ch/work/support#onprem';
+            support = 'hidden' as const;
             break;
 
         case 'custom-onprem':
@@ -195,6 +199,7 @@ function determineUrls(
                 forgotPassword: 'hidden',
                 resetProfile: 'hidden',
                 presetOppfUrl,
+                support: 'hidden',
             };
 
         default:
@@ -211,6 +216,7 @@ function determineUrls(
         forgotPassword: {full: 'https://threema.ch/faq/md_password'},
         resetProfile: {full: 'https://threema.ch/faq/md_reset'},
         presetOppfUrl: undefined,
+        support,
     };
 }
 
@@ -276,7 +282,8 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
             MAIN_AND_APP: ['data', 'debug-app.log'],
             BACKEND_WORKER: ['data', 'debug-bw.log'],
         },
-        KEY_STORAGE_PATH: ['data', 'keystorage.pb3'],
+        DEPRECATED_KEY_STORAGE_PATH: ['data', 'keystorage.pb3'],
+        KEY_STORAGE_PATH: ['data', 'keystorage.bin'],
         FILE_STORAGE_PATH: ['data', 'files'],
         DATABASE_PATH: ['data', 'threema.sqlite'],
         ELECTRON_SETTINGS_PATH: ['data', 'electron-settings.json'],
@@ -499,6 +506,7 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
                       // Note: The file names must match the name of a file in the output bundle (in
                       // `build/electron/app`).
                       {
+                          htmlEntryPoints: /^index.html|screenshare.html$/u,
                           scriptRegExp:
                               /^cldr-.{8}\.js|cldr-native-.{8}\.js|data-.{8}\.js|index-.{8}\.js|messages-.{8}\.js$/u,
                           stylesheetRegExp: /^index-.{8}\.css$/u,
@@ -515,6 +523,12 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
         output?: OutputOptions;
     } = {};
     switch (env.entry) {
+        case 'app':
+            rollupOptions.input = {
+                index: './src/index.html',
+                screenshare: './src/screenshare.html',
+            };
+            break;
         case 'cli':
             lib = {
                 entry: './cli/bin.ts',
@@ -526,6 +540,7 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
             break;
         case 'electron-main':
         case 'electron-preload':
+        case 'screenshare-preload':
             lib = {
                 entry: `./electron/${env.entry}.ts`,
                 formats: ['cjs'],

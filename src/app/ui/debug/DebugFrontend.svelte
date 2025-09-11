@@ -3,6 +3,7 @@
   import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import type {ContextMenuItem} from '~/app/ui/components/hocs/context-menu-provider/types';
   import KeyValueList from '~/app/ui/components/molecules/key-value-list';
+  import {getScreenSharingSources} from '~/app/ui/debug/ScreenSharingPickerUtils';
   import type {ConnectionErrorDialog, SystemDialog} from '~/common/system-dialog';
   import {unreachable} from '~/common/utils/assert';
 
@@ -23,10 +24,10 @@
       'device-cookie-mismatch',
       'invalid-work-credentials',
       'manual-app-update',
-      'missing-device-cookie',
       'server-alert',
       'unrecoverable-state',
       'device-protocols-incompatible',
+      'screen-sharing-picker',
     ] as const
   ).map((type: Exclude<SystemDialog['type'], 'connection-error'>) => {
     switch (type) {
@@ -121,17 +122,6 @@
           label: 'Manual App Update',
         };
 
-      case 'missing-device-cookie':
-        return {
-          type: 'option',
-          handler: () => {
-            systemDialog.open({
-              type,
-            });
-          },
-          label: 'Missing Device Cookie',
-        };
-
       case 'server-alert':
         return {
           type: 'option',
@@ -175,6 +165,22 @@
             });
           },
           label: 'Change password confirm',
+        };
+
+      case 'screen-sharing-picker':
+        return {
+          type: 'option',
+          handler: () => {
+            systemDialog.open({
+              type,
+              context: {
+                sources: getScreenSharingSources(),
+                onselect: () => {},
+                ondismiss: () => {},
+              },
+            });
+          },
+          label: 'Screen Sharing Picker',
         };
 
       default:

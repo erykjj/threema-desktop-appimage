@@ -3,21 +3,37 @@ import Long from "long";
 import _m0 from "protobufjs/minimal";
 
 /** _Read_ receipt policy (when an unread message has been read) */
-export const enum ReadReceiptPolicy {
+export const ReadReceiptPolicy = {
   /** SEND_READ_RECEIPT - Send _read_ receipt when an unread message has been read */
-  SEND_READ_RECEIPT = 0,
+  SEND_READ_RECEIPT: 0,
   /** DONT_SEND_READ_RECEIPT - Don't send _read_ receipts */
-  DONT_SEND_READ_RECEIPT = 1,
-  UNRECOGNIZED = -1,
+  DONT_SEND_READ_RECEIPT: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type ReadReceiptPolicy = typeof ReadReceiptPolicy[keyof typeof ReadReceiptPolicy];
+
+export namespace ReadReceiptPolicy {
+  export type SEND_READ_RECEIPT = typeof ReadReceiptPolicy.SEND_READ_RECEIPT;
+  export type DONT_SEND_READ_RECEIPT = typeof ReadReceiptPolicy.DONT_SEND_READ_RECEIPT;
+  export type UNRECOGNIZED = typeof ReadReceiptPolicy.UNRECOGNIZED;
 }
 
 /** Typing indicator policy (signal _currently typing_) */
-export const enum TypingIndicatorPolicy {
+export const TypingIndicatorPolicy = {
   /** SEND_TYPING_INDICATOR - Send _typing_ indicator when a message is being composed */
-  SEND_TYPING_INDICATOR = 0,
+  SEND_TYPING_INDICATOR: 0,
   /** DONT_SEND_TYPING_INDICATOR - Don't send _typing_ indicators */
-  DONT_SEND_TYPING_INDICATOR = 1,
-  UNRECOGNIZED = -1,
+  DONT_SEND_TYPING_INDICATOR: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type TypingIndicatorPolicy = typeof TypingIndicatorPolicy[keyof typeof TypingIndicatorPolicy];
+
+export namespace TypingIndicatorPolicy {
+  export type SEND_TYPING_INDICATOR = typeof TypingIndicatorPolicy.SEND_TYPING_INDICATOR;
+  export type DONT_SEND_TYPING_INDICATOR = typeof TypingIndicatorPolicy.DONT_SEND_TYPING_INDICATOR;
+  export type UNRECOGNIZED = typeof TypingIndicatorPolicy.UNRECOGNIZED;
 }
 
 export interface Unit {
@@ -108,12 +124,21 @@ export interface PrivacySettings {
  *
  * Required towards a new device. Optional otherwise.
  */
-export const enum PrivacySettings_ContactSyncPolicy {
+export const PrivacySettings_ContactSyncPolicy = {
   /** NOT_SYNCED - Not synced */
-  NOT_SYNCED = 0,
+  NOT_SYNCED: 0,
   /** SYNC - Synced */
-  SYNC = 1,
-  UNRECOGNIZED = -1,
+  SYNC: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type PrivacySettings_ContactSyncPolicy =
+  typeof PrivacySettings_ContactSyncPolicy[keyof typeof PrivacySettings_ContactSyncPolicy];
+
+export namespace PrivacySettings_ContactSyncPolicy {
+  export type NOT_SYNCED = typeof PrivacySettings_ContactSyncPolicy.NOT_SYNCED;
+  export type SYNC = typeof PrivacySettings_ContactSyncPolicy.SYNC;
+  export type UNRECOGNIZED = typeof PrivacySettings_ContactSyncPolicy.UNRECOGNIZED;
 }
 
 /**
@@ -121,12 +146,21 @@ export const enum PrivacySettings_ContactSyncPolicy {
  *
  * Required towards a new device. Optional otherwise.
  */
-export const enum PrivacySettings_UnknownContactPolicy {
+export const PrivacySettings_UnknownContactPolicy = {
   /** ALLOW_UNKNOWN - Allowed to contact the user */
-  ALLOW_UNKNOWN = 0,
+  ALLOW_UNKNOWN: 0,
   /** BLOCK_UNKNOWN - Will be blocked by the user */
-  BLOCK_UNKNOWN = 1,
-  UNRECOGNIZED = -1,
+  BLOCK_UNKNOWN: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type PrivacySettings_UnknownContactPolicy =
+  typeof PrivacySettings_UnknownContactPolicy[keyof typeof PrivacySettings_UnknownContactPolicy];
+
+export namespace PrivacySettings_UnknownContactPolicy {
+  export type ALLOW_UNKNOWN = typeof PrivacySettings_UnknownContactPolicy.ALLOW_UNKNOWN;
+  export type BLOCK_UNKNOWN = typeof PrivacySettings_UnknownContactPolicy.BLOCK_UNKNOWN;
+  export type UNRECOGNIZED = typeof PrivacySettings_UnknownContactPolicy.UNRECOGNIZED;
 }
 
 /**
@@ -134,12 +168,21 @@ export const enum PrivacySettings_UnknownContactPolicy {
  *
  * Required towards a new device. Optional otherwise.
  */
-export const enum PrivacySettings_ScreenshotPolicy {
+export const PrivacySettings_ScreenshotPolicy = {
   /** ALLOW_SCREENSHOT - Allow taking screenshots */
-  ALLOW_SCREENSHOT = 0,
+  ALLOW_SCREENSHOT: 0,
   /** DENY_SCREENSHOT - Deny taking screenshots, if possible */
-  DENY_SCREENSHOT = 1,
-  UNRECOGNIZED = -1,
+  DENY_SCREENSHOT: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type PrivacySettings_ScreenshotPolicy =
+  typeof PrivacySettings_ScreenshotPolicy[keyof typeof PrivacySettings_ScreenshotPolicy];
+
+export namespace PrivacySettings_ScreenshotPolicy {
+  export type ALLOW_SCREENSHOT = typeof PrivacySettings_ScreenshotPolicy.ALLOW_SCREENSHOT;
+  export type DENY_SCREENSHOT = typeof PrivacySettings_ScreenshotPolicy.DENY_SCREENSHOT;
+  export type UNRECOGNIZED = typeof PrivacySettings_ScreenshotPolicy.UNRECOGNIZED;
 }
 
 /**
@@ -147,12 +190,21 @@ export const enum PrivacySettings_ScreenshotPolicy {
  *
  * Required towards a new device. Optional otherwise.
  */
-export const enum PrivacySettings_KeyboardDataCollectionPolicy {
+export const PrivacySettings_KeyboardDataCollectionPolicy = {
   /** ALLOW_DATA_COLLECTION - Allow keyboard input data to be collected */
-  ALLOW_DATA_COLLECTION = 0,
+  ALLOW_DATA_COLLECTION: 0,
   /** DENY_DATA_COLLECTION - Deny collecting of keyboard input data */
-  DENY_DATA_COLLECTION = 1,
-  UNRECOGNIZED = -1,
+  DENY_DATA_COLLECTION: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type PrivacySettings_KeyboardDataCollectionPolicy =
+  typeof PrivacySettings_KeyboardDataCollectionPolicy[keyof typeof PrivacySettings_KeyboardDataCollectionPolicy];
+
+export namespace PrivacySettings_KeyboardDataCollectionPolicy {
+  export type ALLOW_DATA_COLLECTION = typeof PrivacySettings_KeyboardDataCollectionPolicy.ALLOW_DATA_COLLECTION;
+  export type DENY_DATA_COLLECTION = typeof PrivacySettings_KeyboardDataCollectionPolicy.DENY_DATA_COLLECTION;
+  export type UNRECOGNIZED = typeof PrivacySettings_KeyboardDataCollectionPolicy.UNRECOGNIZED;
 }
 
 /** Calls settings */
@@ -179,12 +231,20 @@ export interface CallsSettings {
  *
  * Required towards a new device. Optional otherwise.
  */
-export const enum CallsSettings_O2oCallPolicy {
+export const CallsSettings_O2oCallPolicy = {
   /** ALLOW_CALL - Allow creating/receiving Threema Calls */
-  ALLOW_CALL = 0,
+  ALLOW_CALL: 0,
   /** DENY_CALL - Denied from creating/receiving any Threema Calls */
-  DENY_CALL = 1,
-  UNRECOGNIZED = -1,
+  DENY_CALL: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type CallsSettings_O2oCallPolicy = typeof CallsSettings_O2oCallPolicy[keyof typeof CallsSettings_O2oCallPolicy];
+
+export namespace CallsSettings_O2oCallPolicy {
+  export type ALLOW_CALL = typeof CallsSettings_O2oCallPolicy.ALLOW_CALL;
+  export type DENY_CALL = typeof CallsSettings_O2oCallPolicy.DENY_CALL;
+  export type UNRECOGNIZED = typeof CallsSettings_O2oCallPolicy.UNRECOGNIZED;
 }
 
 /**
@@ -192,12 +252,21 @@ export const enum CallsSettings_O2oCallPolicy {
  *
  * Required towards a new device. Optional otherwise.
  */
-export const enum CallsSettings_O2oCallConnectionPolicy {
+export const CallsSettings_O2oCallConnectionPolicy = {
   /** ALLOW_DIRECT - Allow direct (peer-to-peer) connections for Threema Calls */
-  ALLOW_DIRECT = 0,
+  ALLOW_DIRECT: 0,
   /** REQUIRE_RELAY - Require relayed connections for Threema Calls */
-  REQUIRE_RELAY = 1,
-  UNRECOGNIZED = -1,
+  REQUIRE_RELAY: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type CallsSettings_O2oCallConnectionPolicy =
+  typeof CallsSettings_O2oCallConnectionPolicy[keyof typeof CallsSettings_O2oCallConnectionPolicy];
+
+export namespace CallsSettings_O2oCallConnectionPolicy {
+  export type ALLOW_DIRECT = typeof CallsSettings_O2oCallConnectionPolicy.ALLOW_DIRECT;
+  export type REQUIRE_RELAY = typeof CallsSettings_O2oCallConnectionPolicy.REQUIRE_RELAY;
+  export type UNRECOGNIZED = typeof CallsSettings_O2oCallConnectionPolicy.UNRECOGNIZED;
 }
 
 /**
@@ -205,12 +274,21 @@ export const enum CallsSettings_O2oCallConnectionPolicy {
  *
  * Required towards a new device. Optional otherwise.
  */
-export const enum CallsSettings_GroupCallPolicy {
+export const CallsSettings_GroupCallPolicy = {
   /** ALLOW_GROUP_CALL - Allow creating/receiving Threema Group Calls */
-  ALLOW_GROUP_CALL = 0,
+  ALLOW_GROUP_CALL: 0,
   /** DENY_GROUP_CALL - Denied from creating/receiving any Threema Group Calls */
-  DENY_GROUP_CALL = 1,
-  UNRECOGNIZED = -1,
+  DENY_GROUP_CALL: 1,
+  UNRECOGNIZED: -1,
+} as const;
+
+export type CallsSettings_GroupCallPolicy =
+  typeof CallsSettings_GroupCallPolicy[keyof typeof CallsSettings_GroupCallPolicy];
+
+export namespace CallsSettings_GroupCallPolicy {
+  export type ALLOW_GROUP_CALL = typeof CallsSettings_GroupCallPolicy.ALLOW_GROUP_CALL;
+  export type DENY_GROUP_CALL = typeof CallsSettings_GroupCallPolicy.DENY_GROUP_CALL;
+  export type UNRECOGNIZED = typeof CallsSettings_GroupCallPolicy.UNRECOGNIZED;
 }
 
 /** Devices Settings */
@@ -226,17 +304,27 @@ export interface AppearanceSettings {
 }
 
 /** Time format (12h vs 24h display) */
-export const enum AppearanceSettings_TimeFormat {
-  TIME_24H = 0,
-  TIME_12H = 1,
-  UNRECOGNIZED = -1,
+export const AppearanceSettings_TimeFormat = { TIME_24H: 0, TIME_12H: 1, UNRECOGNIZED: -1 } as const;
+
+export type AppearanceSettings_TimeFormat =
+  typeof AppearanceSettings_TimeFormat[keyof typeof AppearanceSettings_TimeFormat];
+
+export namespace AppearanceSettings_TimeFormat {
+  export type TIME_24H = typeof AppearanceSettings_TimeFormat.TIME_24H;
+  export type TIME_12H = typeof AppearanceSettings_TimeFormat.TIME_12H;
+  export type UNRECOGNIZED = typeof AppearanceSettings_TimeFormat.UNRECOGNIZED;
 }
 
 /** Whether to show or hide inactive contacts */
-export const enum AppearanceSettings_HideInactive {
-  SHOW = 0,
-  HIDE = 1,
-  UNRECOGNIZED = -1,
+export const AppearanceSettings_HideInactive = { SHOW: 0, HIDE: 1, UNRECOGNIZED: -1 } as const;
+
+export type AppearanceSettings_HideInactive =
+  typeof AppearanceSettings_HideInactive[keyof typeof AppearanceSettings_HideInactive];
+
+export namespace AppearanceSettings_HideInactive {
+  export type SHOW = typeof AppearanceSettings_HideInactive.SHOW;
+  export type HIDE = typeof AppearanceSettings_HideInactive.HIDE;
+  export type UNRECOGNIZED = typeof AppearanceSettings_HideInactive.UNRECOGNIZED;
 }
 
 /** Media Settings */
@@ -245,11 +333,16 @@ export interface MediaSettings {
   animatedImageMode?: MediaSettings_AnimatedImageMode | undefined;
 }
 
-/** Whether or not to loop animated images */
-export const enum MediaSettings_AnimatedImageMode {
-  LOOP = 0,
-  DONT_LOOP = 1,
-  UNRECOGNIZED = -1,
+/** Whether or not to loop animated images. */
+export const MediaSettings_AnimatedImageMode = { LOOP: 0, DONT_LOOP: 1, UNRECOGNIZED: -1 } as const;
+
+export type MediaSettings_AnimatedImageMode =
+  typeof MediaSettings_AnimatedImageMode[keyof typeof MediaSettings_AnimatedImageMode];
+
+export namespace MediaSettings_AnimatedImageMode {
+  export type LOOP = typeof MediaSettings_AnimatedImageMode.LOOP;
+  export type DONT_LOOP = typeof MediaSettings_AnimatedImageMode.DONT_LOOP;
+  export type UNRECOGNIZED = typeof MediaSettings_AnimatedImageMode.UNRECOGNIZED;
 }
 
 /**
@@ -272,10 +365,41 @@ export interface ChatSettings {
   composeBarEnterMode?: ChatSettings_ComposeBarEnterMode | undefined;
 }
 
-export const enum ChatSettings_ComposeBarEnterMode {
-  SUBMIT = 0,
-  LINE_BREAK = 1,
-  UNRECOGNIZED = -1,
+export const ChatSettings_ComposeBarEnterMode = { SUBMIT: 0, LINE_BREAK: 1, UNRECOGNIZED: -1 } as const;
+
+export type ChatSettings_ComposeBarEnterMode =
+  typeof ChatSettings_ComposeBarEnterMode[keyof typeof ChatSettings_ComposeBarEnterMode];
+
+export namespace ChatSettings_ComposeBarEnterMode {
+  export type SUBMIT = typeof ChatSettings_ComposeBarEnterMode.SUBMIT;
+  export type LINE_BREAK = typeof ChatSettings_ComposeBarEnterMode.LINE_BREAK;
+  export type UNRECOGNIZED = typeof ChatSettings_ComposeBarEnterMode.UNRECOGNIZED;
+}
+
+/** Work Settings */
+export interface WorkSettings {
+  /** Logos to be displayed in the app. */
+  logo:
+    | WorkSettings_ThemedLogos
+    | undefined;
+  /** The name of the organisation. */
+  orgName?:
+    | string
+    | undefined;
+  /** Custom in-app support base URL. */
+  support?: string | undefined;
+}
+
+export interface WorkSettings_Logo {
+  /** URL pointing a logo. */
+  url: string;
+  /** The logo as blob. */
+  blob: Uint8Array;
+}
+
+export interface WorkSettings_ThemedLogos {
+  light?: WorkSettings_Logo | undefined;
+  dark?: WorkSettings_Logo | undefined;
 }
 
 function createBaseUnit(): Unit {
@@ -950,6 +1074,154 @@ export const ChatSettings = {
           }
 
           message.composeBarEnterMode = reader.int32() as any;
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+};
+
+function createBaseWorkSettings(): WorkSettings {
+  return { logo: undefined, orgName: undefined, support: undefined };
+}
+
+export const WorkSettings = {
+  encode(message: WorkSettings, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.logo !== undefined) {
+      WorkSettings_ThemedLogos.encode(message.logo, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.orgName !== undefined) {
+      writer.uint32(18).string(message.orgName);
+    }
+    if (message.support !== undefined) {
+      writer.uint32(26).string(message.support);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): WorkSettings {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseWorkSettings();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.logo = WorkSettings_ThemedLogos.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.orgName = reader.string();
+          continue;
+        case 3:
+          if (tag !== 26) {
+            break;
+          }
+
+          message.support = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+};
+
+function createBaseWorkSettings_Logo(): WorkSettings_Logo {
+  return { url: "", blob: new Uint8Array(0) };
+}
+
+export const WorkSettings_Logo = {
+  encode(message: WorkSettings_Logo, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.url !== "") {
+      writer.uint32(10).string(message.url);
+    }
+    if (message.blob.length !== 0) {
+      writer.uint32(18).bytes(message.blob);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): WorkSettings_Logo {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseWorkSettings_Logo();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.url = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.blob = reader.bytes();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+};
+
+function createBaseWorkSettings_ThemedLogos(): WorkSettings_ThemedLogos {
+  return { light: undefined, dark: undefined };
+}
+
+export const WorkSettings_ThemedLogos = {
+  encode(message: WorkSettings_ThemedLogos, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.light !== undefined) {
+      WorkSettings_Logo.encode(message.light, writer.uint32(10).fork()).ldelim();
+    }
+    if (message.dark !== undefined) {
+      WorkSettings_Logo.encode(message.dark, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): WorkSettings_ThemedLogos {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseWorkSettings_ThemedLogos();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.light = WorkSettings_Logo.decode(reader, reader.uint32());
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.dark = WorkSettings_Logo.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {

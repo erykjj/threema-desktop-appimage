@@ -1,5 +1,5 @@
 <!--
-  @component Renders a top bar with the user's profile picture and action buttons.
+    @component Renders a bar with control buttons for video calls.
 -->
 <script lang="ts">
   import {onMount} from 'svelte';
@@ -30,12 +30,15 @@
     currentVideoDeviceId,
     isAudioEnabled,
     isVideoEnabled,
+    isScreenSharingEnabled,
     onclickleavecall,
     onclicktoggleaudio,
     onclicktogglevideo,
+    onclicktogglescreensharing,
     onselectaudioinputdevice,
     onselectaudiooutputdevice,
     onselectvideodevice,
+    options,
   }: ControlBarProps = $props();
 
   const mediaDevicesAsyncLock: AsyncLock = new AsyncLock();
@@ -45,6 +48,9 @@
   let audioInputDevices = $state<AudioInputDeviceInfo[]>([]);
   let audioOutputDevices = $state<AudioOutputDeviceInfo[]>([]);
   let videoDevices = $state<VideoDeviceInfo[]>([]);
+
+  const hasAudioDevices = $derived(audioInputDevices.length > 0 || audioOutputDevices.length > 0);
+  const hasVideoDevices = $derived(videoDevices.length > 0);
 
   function updateMediaDevices(): void {
     mediaDevicesAsyncLock
@@ -107,17 +113,24 @@
   <div class="left">
     <div class="control video">
       <RadialExclusionMaskProvider
-        cutouts={[
-          {
-            diameter: 24,
-            position: {
-              x: 90,
-              y: 10,
-            },
-          },
-        ]}
+        cutouts={hasVideoDevices
+          ? [
+              {
+                diameter: 24,
+                position: {
+                  x: 90,
+                  y: 10,
+                },
+              },
+            ]
+          : []}
       >
-        <button class="toggle" class:enabled={isVideoEnabled} onclick={onclicktogglevideo}>
+        <button
+          class="toggle"
+          class:enabled={isVideoEnabled}
+          disabled={!hasVideoDevices}
+          onclick={onclicktogglevideo}
+        >
           <MdIcon theme="Outlined">
             {#if isVideoEnabled}
               videocam
@@ -128,52 +141,61 @@
         </button>
       </RadialExclusionMaskProvider>
 
-      <div class="chooser">
-        <ContextMenuProvider
-          bind:popover={videoDeviceSelectionPopover}
-          anchorPoints={{
-            reference: {
-              horizontal: 'right',
-              vertical: 'top',
-            },
-            popover: {
-              horizontal: 'right',
-              vertical: 'bottom',
-            },
-          }}
-          flip={false}
-          items={videoDeviceContextMenuItems}
-          offset={{
-            left: 0,
-            top: -4,
-          }}
-          safetyGap={{
-            bottom: 12,
-            left: 12,
-            right: 12,
-            top: 12,
-          }}
-        >
-          <button class="trigger">
-            <MdIcon theme="Outlined">keyboard_arrow_up</MdIcon>
-          </button>
-        </ContextMenuProvider>
-      </div>
+      {#if hasVideoDevices}
+        <div class="chooser">
+          <ContextMenuProvider
+            bind:popover={videoDeviceSelectionPopover}
+            anchorPoints={{
+              reference: {
+                horizontal: 'right',
+                vertical: 'top',
+              },
+              popover: {
+                horizontal: 'right',
+                vertical: 'bottom',
+              },
+            }}
+            flip={false}
+            items={videoDeviceContextMenuItems}
+            offset={{
+              left: 0,
+              top: -4,
+            }}
+            safetyGap={{
+              bottom: 12,
+              left: 12,
+              right: 12,
+              top: 12,
+            }}
+          >
+            <button class="trigger" disabled={!hasVideoDevices}>
+              <MdIcon theme="Outlined">keyboard_arrow_up</MdIcon>
+            </button>
+          </ContextMenuProvider>
+        </div>
+      {/if}
     </div>
 
     <div class="control audio">
       <RadialExclusionMaskProvider
-        cutouts={[
-          {
-            diameter: 24,
-            position: {
-              x: 90,
-              y: 10,
-            },
-          },
-        ]}
+        cutouts={hasAudioDevices
+          ? [
+              {
+                diameter: 24,
+                position: {
+                  x: 90,
+                  y: 10,
+                },
+              },
+            ]
+          : []}
       >
-        <button class="toggle" class:enabled={isAudioEnabled} onclick={onclicktoggleaudio}>
+        <button
+          class="toggle"
+          class:enabled={isAudioEnabled}
+          disabled={!hasAudioDevices}
+          onclick={onclicktoggleaudio}
+        >
           <MdIcon theme="Outlined">
             {#if isAudioEnabled}
               mic
@@ -184,38 +206,58 @@
         </button>
       </RadialExclusionMaskProvider>
 
-      <div class="chooser">
-        <ContextMenuProvider
-          bind:popover={audioDeviceSelectionPopover}
-          anchorPoints={{
-            reference: {
-              horizontal: 'right',
-              vertical: 'top',
-            },
-            popover: {
-              horizontal: 'right',
-              vertical: 'bottom',
-            },
-          }}
-          flip={false}
-          items={audioDeviceContextMenuItems}
-          offset={{
-            left: 0,
-            top: -4,
-          }}
-          safetyGap={{
-            bottom: 12,
-            left: 12,
-            right: 12,
-            top: 12,
-          }}
-        >
-          <button class="trigger">
-            <MdIcon theme="Outlined">keyboard_arrow_up</MdIcon>
-          </button>
-        </ContextMenuProvider>
-      </div>
+      {#if hasAudioDevices}
+        <div class="chooser">
+          <ContextMenuProvider
+            bind:popover={audioDeviceSelectionPopover}
+            anchorPoints={{
+              reference: {
+                horizontal: 'right',
+                vertical: 'top',
+              },
+              popover: {
+                horizontal: 'right',
+                vertical: 'bottom',
+              },
+            }}
+            flip={false}
+            items={audioDeviceContextMenuItems}
+            offset={{
+              left: 0,
+              top: -4,
+            }}
+            safetyGap={{
+              bottom: 12,
+              left: 12,
+              right: 12,
+              top: 12,
+            }}
+          >
+            <button class="trigger" disabled={!hasAudioDevices}>
+              <MdIcon theme="Outlined">keyboard_arrow_up</MdIcon>
+            </button>
+          </ContextMenuProvider>
+        </div>
+      {/if}
     </div>
+
+    {#if options?.allowScreenSharing === true}
+      <div class="control">
+        <button
+          class="toggle"
+          class:enabled={isScreenSharingEnabled}
+          onclick={onclicktogglescreensharing}
+        >
+          <MdIcon theme="Outlined">
+            {#if isScreenSharingEnabled}
+              screen_share
+            {:else}
+              stop_screen_share
+            {/if}
+          </MdIcon>
+        </button>
+      </div>
+    {/if}
   </div>
 
   <div class="right">
@@ -238,9 +280,12 @@
     align-items: center;
     justify-content: space-between;
 
-    height: rem(160px);
+    height: rem(212px);
     max-width: rem(288px);
     background-color: none;
+
+    // Reset disabled `pointer-events` defined on the parent.
+    pointer-events: auto;
 
     .left,
     .right {
@@ -266,6 +311,10 @@
 
           color: white;
           background-color: rgb(5, 5, 5);
+
+          &:disabled {
+            opacity: 0.4;
+          }
         }
       }
     }
@@ -274,7 +323,7 @@
       justify-content: left;
 
       .control {
-        .toggle {
+        .toggle:not(:disabled) {
           &.enabled {
             background-color: rgb(25, 209, 84);
           }
@@ -319,7 +368,7 @@
             color: white;
             background-color: rgb(5, 5, 5);
 
-            &:hover {
+            &:hover:not(:disabled) {
               cursor: pointer;
               background-color: rgb(20, 20, 20);
             }
@@ -337,7 +386,7 @@
             background-color: rgb(255, 0, 0);
           }
 
-          &:hover {
+          &:hover:not(:disabled) {
             cursor: pointer;
             background-color: rgb(20, 20, 20);
 
@@ -376,11 +425,11 @@
           .toggle {
             background-color: rgb(38, 38, 38);
 
-            &:hover {
+            &:hover:not(:disabled) {
               background-color: rgb(29, 28, 28);
             }
 
-            &:active {
+            &:active:not(:disabled) {
               background-color: rgb(23, 22, 22);
             }
           }
@@ -395,7 +444,7 @@
             .trigger {
               background-color: rgb(38, 38, 38);
 
-              &:hover {
+              &:hover:not(:disabled) {
                 background-color: rgb(29, 28, 28);
               }
             }

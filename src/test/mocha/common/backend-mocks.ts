@@ -78,6 +78,7 @@ import {DevicesSettingsModelStore} from '~/common/model/settings/devices';
 import {MediaSettingsModelStore} from '~/common/model/settings/media';
 import {PrivacySettingsModelStore} from '~/common/model/settings/privacy';
 import {ProfileSettingsModelStore} from '~/common/model/settings/profile';
+import {WorkSettingsModelStore} from '~/common/model/settings/work';
 import type {ContactRepository} from '~/common/model/types/contact';
 import type {ConversationRepository} from '~/common/model/types/conversation';
 import type {EmojiPreferences} from '~/common/model/types/emoji-preferences';
@@ -92,6 +93,7 @@ import type {
     CallsSettings,
     MediaSettings,
     ChatSettings,
+    WorkSettings,
 } from '~/common/model/types/settings';
 import type {User} from '~/common/model/types/user';
 import type {ModelStore} from '~/common/model/utils/model-store';
@@ -137,7 +139,12 @@ import type {
 import {_only_for_testing, TaskManager} from '~/common/network/protocol/task/manager';
 import {randomGroupId, randomMessageId} from '~/common/network/protocol/utils';
 import {VolatileProtocolStateBackend} from '~/common/network/protocol/volatile-protocol-state';
-import type {WorkBackend, WorkContacts, WorkLicenseStatus} from '~/common/network/protocol/work';
+import type {
+    WorkBackend,
+    WorkContacts,
+    WorkLicenseStatus,
+    WorkSync,
+} from '~/common/network/protocol/work';
 import * as structbuf from '~/common/network/structbuf';
 import {
     ensureBaseUrl,
@@ -209,6 +216,7 @@ const TEST_CONFIG: Config = {
     UPDATE_SERVER_URL: MOCK_URL,
     WORK_SERVER_URL: MOCK_URL,
     DEBUG_PACKET_CAPTURE_HISTORY_LENGTH: 100,
+    DEPRECATED_KEY_STORAGE_PATH: ['/tmp/desktop-mocha-tests'],
     KEY_STORAGE_PATH: ['/tmp/desktop-mocha-tests'],
     FILE_STORAGE_PATH: ['/tmp/desktop-mocha-tests'],
     DATABASE_PATH: ':memory:',
@@ -424,6 +432,7 @@ class UserRepository implements User {
     public mediaSettings: ModelStore<MediaSettings>;
     public chatSettings: ModelStore<ChatSettings>;
     public emojiPreferences: ModelStore<EmojiPreferences>;
+    public workSettings: ModelStore<WorkSettings>;
 
     public constructor(userIdentity: IdentityString, services: ServicesForModel) {
         this.identity = userIdentity;
@@ -435,6 +444,7 @@ class UserRepository implements User {
         this.mediaSettings = new MediaSettingsModelStore(services);
         this.chatSettings = new ChatSettingsModelStore(services);
         this.emojiPreferences = new EmojiPreferencesModelStore(services);
+        this.workSettings = new WorkSettingsModelStore(services);
 
         this.displayName = derive(
             [this.profileSettings],
@@ -623,6 +633,28 @@ class TestWorkBackend implements WorkBackend {
     public async contacts(): Promise<WorkContacts> {
         return {contacts: []};
     }
+
+    // eslint-disable-next-line @typescript-eslint/require-await
+    public async sync(): Promise<WorkSync> {
+        return {
+            checkInterval: 0,
+            org: {
+                name: undefined,
+            },
+            logo: {
+                light: undefined,
+                dark: undefined,
+            },
+            directory: {
+                enabled: false,
+            },
+            mdm: {
+                override: false,
+                params: {},
+            },
+            contacts: [],
+        };
+    }
 }
 
 export interface TestServices extends ServicesForBackend {
@@ -643,8 +675,14 @@ interface TestKeyStorageDetails {
 
 export function makeTestFileSystemKeyStorage(crypto: CryptoBackend): TestKeyStorageDetails {
     const appPath = fs.mkdtempSync(path.join(os.tmpdir(), 'threema-desktop-test-'));
-    const keyStoragePath = path.join(appPath, 'key-storage.pb3');
-    const keyStorage = new FileSystemKeyStorage({crypto}, NOOP_LOGGER, keyStoragePath);
+    const keyStoragePath = path.join(appPath, 'key-storage.bin');
+    const deprecatedKeyStoragePath = path.join(appPath, 'key-storage.pb3');
+    const keyStorage = new FileSystemKeyStorage(
+        {crypto},
+        NOOP_LOGGER,
+        keyStoragePath,
+        deprecatedKeyStoragePath,
+    );
     return {appPath, keyStoragePath, keyStorage};
 }
 

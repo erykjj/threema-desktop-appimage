@@ -94,6 +94,7 @@
   "dialog--common": {
     "action--back": "Zurück",
     "action--cancel": "Abbrechen",
+    "action--close-app": "App schliessen",
     "action--confirm": "Bestätigen",
     "action--confirm-and-restart": "Bestätigen und neu starten",
     "action--continue": "Weiter",
@@ -163,11 +164,6 @@
     "label--title": "Verbindung von einem anderen Gerät erkannt",
     "prose--description-p1": "Der Server hat eine Verbindung von einem anderen Gerät mit derselben {shortAppName}-ID erkannt. Falls Sie Ihre {shortAppName}-ID nicht kürzlich auf einem anderen Gerät verwendet haben, kontaktieren Sie bitte unseren Support und senden Sie wenn möglich die Logdatei mit.",
     "prose--description-p2": "Falls Sie Ihre {shortAppName}-ID auf einem anderen Gerät verwendet haben, empfehlen wir, die Desktop-App erneut mit dem Mobilgerät zu verknüpfen. Die Chatverläufe können nach erneutem Verknüpfen wiederhergestellt werden."
-  },
-  "dialog--device-cookie-missing": {
-    "error--no-connection": "Die Verknüpfung dieses Geräts konnte nicht aufgehoben werden. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
-    "label--title": "Erneutes Verknüpfen empfohlen",
-    "prose--description": "Um die Multi-Device-Sicherheit zu verbessern, muss dieses Gerät neu verknüpft werden. Die Chatverläufe werden nach erneutem Verknüpfen wiederhergestellt."
   },
   "dialog--discard-media-message": {
     "action--confirm": "Verwerfen",
@@ -257,6 +253,11 @@
     "prose--description-p2": "Um {fullAppName} weiterhin zu verwenden, haben Sie zwei Möglichkeiten:",
     "prose--description-relink": "Heben Sie die bestehende Verknüpfung auf und verknüpfen Sie {fullAppName} für Desktop erneut mit Ihrem Mobilgerät. Die Chatverläufe werden nach erneutem Verknüpfen wiederhergestellt.",
     "prose--update-success": "{fullAppName}-Zugangsdaten erfolgreich aktualisiert"
+  },
+  "dialog--key-storage-migration-failed": {
+    "label--title": "Backend-Migration fehlgeschlagen",
+    "prose--description-consumer": "Eine Migration im Backend ist unerwartet fehlgeschlagen. Um Threema für Desktop weiterhin zu nutzen, wenden Sie sich an unseren <slot_1>Support</slot_1> und senden Sie nach Möglichkeit eine Logdatei.",
+    "prose--description-work": "Eine Migration im Backend ist unerwartet fehlgeschlagen. Um Threema für Desktop weiterhin zu nutzen, wenden Sie sich an Ihren Administrator."
   },
   "dialog--linking-confirm-emoji": {
     "label--title": "Bestätigen Sie die Bilder auf Ihrem Mobilgerät."
@@ -555,15 +556,25 @@
     "error--send-file-file-too-large": "Datei ist zu gross",
     "error--send-file-miscellaneous-errors": "Einige Dateien enthalten Fehler",
     "hint--call-ended": "Anruf wurde beendet",
+    "hint--call-screen-sharing-enabled": "Die Bildschirmfreigabe ist aktiv",
     "hint--drop-files-to-send": "Dateien zum Senden hier ablegen",
     "hint--media-thumbnail": "Medien-Vorschau",
     "label--call-connecting": "Wird verbunden…",
     "label--call-join-long": "Anruf beitreten",
     "label--call-join-short": "Beitreten",
     "label--call-participant-count": "{n, plural, =0 {Keine Teilnehmer} =1 {1 Teilnehmer} other {# Teilnehmer}}",
+    "label--call-screen-sharing-picker-title": "Wählen Sie, was Sie teilen möchten",
+    "label--call-screen-sharing-picker-title-screens": "Gesamter Bildschirm",
+    "label--call-screen-sharing-picker-title-windows": "Anwendungsfenster",
+    "label--call-screen-sharing-stop": "Bildschirmfreigabe beenden",
     "label--call-select-audio-input": "Mikrofon",
     "label--call-select-audio-output": "Lautsprecher",
     "label--call-start-long": "Anruf starten",
+    "label--call-video-collapse": "Verkleinern",
+    "label--call-video-expand": "Vergrössern",
+    "label--call-video-fullscreen": "Vollbild",
+    "label--call-video-pip": "Bild im Bild",
+    "label--call-video-pip-indicator": "Bild-im-Bild-Modus ist aktiv",
     "label--compose-area": "Neue Nachricht...",
     "label--default-audio-message-preview": "Sprachnachricht",
     "label--default-file-message-preview": "Datei",
@@ -665,6 +676,8 @@
     "label--licenses-title": "Lizenzen",
     "label--log-file-paths": "Pfade der Logdateien",
     "label--log-to-file": "Logging",
+    "label--privacy-information": "Datenschutzinformationen",
+    "label--privacy-policy": "Datenschutzerklärung",
     "label--third-party-code": "Software-Bibliotheken",
     "label--title": "Über {shortAppName} für Desktop",
     "label--troubleshooting": "Fehlerbehebung",

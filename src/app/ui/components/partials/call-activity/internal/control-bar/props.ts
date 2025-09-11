@@ -28,9 +28,14 @@ export interface ControlBarProps {
      * Whether the user is actively sharing video with the other call participants.
      */
     readonly isVideoEnabled: boolean;
+    /**
+     * Whether the user is actively sharing his screen with the other call participants.
+     */
+    readonly isScreenSharingEnabled: boolean;
     readonly onclickleavecall: (event: MouseEvent) => void;
     readonly onclicktoggleaudio: (event: MouseEvent) => void;
     readonly onclicktogglevideo: (event: MouseEvent) => void;
+    readonly onclicktogglescreensharing: (event: MouseEvent) => void;
     /**
      * Handler callback which is invoked when a different audio input device is selected than that
      * which is currently active.
@@ -46,4 +51,10 @@ export interface ControlBarProps {
      * is currently active.
      */
     readonly onselectvideodevice: (device: VideoDeviceInfo) => void;
+    readonly options?: {
+        /**
+         * Whether users should see an option to share their screen. Defaults to `false`.
+         */
+        readonly allowScreenSharing?: boolean;
+    };
 }

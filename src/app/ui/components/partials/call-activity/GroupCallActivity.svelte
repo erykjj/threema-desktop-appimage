@@ -17,6 +17,8 @@
     selectMicrophoneDevice,
     selectCameraDevice,
     findMediaDevice,
+    updateRemoteParticipantScreens,
+    startScreenSharing,
   } from '~/app/ui/components/partials/call-activity/helpers';
   import ControlBar from '~/app/ui/components/partials/call-activity/internal/control-bar/ControlBar.svelte';
   import type {
@@ -25,10 +27,14 @@
     VideoDeviceInfo,
   } from '~/app/ui/components/partials/call-activity/internal/control-bar/types';
   import TopBar from '~/app/ui/components/partials/call-activity/internal/top-bar/TopBar.svelte';
+  import VideoPanel from '~/app/ui/components/partials/call-activity/internal/video-panel/VideoPanel.svelte';
   import type {GroupCallActivityProps} from '~/app/ui/components/partials/call-activity/props';
   import type {AugmentedOngoingGroupCallViewModelBundle} from '~/app/ui/components/partials/call-activity/transformer';
-  import ParticipantFeed from '~/app/ui/components/partials/call-participant-feed/ParticipantFeed.svelte';
-  import type {ParticipantFeedProps} from '~/app/ui/components/partials/call-participant-feed/props';
+  import {
+    isVideoFeedType,
+    type FeedType,
+    type ParticipantFeedProps,
+  } from '~/app/ui/components/partials/call-participant-feed/props';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
   import {reactive, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
@@ -51,7 +57,7 @@
   const FEED_MIN_WIDTH_PX = 256;
   const FEED_PADDING_PX = 16;
 
-  const {router} = services;
+  const {router, electron} = services;
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.call-activity');
 
@@ -62,6 +68,9 @@
   let containerLayout = $state<ActivityLayout>('regular');
   let feedContainerElement = $state<SvelteNullableBinding<HTMLDivElement>>(null);
   let audioElement = $state<SvelteNullableBinding<HTMLAudioElement>>(null);
+  let videoPanelComponent = $state<SvelteNullableBinding<VideoPanel>>(null);
+
+  let isFullView = $state<boolean>(false);
 
   // Maps from track to the associated media stream and the node that receives said stream.
   let audioTracksMap = $state<
@@ -82,23 +91,64 @@
     .catch(assertUnreachable);
 
   const localFeed = $derived.by<
-    Omit<ParticipantFeedProps<'local'>, 'activity' | 'services'> | undefined
+    Omit<ParticipantFeedProps<'localVideo'>, 'activity' | 'services'> | undefined
   >(() => {
     if (user !== undefined && $user !== undefined) {
       return {
-        type: 'local',
+        id: 'localVideo_local',
+        type: 'localVideo',
         capture: {
-          camera: $localDevices.camera?.state ?? 'off',
-          microphone: $localDevices.microphone?.state ?? 'off',
+          camera: {state: $localDevices.camera?.state ?? 'off'},
+          microphone: {state: $localDevices.microphone?.state ?? 'off'},
+          screen: {state: $localDevices.screen?.state ?? 'off'},
         },
         container: feedContainerElement,
         updateCameraSubscription: (dimensions) =>
           handleUpdateCameraSubscription(dimensions, 'local'),
+        updateScreenSubscription: (dimensions) => {
+          handleUpdateScreenSubscription(dimensions, 'local');
+        },
         participantId: 'local',
         receiver: $user,
         tracks: {
-          type: 'local',
+          type: 'localVideo',
           camera: $localDevices.camera?.track,
+          screen: $localDevices.screen?.track,
+        },
+      };
+    }
+
+    return undefined;
+  });
+
+  const localScreen = $derived.by<
+    Omit<ParticipantFeedProps<'localScreen'>, 'activity' | 'services'> | undefined
+  >(() => {
+    if (
+      user !== undefined &&
+      $user !== undefined &&
+      $localDevices.screen !== undefined &&
+      $localDevices.screen?.state === 'on'
+    ) {
+      return {
+        id: 'localScreen_local',
+        type: 'localScreen',
+        capture: {
+          camera: {state: $localDevices.camera?.state ?? 'off'},
+          microphone: {state: $localDevices.microphone?.state ?? 'off'},
+          screen: {state: $localDevices.screen.state},
+        },
+        container: feedContainerElement,
+        updateCameraSubscription: (dimensions) =>
+          handleUpdateCameraSubscription(dimensions, 'local'),
+        updateScreenSubscription: (dimensions) => {
+          handleUpdateScreenSubscription(dimensions, 'local');
+        },
+        participantId: 'local',
+        receiver: $user,
+        tracks: {
+          type: 'localScreen',
+          screen: $localDevices.screen.track,
         },
       };
     }
@@ -109,12 +159,26 @@
   let stop = $state<AbortRaiser<AnyExtendedGroupCallContextAbort> | undefined>(undefined);
   let call = $state.raw<AugmentedOngoingGroupCallViewModelBundle | undefined>(undefined);
   let remoteFeeds = $state<
-    readonly Omit<ParticipantFeedProps<'remote'>, 'activity' | 'services'>[]
+    readonly Omit<ParticipantFeedProps<'remoteVideo' | 'remoteScreen'>, 'activity' | 'services'>[]
   >([]);
 
-  const feeds = $derived<
-    readonly Omit<ParticipantFeedProps<'local' | 'remote'>, 'activity' | 'services'>[]
-  >([...(localFeed !== undefined ? [localFeed] : []), ...remoteFeeds]);
+  const feeds = $derived<readonly Omit<ParticipantFeedProps<FeedType>, 'activity' | 'services'>[]>(
+    [
+      ...(localFeed !== undefined ? [localFeed] : []),
+      ...(localScreen !== undefined ? [localScreen] : []),
+      ...remoteFeeds,
+    ].sort((a, b) => {
+      const priority: Record<FeedType, u53> = {
+        localScreen: 0,
+        remoteScreen: 1,
+        localVideo: 2,
+        remoteVideo: 4,
+      };
+
+      return priority[a.type] - priority[b.type];
+    }),
+  );
+  const supportedFeatures = $derived(call?.context.supportedFeatures);
 
   function handleChangeSizeContainerElement(
     event: CustomEvent<{entries: ResizeObserverEntry[]}>,
@@ -124,6 +188,21 @@
     requestAnimationFrame(() => {
       containerLayout = (width ?? 0) < FEED_MIN_WIDTH_PX ? 'pocket' : 'regular';
     });
+  }
+
+  function handleToggleExpand(event: Event): void {
+    // Bubble event.
+    ontoggleexpand?.(event);
+  }
+
+  function handleChangeFullView(newIsFullView: boolean): void {
+    if (isFullView !== newIsFullView) {
+      isFullView = newIsFullView;
+
+      if (newIsFullView && !isExpanded) {
+        ontoggleexpand?.();
+      }
+    }
   }
 
   /**
@@ -139,6 +218,8 @@
       }
       // We attach the stream to the audio element's source object only once.
       if (audioTracksMap === undefined) {
+        // TODO(DESK-1711): Check if map has to be mutable.
+        // eslint-disable-next-line svelte/prefer-svelte-reactivity
         audioTracksMap = new Map();
         currentAudioElement.srcObject = incomingAudioSink.stream;
       }
@@ -146,8 +227,9 @@
       const activeAudioTracks = new Set([...audioTracksMap.keys()]);
       const currentAudioTracks = new Set(
         currentFeeds
-          .filter((feed): feed is (typeof remoteFeeds)[u53] => feed.type === 'remote')
-          .map((feed) => feed.tracks.microphone),
+          .map((feed) => feed.tracks)
+          .filter((tracks) => tracks.type === 'remoteVideo')
+          .map((tracks) => tracks.microphone),
       );
 
       // `svelte-eslint` doesn't seem to support `Set.difference` yet.
@@ -235,6 +317,30 @@
     true,
   );
 
+  const handleUpdateScreenSubscription = TIMER.debounceWithDistinctArgs(
+    (dimensions: Dimensions | undefined, participantId: 'local' | ParticipantId) => {
+      if (call === undefined || stop === undefined || participantId === 'local') {
+        return;
+      }
+
+      // Because Svelte `$state` uses proxies under the hood, some values need to be unwrapped using
+      // `$state.snapshot` to make them serializable for sending them to the backend.
+      updateRemoteParticipantScreens({
+        controller: call.controller,
+        participantId: $state.snapshot(participantId),
+        dimensions: $state.snapshot(dimensions),
+      }).catch((error) => {
+        log.error('Updating remote screen subscription failed', error);
+        stop?.raise({origin: 'ui-component', cause: 'unexpected-error'});
+      });
+    },
+    500,
+    // Debounce using `distinctArgs` and use the participant id as the key, so the debounced
+    // function is called once for each participant.
+    (_, id) => `${id}`,
+    true,
+  );
+
   function handleSelectAudioInputDevice(device: AudioInputDeviceInfo): void {
     selectMicrophoneDevice(localDevicesGuard, call, {
       device: {
@@ -294,7 +400,7 @@
     }
 
     if (isExpanded && event.key === 'Escape') {
-      ontoggleexpand?.(event);
+      handleToggleExpand(event);
     }
   }
 
@@ -354,6 +460,38 @@
       });
   }
 
+  function handleSelectScreenInputDevice(): void {
+    localDevicesGuard
+      .with(async (store) => {
+        const screen = store.get().screen;
+
+        if (screen === undefined || screen.state === 'off') {
+          await startScreenSharing(
+            electron,
+            localDevicesGuard,
+            store,
+            call,
+            $i18n.t('messaging.hint--call-screen-sharing-enabled', 'You are sharing your screen'),
+            $i18n.t('messaging.label--call-screen-sharing-stop', 'Stop sharing'),
+          );
+
+          // Register callback to stop screen sharing.
+          electron.registerOnScreenSharingStopCallback(() => {
+            localDevicesGuard
+              .with((s) => s.get().screen?.track.dispatchEvent(new Event('ended')), 'select-screen')
+              .catch((error) => {
+                log.error(`Stopping screen sharing failed`, error);
+              });
+          });
+        } else {
+          screen.track.dispatchEvent(new Event('ended'));
+        }
+      }, 'select-screen')
+      .catch((error) => {
+        log.error(`Toggle screen sharing failed`, error);
+      });
+  }
+
   // Setup media devices at startup.
   //
   // Note: Microphone capture will be 'on' by default whereas camera capture will be 'off' by
@@ -364,7 +502,7 @@
   selectInitialCaptureDevices(
     log,
     localDevicesGuard,
-    {microphone: 'on', camera: 'off'},
+    {microphone: {state: 'on'}, camera: {state: 'off'}, screen: {state: 'off'}},
     {
       preferredDevices: {
         camera:
@@ -485,6 +623,16 @@
           unreachable(event);
       }
 
+      // Stop any ongoing screen share
+      localDevicesGuard
+        .with(
+          (store) => store.get().screen?.track.dispatchEvent(new Event('ended')),
+          'select-screen',
+        )
+        .catch((error) => {
+          log.error(`Stopping screen sharing failed`, error);
+        });
+
       // Reset call state
       stop = undefined;
       call = undefined;
@@ -526,21 +674,57 @@
         }
 
         // Update feeds state
-        remoteFeeds = state.remote.map(
-          (participant): Omit<ParticipantFeedProps<'remote'>, 'activity' | 'services'> => ({
-            type: 'remote',
-            capture: participant.capture,
-            container: feedContainerElement,
-            updateCameraSubscription: (dimensions) =>
-              handleUpdateCameraSubscription(dimensions, participant.id),
-            participantId: participant.id,
-            receiver: participant.receiver,
-            tracks: {
-              type: 'remote',
-              microphone: participant.transceivers.microphone.receiver.track,
-              camera: participant.transceivers.camera.receiver.track,
-            },
-          }),
+        remoteFeeds = state.remote.flatMap(
+          (
+            participant,
+          ): Omit<
+            ParticipantFeedProps<'remoteVideo' | 'remoteScreen'>,
+            'activity' | 'services'
+          >[] => {
+            const res: Omit<
+              ParticipantFeedProps<'remoteVideo' | 'remoteScreen'>,
+              'activity' | 'services'
+            >[] = [
+              {
+                id: `remoteVideo_${participant.id}`,
+                type: 'remoteVideo',
+                capture: participant.capture,
+                container: feedContainerElement,
+                updateCameraSubscription: (dimensions) =>
+                  handleUpdateCameraSubscription(dimensions, participant.id),
+                updateScreenSubscription: (dimension) =>
+                  handleUpdateScreenSubscription(dimension, participant.id),
+                participantId: participant.id,
+                receiver: participant.receiver,
+                tracks: {
+                  type: 'remoteVideo',
+                  microphone: participant.transceivers.microphone.receiver.track,
+                  camera: participant.transceivers.camera.receiver.track,
+                },
+              },
+            ];
+
+            if (participant.capture.screen.state === 'on') {
+              res.push({
+                id: `remoteScreen_${participant.id}`,
+                type: 'remoteScreen',
+                capture: participant.capture,
+                container: feedContainerElement,
+                updateCameraSubscription: (dimensions) =>
+                  handleUpdateCameraSubscription(dimensions, participant.id),
+                updateScreenSubscription: (dimension) =>
+                  handleUpdateScreenSubscription(dimension, participant.id),
+                participantId: participant.id,
+                receiver: participant.receiver,
+                tracks: {
+                  type: 'remoteScreen',
+                  screen: participant.transceivers.screen.receiver.track,
+                },
+              });
+            }
+
+            return res;
+          },
         );
       }),
     );
@@ -565,7 +749,9 @@
             ? undefined
             : {
                 state:
-                  call.state.get().local.capture.microphone === 'off' ? 'off' : microphone.state,
+                  call.state.get().local.capture.microphone.state === 'off'
+                    ? 'off'
+                    : microphone.state,
                 track: microphone.track,
               },
         );
@@ -684,13 +870,19 @@
   <div class="top-bar">
     <TopBar
       {isExpanded}
-      onclicktoggleexpand={ontoggleexpand}
+      {isFullView}
+      onclickgridview={(event) => {
+        videoPanelComponent?.setGridView();
+      }}
+      onclicktoggleexpand={(event) => {
+        handleToggleExpand(event);
+      }}
       state={call === undefined
         ? {type: 'connecting'}
         : {
             type: 'connected',
             startedAt: call.context.startedAt,
-            nParticipants: feeds.length,
+            nParticipants: feeds.filter((feed) => isVideoFeedType(feed.type)).length,
           }}
     />
   </div>
@@ -699,9 +891,13 @@
     <audio bind:this={audioElement} autoplay playsinline></audio>
 
     <div class="feeds">
-      {#each feeds as feed (feed.participantId)}
-        <ParticipantFeed {...feed} activity={{layout: containerLayout}} {services} />
-      {/each}
+      <VideoPanel
+        bind:this={videoPanelComponent}
+        {feeds}
+        activity={{isExpanded, layout: containerLayout}}
+        onchangefullview={handleChangeFullView}
+        {services}
+      ></VideoPanel>
     </div>
 
     <div class="footer">
@@ -711,12 +907,21 @@
         currentVideoDeviceId={$localDevices.camera?.track.getSettings().deviceId}
         isAudioEnabled={$localDevices.microphone?.track.enabled ?? false}
         isVideoEnabled={$localDevices.camera?.track.enabled ?? false}
+        isScreenSharingEnabled={$localDevices.screen?.track.enabled ?? false}
         onclickleavecall={handleClickLeaveCall}
         onclicktoggleaudio={() => setMicrophoneCaptureState('toggle')}
         onclicktogglevideo={() => setCameraCaptureState('toggle')}
+        onclicktogglescreensharing={handleSelectScreenInputDevice}
         onselectaudioinputdevice={handleSelectAudioInputDevice}
         onselectaudiooutputdevice={handleSelectAudioOutputDevice}
         onselectvideodevice={handleSelectVideoDevice}
+        options={{
+          allowScreenSharing:
+            // We can be sure that this feature is deployed in non-OnPrem builds.
+            import.meta.env.BUILD_ENVIRONMENT === 'onprem'
+              ? supportedFeatures?.screenShare
+              : import.meta.env.BUILD_FLAVOR !== 'consumer-live',
+        }}
       />
     </div>
   </div>
@@ -762,14 +967,13 @@
 
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: start;
-        gap: rem(12px);
+        align-items: stretch;
+        justify-content: stretch;
 
         overflow-y: auto;
         padding: var($-temp-vars, --c-t-feed-padding) 0
-          calc(172px + var($-temp-vars, --c-t-feed-padding)) 0;
-        scroll-padding-bottom: calc(172px + var($-temp-vars, --c-t-feed-padding));
+          calc(224px + var($-temp-vars, --c-t-feed-padding)) 0;
+        scroll-padding-bottom: calc(224px + var($-temp-vars, --c-t-feed-padding));
         scrollbar-width: none;
       }
 
@@ -785,6 +989,9 @@
         left: 0;
         right: 0;
         bottom: 0;
+
+        // Important: This needs to be reset by children for them to be clickable!
+        pointer-events: none;
 
         padding: 0 0 rem(12px);
 
@@ -803,7 +1010,7 @@
           left: 0;
           right: 0;
           bottom: 0;
-          height: calc(rem(172px) + var($-temp-vars, --c-t-feed-padding));
+          height: calc(rem(224px) + var($-temp-vars, --c-t-feed-padding));
         }
       }
     }
@@ -821,11 +1028,6 @@
         / 100%;
 
       .feeds {
-        display: grid;
-        grid-template-columns: repeat(1, 1fr);
-        grid-auto-rows: min-content;
-        gap: rem(8px);
-
         padding: var($-temp-vars, --c-t-feed-padding);
         padding-bottom: calc(12px + 64px + var($-temp-vars, --c-t-feed-padding));
         scroll-padding-bottom: calc(12px + 64px + var($-temp-vars, --c-t-feed-padding));
@@ -857,26 +1059,8 @@
       }
 
       .content .footer::after {
-        background: none;
+        background: linear-gradient(to top, rgb(38, 38, 38) 0%, transparent 100%);
       }
-    }
-  }
-
-  @container activity (min-width: 512px) {
-    .container[data-layout='regular'] > .content > .feeds {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @container activity (min-width: 768px) {
-    .container[data-layout='regular'] > .content > .feeds {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-
-  @container activity (min-width: 1024px) {
-    .container[data-layout='regular'] > .content > .feeds {
-      grid-template-columns: repeat(4, 1fr);
     }
   }
 </style>

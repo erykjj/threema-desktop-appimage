@@ -17,6 +17,7 @@ import {groupcall} from '~/common/network/protobuf/js';
 import {validator} from '~/common/network/protobuf/utils';
 import * as Unit from '~/common/network/protobuf/validate/common/unit';
 import {NULL_OR_UNDEFINED_SCHEMA} from '~/common/network/protobuf/validate/helpers';
+import {SfuSupportedFeatures} from '~/common/network/protocol/call/flags';
 import {ensureParticipantId} from '~/common/network/protocol/call/group-call';
 import {ensureIdentityString, ensureNickname} from '~/common/network/types';
 import {ensureU16, ensureU53, ensureU8, tag} from '~/common/types';
@@ -112,6 +113,9 @@ export const JOIN_RESPONSE_SCHEMA = validator(
             iceUsernameFragment: v.string().map(ensureIceUsernameFragment),
             icePassword: v.string().map(ensureIcePassword),
             dtlsFingerprint: instanceOf(Uint8Array).map(ensureDtlsFingerprint),
+            supportedFeatures: unsignedLongAsU64()
+                .map(SfuSupportedFeatures.fromBitmask)
+                .default(SfuSupportedFeatures.base()),
         })
         .rest(v.unknown()),
 );
@@ -153,12 +157,22 @@ const S2P_PARTICIPANT_LEFT_SCHEMA = validator(
         })
         .rest(v.unknown()),
 );
+
+const S2P_PARTICIPANT_TIMESTAMP_SCHEMA = validator(
+    groupcall.SfuToParticipant.Timestamp,
+    v
+        .object({
+            ms: unsignedLongAsU64(),
+        })
+        .rest(v.unknown()),
+);
 const S2P_ENVELOPE_BASE_SCHEMA = {
     padding: v.unknown(),
     hello: NULL_OR_UNDEFINED_SCHEMA,
     relay: NULL_OR_UNDEFINED_SCHEMA,
     participantJoined: NULL_OR_UNDEFINED_SCHEMA,
     participantLeft: NULL_OR_UNDEFINED_SCHEMA,
+    timestampResponse: NULL_OR_UNDEFINED_SCHEMA,
 } as const;
 export const S2P_ENVELOPE_SCHEMA = validator(
     groupcall.SfuToParticipant.Envelope,
@@ -189,6 +203,13 @@ export const S2P_ENVELOPE_SCHEMA = validator(
                 ...S2P_ENVELOPE_BASE_SCHEMA,
                 content: v.literal('participantLeft'),
                 participantLeft: S2P_PARTICIPANT_LEFT_SCHEMA,
+            })
+            .rest(v.unknown()),
+        v
+            .object({
+                ...S2P_ENVELOPE_BASE_SCHEMA,
+                content: v.literal('timestampResponse'),
+                timestampResponse: S2P_PARTICIPANT_TIMESTAMP_SCHEMA,
             })
             .rest(v.unknown()),
         v
@@ -320,6 +341,11 @@ const P2P_CAPTURE_STATE_CAMERA_BASE_SCHEMA = {
     on: NULL_OR_UNDEFINED_SCHEMA,
     off: NULL_OR_UNDEFINED_SCHEMA,
 };
+
+const P2P_CAPTURE_STATE_SCREEN_BASE_SCHEMA = {
+    on: NULL_OR_UNDEFINED_SCHEMA,
+    off: NULL_OR_UNDEFINED_SCHEMA,
+};
 const P2P_CAPTURE_STATE_CAMERA_SCHEMA = validator(
     groupcall.ParticipantToParticipant.CaptureState.Camera,
     v.union(
@@ -345,9 +371,50 @@ const P2P_CAPTURE_STATE_CAMERA_SCHEMA = validator(
             .rest(v.unknown()),
     ),
 ).map(({state}) => state);
+
+const P2P_CAPTURE_STATE_SCREEN_SCHEMA = validator(
+    groupcall.ParticipantToParticipant.CaptureState.Screen,
+    v.union(
+        v
+            .object({
+                ...P2P_CAPTURE_STATE_SCREEN_BASE_SCHEMA,
+                state: v.literal('on'),
+                on: validator(
+                    groupcall.ParticipantToParticipant.CaptureState.Screen.On,
+                    v.object({
+                        startedAt: unsignedLongAsU64(),
+                    }),
+                ),
+            })
+            .rest(v.unknown()),
+        v
+            .object({
+                ...P2P_CAPTURE_STATE_SCREEN_BASE_SCHEMA,
+                state: v.literal('off'),
+                off: Unit.SCHEMA,
+            })
+            .rest(v.unknown()),
+        v
+            .object({
+                ...P2P_CAPTURE_STATE_SCREEN_BASE_SCHEMA,
+                state: v.undefined(),
+            })
+            .rest(v.unknown()),
+    ),
+).map((obj) => {
+    if (obj.state === undefined) {
+        return undefined;
+    }
+    if (obj.state === 'off') {
+        return 'off';
+    }
+    return obj.on;
+});
+
 const P2P_CAPTURE_STATE_BASE_SCHEMA = {
     microphone: NULL_OR_UNDEFINED_SCHEMA,
     camera: NULL_OR_UNDEFINED_SCHEMA,
+    screen: NULL_OR_UNDEFINED_SCHEMA,
 } as const;
 const P2P_CAPTURE_STATE_SCHEMA = validator(
     groupcall.ParticipantToParticipant.CaptureState,
@@ -364,6 +431,13 @@ const P2P_CAPTURE_STATE_SCHEMA = validator(
                 ...P2P_CAPTURE_STATE_BASE_SCHEMA,
                 state: v.literal('camera'),
                 camera: P2P_CAPTURE_STATE_CAMERA_SCHEMA,
+            })
+            .rest(v.unknown()),
+        v
+            .object({
+                ...P2P_CAPTURE_STATE_BASE_SCHEMA,
+                state: v.literal('screen'),
+                screen: P2P_CAPTURE_STATE_SCREEN_SCHEMA,
             })
             .rest(v.unknown()),
         v

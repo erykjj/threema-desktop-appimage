@@ -23,9 +23,11 @@
     highlights,
     interaction = {mode: 'none'},
     options = {},
-    receiver,
     services,
+    store,
   }: ReceiverPreviewProps = $props();
+
+  const {receiver} = $derived($store);
 
   let checkboxComponent = $state<SvelteNullableBinding<Checkbox>>(null);
   let popoverComponent = $state<SvelteNullableBinding<Popover>>(null);
@@ -219,6 +221,7 @@
     flex-direction: column;
     align-items: stretch;
     justify-content: start;
+    overflow-x: clip;
 
     .item {
       flex: 1 1 auto;
