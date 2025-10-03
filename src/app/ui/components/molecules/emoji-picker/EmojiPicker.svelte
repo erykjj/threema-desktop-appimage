@@ -21,6 +21,7 @@
   import {ensureError} from '~/common/utils/assert';
   import {
     EMOJI_GROUP_IDS,
+    isSingleUnicodeEmoji,
     type EmojiDetails,
     type EmojiGroupId,
     type SingleUnicodeEmoji,
@@ -184,7 +185,7 @@
   function getPreferredSkinToneOrBaseEmoji(
     currentViewModel: typeof $viewModelStore,
     baseEmoji: SingleUnicodeEmoji,
-    skins?: ReadonlyMap<SingleUnicodeEmoji, Omit<EmojiDetails, 'skins'>>,
+    skins?: ReadonlyMap<SingleUnicodeEmoji, Omit<EmojiDetails, 'tags' | 'skins'>>,
   ): SingleUnicodeEmoji {
     if (skins === undefined || currentViewModel === undefined) {
       return baseEmoji;
@@ -205,7 +206,7 @@
   function getCustomizerOptions(
     baseEmoji: [SingleUnicodeEmoji, EmojiDetails | undefined],
     preferredSkinToneEmoji: SingleUnicodeEmoji,
-  ): ReadonlyMap<SingleUnicodeEmoji, Omit<EmojiDetails, 'skins'>> {
+  ): ReadonlyMap<SingleUnicodeEmoji, Omit<EmojiDetails, 'tags' | 'skins'>> {
     const [unicode, details] = baseEmoji;
     if (details?.skins === undefined) {
       // If there are no skins, there are no options to customize.
@@ -276,6 +277,49 @@
   });
 
   const normalizedSearchTerm = $derived(searchTerm?.toLocaleLowerCase().trim() ?? '');
+
+  function emojiMatchesSearch(
+    emoji: SingleUnicodeEmoji,
+    details: EmojiDetails | undefined,
+    currentNormalizedSearchTerm: string,
+  ): boolean {
+    // No search term.
+    if (currentNormalizedSearchTerm === '') {
+      return true;
+    }
+
+    // This can happen if this is an emoji in the `favorites` categorie. Such emojis should not be
+    // shown in the search.
+    if (details === undefined) {
+      return false;
+    }
+
+    // User searched for emoji.
+    if (emoji === currentNormalizedSearchTerm) {
+      return true;
+    }
+
+    // Check if the label or the shortcode contains the search term.
+    if (
+      details.shortcode?.includes(currentNormalizedSearchTerm) === true ||
+      details.label.includes(currentNormalizedSearchTerm) === true ||
+      emoji === currentNormalizedSearchTerm ||
+      // Check if a `skin-toned` emoji was searched.
+      (isSingleUnicodeEmoji(currentNormalizedSearchTerm) &&
+        details.skins?.has(currentNormalizedSearchTerm) === true)
+    ) {
+      return true;
+    }
+
+    // If there was no search result so far, check whether a tag matches the search.
+    for (const tag of details.tags) {
+      if (tag.includes(currentNormalizedSearchTerm)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   let intersectingGroups = $state<
     {readonly groupId: EmojiGroupIdOrFavorites; readonly ratio: f64}[]
@@ -356,7 +400,7 @@
             </h2>
             <ul class="emojis">
               {#each emojis as [emoji, details] (emoji)}
-                {#if normalizedSearchTerm === '' || details?.shortcode?.includes(normalizedSearchTerm) === true || details?.label.includes(normalizedSearchTerm)}
+                {#if emojiMatchesSearch(emoji, details, normalizedSearchTerm)}
                   {@const preferredSkinToneEmoji = getPreferredSkinToneOrBaseEmoji(
                     $viewModelStore,
                     emoji,
