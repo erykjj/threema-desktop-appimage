@@ -6,6 +6,7 @@
   import {onDestroy, onMount} from 'svelte';
 
   import {globals} from '~/app/globals';
+  import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import type {ModalProps} from '~/app/ui/components/hocs/modal/props';
   import Button from '~/app/ui/svelte-components/blocks/Button/Button.svelte';
   import IconButton from '~/app/ui/svelte-components/blocks/Button/IconButton.svelte';
@@ -203,7 +204,15 @@
           {#if title !== undefined || actions.length > 0}
             <div class="header">
               {#if title !== undefined}
-                <div class="title">{title}</div>
+                <span class="title">
+                  <Text
+                    wrap={false}
+                    ellipsis={true}
+                    text={title}
+                    size="body-large"
+                    alignment="start"
+                  />
+                </span>
               {/if}
 
               {#if actions.length > 0}
@@ -306,6 +315,7 @@
         align-items: center;
         justify-content: right;
         gap: rem(8px);
+        -webkit-app-region: no-drag;
       }
 
       &.type-none {
@@ -340,9 +350,12 @@
 
       &.type-card {
         .card {
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
+          display: grid;
+          grid-template:
+            'header' min-content
+            'content' 1fr
+            'footer' min-content /
+            1fr;
 
           border: none;
           border-radius: rem(8px);
@@ -353,7 +366,6 @@
 
           min-height: auto;
           max-height: 100%;
-          height: fit-content;
 
           background-color: var(--c-modal-dialog-background-color);
 
@@ -367,14 +379,13 @@
             gap: rem(16px);
             align-items: center;
             justify-content: space-between;
+            overflow: hidden;
 
             &:not(:has(.title)) {
               justify-content: end;
             }
 
             .title {
-              @extend %font-large-400;
-              text-overflow: ellipsis;
               overflow: hidden;
             }
           }

@@ -1,4 +1,3 @@
 export interface TopBarProps {
-    readonly onclickback?: (event: MouseEvent) => void;
-    readonly onclickcancel?: (event: MouseEvent) => void;
+    onclickcancel: (event: MouseEvent) => void;
 }

@@ -83,7 +83,7 @@
     modalState = {
       type: 'profile-picture',
       props: {
-        alt: $i18n.t('groups.hint--profile-picture', 'Profile picture of {name}', {
+        alt: $i18n.t('groups.hint--profile-picture', 'Profile picture of “{name}”', {
           name: receiver.name,
         }),
         color: receiver.color,
@@ -175,6 +175,15 @@
               return false;
             }
             return await viewModelController.edit(update);
+          },
+          updateProfilePicture: async (update) => {
+            if (viewModelController === undefined) {
+              log.error(
+                'Error setting group picture: GroupDetailViewModelController was undefined',
+              );
+              return false;
+            }
+            return await viewModelController.updateProfilePicture(update);
           },
         },
         services,

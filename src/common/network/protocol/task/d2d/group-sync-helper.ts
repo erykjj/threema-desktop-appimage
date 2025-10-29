@@ -1,4 +1,3 @@
-import type {Nonce} from '~/common/crypto';
 import {
     ConversationCategory,
     ConversationVisibility,
@@ -13,10 +12,13 @@ import type {
 } from '~/common/model/types/conversation';
 import * as protobuf from '~/common/network/protobuf';
 import type {ProtobufMessage} from '~/common/network/protobuf/tag';
-import type {BlobId} from '~/common/network/protocol/blob';
+import {
+    getDeltaImageMessage,
+    type D2dProfilePictureUpdate,
+    type D2dSetProfilePicture,
+} from '~/common/network/protocol/task/d2d';
 import type {GroupId, IdentityString} from '~/common/network/types';
-import type {RawBlobKey} from '~/common/network/types/keys';
-import {tag, type ReadonlyUint8Array, type WeakOpaque} from '~/common/types';
+import {tag, type WeakOpaque} from '~/common/types';
 import {dateToUnixTimestampMs, intoUnsignedLong} from '~/common/utils/number';
 
 // Return types for the helper functions to be compatible when creating protobuf messages.
@@ -24,7 +26,7 @@ type MemberStateChanges = WeakOpaque<
     Record<string, protobuf.d2d.GroupSync.Update.MemberStateChange>,
     ProtobufMessage
 >;
-type DeltaImage = WeakOpaque<protobuf.common.DeltaImage, ProtobufMessage>;
+export type DeltaImage = WeakOpaque<protobuf.common.DeltaImage, ProtobufMessage>;
 type NotificationSoundPolicyOverride = WeakOpaque<
     protobuf.sync.Group.NotificationSoundPolicyOverride,
     ProtobufMessage
@@ -33,21 +35,6 @@ type NotificationTriggerPolicyOverride = WeakOpaque<
     protobuf.sync.Group.NotificationTriggerPolicyOverride,
     ProtobufMessage
 >;
-
-// Necessary information to create a `DeltaImage` message.
-type ProfilePictureUpdate =
-    | {
-          readonly type: 'removed';
-      }
-    | {
-          readonly type: 'updated';
-          readonly blob: {
-              readonly blobId: BlobId;
-              readonly key: RawBlobKey;
-              readonly nonce: Nonce;
-              readonly uploadedAt: Date;
-          };
-      };
 
 // Policy defaults
 const DEFAULT_POLICY_OVERRIDE = {
@@ -76,6 +63,7 @@ export function getD2dGroupSyncCreate(
     memberIdentities: readonly IdentityString[],
     name: string,
     userState: GroupUserState,
+    profilePicture?: D2dSetProfilePicture,
 ): protobuf.d2d.GroupSync {
     return protobuf.utils.creator(protobuf.d2d.GroupSync, {
         create: protobuf.utils.creator(protobuf.d2d.GroupSync.Create, {
@@ -87,7 +75,7 @@ export function getD2dGroupSyncCreate(
                 name,
                 createdAt: intoUnsignedLong(dateToUnixTimestampMs(createdAt)),
                 userState,
-                profilePicture: undefined,
+                profilePicture: getDeltaImageMessage(profilePicture),
                 memberIdentities: protobuf.utils.creator(protobuf.common.Identities, {
                     identities: memberIdentities,
                 }),
@@ -131,7 +119,7 @@ export function getD2dGroupSyncDelete(groupIdentity: {
  * @param groupMemberChanges The member list to be reflected. Contains an additional hint for the
  *   receiver side to know which contacts were added/removed and whether removal happend through
  *   kicking or through leaving.
- * @param profilePicture The updated {@link ProfilePictureUpdate}. If undefined, no change is
+ * @param profilePicture The updated {@link D2dProfilePictureUpdate}. If undefined, no change is
  *   applied.
  * @param conversationUpdate The current view of the conversation and its fields to be updated. The
  *   fields `conversation.category` and `conversation.visibility` are attached to the conversation
@@ -155,7 +143,7 @@ export function getD2dGroupSyncUpdate(
         };
         readonly memberIdentities: readonly IdentityString[];
     },
-    profilePicture?: ProfilePictureUpdate,
+    profilePicture?: D2dProfilePictureUpdate,
     conversationUpdate?: {
         readonly view: ConversationView;
         readonly update: ConversationUpdateFromToSync;
@@ -253,29 +241,5 @@ function getNotificationTriggerOverrideMessage(
             },
         ),
         default: protobuf.UNIT_MESSAGE,
-    });
-}
-
-function getDeltaImageMessage(profilePicture?: ProfilePictureUpdate): DeltaImage | undefined {
-    if (profilePicture === undefined) {
-        return undefined;
-    }
-    if (profilePicture.type === 'removed') {
-        return protobuf.utils.creator(protobuf.common.DeltaImage, {
-            updated: undefined,
-            removed: protobuf.UNIT_MESSAGE,
-        });
-    }
-    return protobuf.utils.creator(protobuf.common.DeltaImage, {
-        removed: undefined,
-        updated: protobuf.utils.creator(protobuf.common.Image, {
-            blob: protobuf.utils.creator(protobuf.common.Blob, {
-                id: profilePicture.blob.blobId as ReadonlyUint8Array as Uint8Array,
-                key: profilePicture.blob.key.unwrap(),
-                uploadedAt: intoUnsignedLong(dateToUnixTimestampMs(profilePicture.blob.uploadedAt)),
-                nonce: profilePicture.blob.nonce,
-            }),
-            type: protobuf.common.Image.Type.JPEG,
-        }),
     });
 }

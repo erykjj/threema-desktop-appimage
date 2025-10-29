@@ -14,6 +14,7 @@
   import ProfilePicture from '~/app/ui/svelte-components/threema/ProfilePicture/ProfilePicture.svelte';
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {transformProfilePicture} from '~/common/dom/ui/profile-picture';
+  import {display} from '~/common/dom/ui/state';
   import {unreachable} from '~/common/utils/assert';
 
   const {
@@ -86,7 +87,11 @@
   });
 </script>
 
-<header class="container">
+<header
+  class="container"
+  data-build-platform={import.meta.env.BUILD_PLATFORM}
+  data-display={$display}
+>
   <button class="profile-picture" onclick={onclickprofilepicture} type="button">
     <ProfilePicture
       img={transformProfilePicture(profilePicture.picture)}
@@ -97,9 +102,11 @@
     />
   </button>
 
-  {#if currLogoUrl !== undefined}
-    <img class="logo" alt="logo" src={currLogoUrl} />
-  {/if}
+  <div class="logo">
+    {#if currLogoUrl !== undefined}
+      <img alt="logo" src={currLogoUrl} />
+    {/if}
+  </div>
 
   <div class="actions">
     <!-- <IconButton flavor="naked" class="wip">
@@ -194,23 +201,68 @@
   .container {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: stretch;
+    gap: rem(8px);
+
+    width: 100%;
+    padding: rem(12px) rem(8px) rem(12px) rem(16px);
 
     .profile-picture {
+      order: 0;
+      flex: 0 0 auto;
+
       @include def-var(--c-profile-picture-size, $-profile-picture-size);
       @include clicktarget-button-circle;
     }
 
     .logo {
-      height: rem(25px);
-      padding-left: rem(8px);
-      object-fit: contain;
+      flex: 0 1 auto;
+      order: 1;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      height: 100%;
+      width: 100%;
+
+      img {
+        object-fit: contain;
+        width: 100%;
+        height: 100%;
+        max-width: rem(140px);
+      }
     }
 
     .actions {
+      order: 2;
+      flex: 0 0 auto;
+
       display: flex;
       align-items: center;
       justify-content: end;
+    }
+
+    &[data-build-platform='macos'] {
+      padding: rem(12px) rem(8px) rem(12px) rem(92px);
+
+      // Use as drag area for the Electron window.
+      -webkit-app-region: drag;
+
+      .profile-picture {
+        display: none;
+      }
+
+      .logo {
+        order: 0;
+      }
+
+      .actions {
+        order: 1;
+
+        // Keep item clickable in drag area.
+        -webkit-app-region: no-drag;
+      }
     }
   }
 </style>

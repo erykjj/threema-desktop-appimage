@@ -21,6 +21,7 @@
   import {reactive} from '~/app/ui/utils/svelte';
   import {display} from '~/common/dom/ui/state';
   import type {SettingsCategory} from '~/common/settings';
+  import type {ReadonlyUint8Array} from '~/common/types';
   import {ensureError, unreachable} from '~/common/utils/assert';
   import type {Remote} from '~/common/utils/endpoint';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
@@ -88,19 +89,42 @@
     });
   }
 
+  function handleUpdateProfilePicture(profilePicture: ReadonlyUint8Array | undefined): void {
+    viewModelController?.updateProfilePicture(profilePicture).catch((error) => {
+      log.error(`Error updating profile picture: ${error}`);
+      toast.addSimpleFailure(
+        profilePicture === undefined
+          ? $i18n.t(
+              'settings.error--profile-picture-settings-delete',
+              'Unable to delete your profile picture, please try again.',
+            )
+          : $i18n.t(
+              'settings.error--profile-picture-settings-update',
+              'Unable to update your profile picture, please try again.',
+            ),
+      );
+    });
+  }
+
   $effect(() => {
     reactive(handleChangeRoute, [$router.main]);
   });
 </script>
 
 {#if $viewModelStore !== undefined}
-  <div class="container">
-    <div class="navbar">
+  <div
+    class="container"
+    data-build-platform={import.meta.env.BUILD_PLATFORM}
+    data-display={$display}
+  >
+    <div class="top-bar">
       {#if $display === 'small'}
         <div class="left">
-          <IconButton flavor="naked" onclick={handleClickBack}>
-            <MdIcon theme="Outlined">arrow_back</MdIcon>
-          </IconButton>
+          <div class="back">
+            <IconButton flavor="naked" onclick={handleClickBack}>
+              <MdIcon theme="Outlined">arrow_back</MdIcon>
+            </IconButton>
+          </div>
         </div>
       {/if}
 
@@ -108,8 +132,10 @@
         <Text
           text={getCategoryTitle(currentCategory, $i18n)}
           color="mono-high"
+          ellipsis
           family="secondary"
           size="body"
+          wrap={false}
         />
       </div>
     </div>
@@ -164,6 +190,7 @@
             updateSettings: (update) => {
               handleUpdateSettings({update, type: 'profile'});
             },
+            updateProfilePicture: handleUpdateProfilePicture,
           }}
           settings={$viewModelStore.profile}
         />
@@ -182,13 +209,13 @@
   .container {
     display: grid;
     grid-template:
-      'navbar' min-content
+      'top-bar' min-content
       'content' auto
       / auto;
     overflow: hidden;
 
-    .navbar {
-      grid-area: navbar;
+    .top-bar {
+      grid-area: top-bar;
       padding: rem(12px) rem(8px);
       display: grid;
       grid-template:
@@ -204,6 +231,10 @@
       .center {
         grid-area: center;
         justify-self: center;
+
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
       }
     }
 
@@ -213,6 +244,32 @@
       overflow-x: hidden;
       overflow-y: auto;
       padding-bottom: rem(12px);
+    }
+
+    &[data-build-platform='macos'] {
+      .top-bar {
+        // Use as drag area for the Electron window.
+        -webkit-app-region: drag;
+
+        .left .back {
+          // Keep item clickable in drag area.
+          -webkit-app-region: no-drag;
+        }
+      }
+
+      &[data-display='small'] {
+        .top-bar {
+          grid-template:
+            'left center right' min-content
+            / rem(119px) auto rem(119px);
+
+          .left {
+            display: flex;
+            align-items: center;
+            justify-content: right;
+          }
+        }
+      }
     }
   }
 </style>

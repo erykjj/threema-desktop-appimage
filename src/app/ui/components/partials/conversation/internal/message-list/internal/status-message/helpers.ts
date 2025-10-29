@@ -74,7 +74,7 @@ export function getStatusMessageTextForStatus(
             if (status.oldName === '') {
                 return i18n.t(
                     'status.prose--group-created-name',
-                    'The group name was changed to "{name}"',
+                    'The group name was changed to “{name}”',
                     {
                         name: status.newName,
                     },
@@ -82,9 +82,21 @@ export function getStatusMessageTextForStatus(
             }
             return i18n.t(
                 'status.prose--group-name-changed',
-                'The group name was changed from "{old}" to "{new}"',
+                'The group name was changed from “{old}” to “{new}”',
                 {old: status.oldName, new: status.newName},
             );
+        }
+
+        case StatusMessageType.GROUP_PROFILE_PICTURE_CHANGED: {
+            return status.change === 'removed'
+                ? i18n.t(
+                      'status.prose--group-profile-picture-removed',
+                      'The group picture was removed',
+                  )
+                : i18n.t(
+                      'status.prose--group-profile-picture-set',
+                      'The group picture was updated',
+                  );
         }
 
         case StatusMessageType.GROUP_CALL_STARTED:

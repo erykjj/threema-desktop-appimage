@@ -1,13 +1,17 @@
 <script lang="ts">
   import {globals} from '~/app/globals';
   import Input from '~/app/ui/components/atoms/input/Input.svelte';
+  import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import Modal from '~/app/ui/components/hocs/modal/Modal.svelte';
   import type {EditGroupNameModalProps} from '~/app/ui/components/partials/modals/edit-group-name-modal/props';
+  import EditPictureModal from '~/app/ui/components/partials/modals/edit-picture-modal/EditPictureModal.svelte';
+  import type {EditPictureModalProps} from '~/app/ui/components/partials/modals/edit-picture-modal/props';
   import ProfilePicture from '~/app/ui/components/partials/profile-picture/ProfilePicture.svelte';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
   import {MAX_GROUP_NAME_BYTES} from '~/app/ui/utils/constants';
   import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
+  import {unreachable} from '~/common/utils/assert';
   import {UTF8} from '~/common/utils/codec';
   import {TIMER} from '~/common/utils/timer';
 
@@ -17,6 +21,8 @@
   const {onclose, receiver, services}: EditGroupNameModalProps = $props();
 
   let modalComponent = $state<SvelteNullableBinding<Modal>>(null);
+
+  let mode = $state<'edit-name' | 'edit-picture'>('edit-name');
 
   let groupNameInputValue = $state(receiver.name);
   let groupNameByteSize = $state(UTF8.encode(receiver.name).byteLength);
@@ -71,6 +77,52 @@
     submitButtonLoading = false;
     modalComponent?.close();
   }
+
+  async function getEditPictureModalProps(): Promise<EditPictureModalProps> {
+    const store = await services.profilePicture.getProfilePictureForReceiver(receiver.lookup);
+
+    return {
+      title: receiver.name,
+      blob: store?.get()?.blob,
+      color: receiver.color,
+      placeholder: {type: 'initials', initials: receiver.initials},
+      async onsubmit(img: Blob | undefined): Promise<void> {
+        const buffer = await img?.arrayBuffer();
+        await receiver
+          .updateProfilePicture(buffer === undefined ? undefined : new Uint8Array(buffer))
+          .then((success) => {
+            if (success) {
+              mode = 'edit-name';
+              toast.addSimpleSuccess(
+                $i18n.t(
+                  'dialog--edit-group.success--edit-group-picture',
+                  'Group picture successfully edited',
+                ),
+              );
+              return;
+            }
+            toast.addSimpleFailure(
+              $i18n.t(
+                'dialog--edit-group.error--edit-group-picture',
+                'Failed to edit group picture',
+              ),
+            );
+          })
+          .catch((error) => {
+            log.error(`Failed to update group picture: ${error}`);
+            toast.addSimpleFailure(
+              $i18n.t(
+                'dialog--edit-group.error--edit-group-picture',
+                'Failed to edit group picture',
+              ),
+            );
+          });
+      },
+      onclose: () => {
+        mode = 'edit-name';
+      },
+    };
+  }
 </script>
 
 <Modal
@@ -97,7 +149,7 @@
         state: submitButtonLoading ? 'loading' : 'default',
       },
     ],
-    title: $i18n.t('dialog--edit-group.label--title', 'Edit Group', {
+    title: $i18n.t('dialog--edit-group.label--title', 'Edit Group Details', {
       name: receiver.name,
     }),
     maxWidth: 460,
@@ -108,28 +160,60 @@
   onsubmit={handleSubmit}
   {onclose}
 >
-  <div class="content">
-    <div class="profile-picture">
-      <ProfilePicture
-        {receiver}
-        {services}
-        options={{
-          isClickable: false,
-        }}
-        size="lg"
-      />
-    </div>
+  {#if mode === 'edit-name'}
+    <div class="content">
+      <div class="profile-picture">
+        <ProfilePicture
+          {receiver}
+          {services}
+          options={{
+            isClickable: false,
+          }}
+          size="lg"
+        />
+        <div class="details">
+          <Text
+            alignment="center"
+            color="mono-high"
+            family="secondary"
+            size="body-large"
+            text={receiver.name}
+          />
+          {#if receiver.creator.type === 'self' && !receiver.isLeft}
+            <button
+              class="edit"
+              onclick={() => {
+                mode = 'edit-picture';
+              }}
+            >
+              <Text
+                color="inherit"
+                family="secondary"
+                size="body-small"
+                text={$i18n.t('dialog--edit-group.label--group-picture', 'Edit picture')}
+              />
+            </button>
+          {/if}
+        </div>
+      </div>
 
-    <div class="inputs">
-      <Input
-        bind:value={groupNameInputValue}
-        oninput={handleMutation}
-        autofocus
-        id="group-name"
-        label={$i18n.t('dialog--edit-group.label--group-name', 'Group Name')}
-      />
+      <div class="inputs">
+        <Input
+          bind:value={groupNameInputValue}
+          oninput={handleMutation}
+          autofocus
+          id="group-name"
+          label={$i18n.t('dialog--edit-group.label--group-name', 'Group Name')}
+        />
+      </div>
     </div>
-  </div>
+  {:else if mode === 'edit-picture'}
+    {#await getEditPictureModalProps() then props}
+      <EditPictureModal {...props}></EditPictureModal>
+    {/await}
+  {:else}
+    {unreachable(mode)}
+  {/if}
 </Modal>
 
 <style lang="scss">
@@ -146,9 +230,24 @@
 
     .profile-picture {
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+
+      .details {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: start;
+        padding: rem(8px);
+
+        .edit {
+          @extend %neutral-input;
+
+          color: var(--t-color-primary);
+          cursor: pointer;
+        }
+      }
     }
 
     .inputs {

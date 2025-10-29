@@ -1,16 +1,12 @@
 import type {ProfilePictureShareWithOptions} from '~/app/ui/components/partials/settings/internal/profile-settings/types';
-import type {SettingsDropdown} from '~/app/ui/components/partials/settings/types';
 import type {I18nType} from '~/app/ui/i18n-types';
-import type {ProfilePictureShareWith} from '~/common/model/settings/profile';
-import type {ProfileSettingsView} from '~/common/model/types/settings';
-import type {IdentityString} from '~/common/network/types';
 import {unreachable} from '~/common/utils/assert';
 
 /**
- * Returns the corresponding dropdown label for a specific value of
+ * Returns the corresponding label for a specific value of
  * {@link ProfilePictureShareWithOptions}.
  */
-export function getProfilePictureShareWithDropdownLabel(
+export function getProfilePictureShareWithLabel(
     label: ProfilePictureShareWithOptions,
     i18n: I18nType,
 ): string {
@@ -19,38 +15,15 @@ export function getProfilePictureShareWithDropdownLabel(
             return i18n.t('settings--profile.label--profile-picture-nobody', 'Nobody');
 
         case 'everyone':
-            return i18n.t('settings--profile.label--profile-picture-everyone', 'Everyone');
+            return i18n.t(
+                'settings--profile.label--profile-picture-everyone',
+                'Everyone you write to',
+            );
 
         case 'allowList':
-            return i18n.t('settings--profile.label--profile-picture-selected', 'Selected');
+            return i18n.t('settings--profile.label--profile-picture-selected', 'Selected contacts');
 
         default:
             return unreachable(label);
     }
-}
-
-/**
- * Returns a {@link SettingsDropdown} spec for the profile picture sharing dropdown.
- */
-export function getProfilePictureShareWithDropdown(
-    i18n: I18nType,
-    currentAllowList: readonly IdentityString[],
-): SettingsDropdown<ProfileSettingsView, ProfilePictureShareWith> {
-    return {
-        updateKey: 'profilePictureShareWith',
-        items: [
-            {
-                text: getProfilePictureShareWithDropdownLabel('everyone', i18n),
-                value: {group: 'everyone'},
-            },
-            {
-                text: getProfilePictureShareWithDropdownLabel('nobody', i18n),
-                value: {group: 'nobody'},
-            },
-            {
-                text: getProfilePictureShareWithDropdownLabel('allowList', i18n),
-                value: {group: 'allowList', allowList: currentAllowList},
-            },
-        ],
-    };
 }

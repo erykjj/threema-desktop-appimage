@@ -19,6 +19,7 @@ import {
     StatusMessageType,
 } from '~/common/enum';
 import {TRANSFER_HANDLER} from '~/common/index';
+import {ProfilePictureChange} from '~/common/internal-protobuf/status-message';
 import type {Logger} from '~/common/logging';
 import * as contact from '~/common/model/contact';
 import {getIdentityString} from '~/common/model/contact';
@@ -42,22 +43,28 @@ import type {ProfilePicture} from '~/common/model/types/profile-picture';
 import {ModelStoreCache} from '~/common/model/utils/model-cache';
 import {ModelLifetimeGuard} from '~/common/model/utils/model-lifetime-guard';
 import {ModelStore} from '~/common/model/utils/model-store';
+import {encryptAndUploadBlob} from '~/common/network/protocol/blob';
 import {
     deserializeRunningGroupCall,
     type ChosenGroupCall,
     type RunningGroupCall,
 } from '~/common/network/protocol/call/group-call';
+import {BLOB_FILE_NONCE} from '~/common/network/protocol/constants';
 import type {SfuToken} from '~/common/network/protocol/directory';
 import type {ActiveTaskCodecHandle} from '~/common/network/protocol/task';
 import {OutgoingGroupCallStartTask} from '~/common/network/protocol/task/csp/outgoing-group-call-start';
 import {OutgoingGroupCreateOrUpdateTask} from '~/common/network/protocol/task/csp/outgoing-group-create-or-update';
 import {OutgoingGroupDisbandTask} from '~/common/network/protocol/task/csp/outgoing-group-disband';
 import {OutgoingGroupLeaveTask} from '~/common/network/protocol/task/csp/outgoing-group-leave';
+import type {
+    D2dRemoveProfilePicture,
+    D2dSetProfilePicture,
+} from '~/common/network/protocol/task/d2d';
 import {ReflectGroupSyncTransactionTask} from '~/common/network/protocol/task/d2d/reflect-group-sync-transaction';
 import {randomGroupId} from '~/common/network/protocol/utils';
 import type {GroupId, IdentityString} from '~/common/network/types';
 import {getNotificationTagForGroup, type NotificationTag} from '~/common/notification';
-import type {Mutable, u53} from '~/common/types';
+import type {Mutable, ReadonlyUint8Array, u53} from '~/common/types';
 import {assert, assertUnreachable, unreachable, unwrap} from '~/common/utils/assert';
 import {byteEquals} from '~/common/utils/byte';
 import {PROXY_HANDLER} from '~/common/utils/endpoint';
@@ -227,6 +234,8 @@ function create(
     services: ServicesForModel,
     init: Exact<GroupInit>,
     members: readonly ModelStore<Contact>[],
+    profilePictureBytes: ReadonlyUint8Array | undefined,
+    log: Logger,
 ): ModelStore<Group> {
     const {db} = services;
 
@@ -237,16 +246,38 @@ function create(
         assert(creatorUid !== undefined, 'Creator UID not found when adding group');
     }
 
-    // Create the group
-    const group: DbCreate<DbGroup> & DbCreateConversationMixin = {
-        ...omit(init, ['creator']),
-        type: ReceiverType.GROUP,
-        creatorUid,
-    };
-    const uid = db.createGroup(group);
+    let uid = db.hasGroupByIdAndCreatorUid(init.groupId, creatorUid);
+    let group: DbCreate<DbGroup> & DbCreateConversationMixin;
+    if (uid === undefined) {
+        group = {
+            ...omit(init, ['creator']),
+            type: ReceiverType.GROUP,
+            creatorUid,
+            profilePictureAdminDefined: profilePictureBytes,
+        };
+        uid = db.createGroup(group);
+        // Add members
+        addGroupMembers(services, uid, members);
+    } else {
+        // In the rare (if not impossible) case that the group already exists, we return the group that
+        // already exists.
+        log.warn('Trying to create a group that already exists. Falling back to existing group.');
+        const existingGroup = db.getGroupByUid(uid);
+        assert(existingGroup !== undefined);
+        const existingGroupConversationUid = db.getGroupConversationUidByCreatorIdentity(
+            init.creator === 'me' ? undefined : init.creator.get().view.identity,
+            init.groupId,
+        );
+        assert(existingGroupConversationUid !== undefined);
+        const existingGroupConversation = db.getConversationByUid(existingGroupConversationUid);
+        assert(existingGroupConversation !== undefined);
+        group = {
+            ...existingGroup,
+            category: existingGroupConversation.category,
+            visibility: existingGroupConversation.visibility,
+        };
+    }
 
-    // Add members
-    addGroupMembers(services, uid, members);
     const processedMembers = getGroupMembers(services, uid);
 
     // Create view
@@ -277,7 +308,7 @@ function create(
     };
 
     // Add to cache and create store
-    const groupStore = cache.add(
+    const groupStore = cache.getOrAdd(
         uid,
         () => new GroupModelStore(services, view, uid, [], profilePictureData),
     );
@@ -558,6 +589,128 @@ export class GroupModelController implements GroupController {
                     this._addUserStateChangedStatusMessage(change.userState, createdAt);
                 }
             });
+        },
+    };
+
+    /** @inheritdoc */
+    public readonly setProfilePicture: GroupController['setProfilePicture'] = {
+        [TRANSFER_HANDLER]: PROXY_HANDLER,
+        fromLocal: async (profilePictureBytes) => {
+            if (
+                this._creatorIdentity !== this._services.device.identity.string ||
+                this.lifetimeGuard.run(
+                    (handle) => handle.view().userState !== GroupUserState.MEMBER,
+                )
+            ) {
+                this._log.error('Groups can only be edited by the creator');
+                return false;
+            }
+
+            const currentProfilePicture = this.profilePicture.get().view.picture;
+
+            if (
+                currentProfilePicture !== undefined &&
+                byteEquals(currentProfilePicture, profilePictureBytes)
+            ) {
+                this._log.debug('Profile picture does not contain any changes');
+                return false;
+            }
+
+            const blobInfo = await encryptAndUploadBlob(
+                this._services,
+                profilePictureBytes,
+                BLOB_FILE_NONCE,
+                'public-persistent',
+            );
+
+            const reflect = await this._reflectAndCommitGroupUpdate({}, undefined, {
+                type: 'set',
+                blob: {
+                    blobId: blobInfo.id,
+                    key: blobInfo.key,
+                    nonce: blobInfo.nonce,
+                    uploadedAt: new Date(),
+                },
+                profilePictureBytes,
+            });
+
+            if (reflect === 'failed') {
+                this._log.debug('Failed to set group profile picture');
+                return false;
+            }
+
+            this._versionSequence.next();
+
+            await this._scheduleOutgoingGroupTask(
+                {
+                    profilePictureChange: {
+                        type: 'set',
+                        blob: {
+                            blobId: blobInfo.id,
+                            key: blobInfo.key,
+                            nonce: blobInfo.nonce,
+                            uploadedAt: new Date(),
+                        },
+                        pictureBytes: profilePictureBytes,
+                    },
+                },
+                {
+                    currentMembers: this.lifetimeGuard.run((handle) => handle.view().members),
+                    addedMembers: new Set(),
+                    removedMembers: new Set(),
+                },
+            );
+
+            this._createProfilePictureChangeStatusMessage(ProfilePictureChange.SET, new Date());
+
+            return true;
+        },
+    };
+
+    /** @inheritdoc */
+    public readonly removeProfilePicture: GroupController['removeProfilePicture'] = {
+        [TRANSFER_HANDLER]: PROXY_HANDLER,
+        fromLocal: async () => {
+            if (
+                this._creatorIdentity !== this._services.device.identity.string ||
+                this.lifetimeGuard.run(
+                    (handle) => handle.view().userState !== GroupUserState.MEMBER,
+                )
+            ) {
+                this._log.error('Groups can only be edited by the creator');
+                return false;
+            }
+
+            const currentProfilePicture = this.profilePicture.get().view.picture;
+
+            if (currentProfilePicture === undefined) {
+                this._log.debug('Cannot remove a profile picture that is not set');
+                return false;
+            }
+
+            const reflect = await this._reflectAndCommitGroupUpdate({}, undefined, {
+                type: 'removed',
+            });
+
+            if (reflect === 'failed') {
+                this._log.debug('Failed to remove group profile picture');
+                return false;
+            }
+
+            this._versionSequence.next();
+
+            await this._scheduleOutgoingGroupTask(
+                {profilePictureChange: {type: 'removed'}},
+                {
+                    currentMembers: this.lifetimeGuard.run((handle) => handle.view().members),
+                    addedMembers: new Set(),
+                    removedMembers: new Set(),
+                },
+            );
+
+            this._createProfilePictureChangeStatusMessage(ProfilePictureChange.REMOVED, new Date());
+
+            return true;
         },
     };
 
@@ -985,7 +1138,9 @@ export class GroupModelController implements GroupController {
     private async _reflectAndCommitGroupUpdate(
         changes: GroupCreateOrUpdateFromLocal,
         updatedMemberSet?: ReadonlySet<ModelStore<Contact>>,
-        // TODO(DESK-1775) Add profile picture here.
+        profilePicture?:
+            | D2dRemoveProfilePicture
+            | (D2dSetProfilePicture & {readonly profilePictureBytes: ReadonlyUint8Array}),
     ): Promise<
         | {
               readonly addedMembers: readonly ModelStore<Contact>[];
@@ -1034,6 +1189,7 @@ export class GroupModelController implements GroupController {
                               ),
                           },
                 groupId: this._groupId,
+                profilePictureUpdate: profilePicture,
             });
             const success = await this._services.taskManager.schedule(task);
 
@@ -1046,6 +1202,25 @@ export class GroupModelController implements GroupController {
                         this._update(handle, changes);
                         this._setMembers(handle, membersToAdd, membersToRemove);
                     });
+                    if (profilePicture !== undefined) {
+                        switch (profilePicture.type) {
+                            case 'removed':
+                                this.profilePicture
+                                    .get()
+                                    .controller.removePicture.direct('admin-defined');
+                                break;
+                            case 'set':
+                                this.profilePicture
+                                    .get()
+                                    .controller.setPicture.direct(
+                                        profilePicture.profilePictureBytes,
+                                        'admin-defined',
+                                    );
+                                break;
+                            default:
+                                unreachable(profilePicture);
+                        }
+                    }
                     break;
                 case 'aborted':
                     this._log.error('Failed to update group due to synchronization conflict');
@@ -1095,6 +1270,19 @@ export class GroupModelController implements GroupController {
                 createdAt,
             });
         }
+    }
+
+    private _createProfilePictureChangeStatusMessage(
+        change: ProfilePictureChange,
+        createdAt: Date,
+    ): void {
+        this.conversation().get().controller.createStatusMessage({
+            type: StatusMessageType.GROUP_PROFILE_PICTURE_CHANGED,
+            value: {
+                change,
+            },
+            createdAt,
+        });
     }
 
     /**
@@ -1316,7 +1504,11 @@ export class GroupModelRepository implements GroupRepository {
     public readonly add: GroupRepository['add'] = {
         [TRANSFER_HANDLER]: PROXY_HANDLER,
 
-        fromLocal: async (init: Pick<GroupInit, 'name'>, members: ModelStore<Contact>[]) => {
+        fromLocal: async (
+            init: Pick<GroupInit, 'name'>,
+            members: ModelStore<Contact>[],
+            profilePictureBytes,
+        ) => {
             this._log.debug('Add group from local');
 
             const groupId = randomGroupId(this._services.crypto);
@@ -1335,7 +1527,31 @@ export class GroupModelRepository implements GroupRepository {
                 userState: GroupUserState.MEMBER,
             };
 
-            const group = await this._reflectAndCommitGroupCreate(groupInit, members);
+            let profilePicture = undefined;
+            if (profilePictureBytes !== undefined) {
+                const profilePictureInformation = await encryptAndUploadBlob(
+                    this._services,
+                    profilePictureBytes,
+                    BLOB_FILE_NONCE,
+                    'public-persistent',
+                );
+                profilePicture = {
+                    type: 'set',
+                    blob: {
+                        blobId: profilePictureInformation.id,
+                        key: profilePictureInformation.key,
+                        nonce: BLOB_FILE_NONCE,
+                        uploadedAt: new Date(),
+                    },
+                    profilePictureBytes,
+                } as const;
+            }
+
+            const group = await this._reflectAndCommitGroupCreate(
+                groupInit,
+                members,
+                profilePicture,
+            );
 
             if (group === undefined) {
                 return undefined;
@@ -1358,7 +1574,18 @@ export class GroupModelRepository implements GroupRepository {
             const task = new OutgoingGroupCreateOrUpdateTask(
                 this._services,
                 'create',
-                groupInit,
+                {
+                    ...groupInit,
+                    profilePictureChange:
+                        profilePicture === undefined
+                            ? undefined
+                            : {
+                                  type: 'set',
+                                  blob: {...profilePicture.blob},
+                                  // Unwrap is fine because we check it above.
+                                  pictureBytes: unwrap(profilePictureBytes),
+                              },
+                },
                 {
                     currentMembers: new Set(members),
                     addedMembers: new Set(members),
@@ -1376,7 +1603,13 @@ export class GroupModelRepository implements GroupRepository {
         // eslint-disable-next-line @typescript-eslint/require-await
         fromRemote: async (handle, init: GroupInit, members: ModelStore<Contact>[]) => {
             this._log.debug('Add group from remote');
-            return create(this._services, ensureExactGroupInit(init), members);
+            return create(
+                this._services,
+                ensureExactGroupInit(init),
+                members,
+                undefined,
+                this._log,
+            );
         },
 
         fromSync: (handle, init: GroupInit, members: ModelStore<Contact>[]) => {
@@ -1384,7 +1617,7 @@ export class GroupModelRepository implements GroupRepository {
             return this.add.direct(init, members);
         },
         direct: (init: GroupInit, members: ModelStore<Contact>[]) =>
-            create(this._services, ensureExactGroupInit(init), members),
+            create(this._services, ensureExactGroupInit(init), members, undefined, this._log),
     };
 
     public readonly disband: GroupRepository['disband'] = {
@@ -1572,6 +1805,7 @@ export class GroupModelRepository implements GroupRepository {
     private async _reflectAndCommitGroupCreate(
         groupInit: GroupInit,
         members: ModelStore<Contact>[],
+        profilePicture?: D2dSetProfilePicture & {readonly profilePictureBytes: ReadonlyUint8Array},
     ): Promise<ModelStore<Group> | undefined> {
         // Precondition: If a group with group-id and the user as creator exists, log an error and
         // abort these steps.
@@ -1588,14 +1822,19 @@ export class GroupModelRepository implements GroupRepository {
             groupId: groupInit.groupId,
             memberIdentities: new Set([...members].map((member) => member.get().view.identity)),
             name: groupInit.name,
-            // TODO(DESK-1775): Implement profile pictures.
-            profilePicture: undefined,
+            profilePicture,
         });
 
         const success = await this._services.taskManager.schedule(task);
         switch (success) {
             case 'success':
-                return create(this._services, ensureExactGroupInit(groupInit), [...members]);
+                return create(
+                    this._services,
+                    ensureExactGroupInit(groupInit),
+                    [...members],
+                    profilePicture?.profilePictureBytes,
+                    this._log,
+                );
             case 'aborted':
                 this._log.error('Cannot create group because precondition failed, aborting');
                 return undefined;

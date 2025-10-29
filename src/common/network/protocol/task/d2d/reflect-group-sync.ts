@@ -11,13 +11,16 @@ import type {
     ServicesForTasks,
     TransactionRunning,
 } from '~/common/network/protocol/task';
+import type {
+    D2dProfilePictureUpdate,
+    D2dSetProfilePicture,
+} from '~/common/network/protocol/task/d2d';
 import {
     getD2dGroupSyncCreate,
     getD2dGroupSyncDelete,
     getD2dGroupSyncUpdate,
 } from '~/common/network/protocol/task/d2d/group-sync-helper';
 import type {GroupId, IdentityString} from '~/common/network/types';
-import type {ReadonlyUint8Array} from '~/common/types';
 import {assert, unreachable} from '~/common/utils/assert';
 
 interface GroupSyncCreate {
@@ -25,7 +28,7 @@ interface GroupSyncCreate {
     readonly creatorIdentity: IdentityString;
     readonly groupId: GroupId;
     readonly name: string | undefined;
-    readonly profilePicture: ReadonlyUint8Array | undefined;
+    readonly profilePicture?: D2dSetProfilePicture;
     readonly memberIdentities: ReadonlySet<IdentityString>;
 }
 
@@ -40,6 +43,7 @@ interface GroupSyncUpdate {
         readonly removedIdentities: readonly IdentityString[];
     };
     readonly conversationUpdate: ConversationUpdateFromToSync;
+    readonly profilePictureUpdate?: D2dProfilePictureUpdate;
 }
 
 interface GroupSyncDelete {
@@ -87,6 +91,7 @@ export class ReflectGroupSyncTask
                     [...variant.memberIdentities],
                     variant.name ?? '',
                     GroupUserState.MEMBER,
+                    variant.profilePicture,
                 );
                 break;
             case 'update': {
@@ -111,7 +116,7 @@ export class ReflectGroupSyncTask
                                   type: protobuf.d2d.GroupSync.Update.MemberStateChange.KICKED,
                               },
                           },
-                    undefined,
+                    variant.profilePictureUpdate,
                     {
                         view: group.get().controller.conversation().get().view,
                         update: variant.conversationUpdate,

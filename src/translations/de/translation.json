@@ -1,5 +1,6 @@
 {
   "common": {
+    "action--back": "Zurück",
     "action--cancel": "Abbrechen",
     "action--edit": "Bearbeiten",
     "action--next": "Weiter"
@@ -144,7 +145,7 @@
     "prose--contact-conversation-prompt": "Dadurch wird der Chat mit {name} und die darin enthaltenen Nachrichten auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
     "prose--distribution-list-conversation-prompt": "Dadurch wird diese Verteilerliste und die darin enthaltenen Nachrichten auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
     "prose--group-conversation-member": "Sie werden jedoch ein Mitglied dieser Gruppe bleiben.",
-    "prose--group-conversation-prompt": "Dadurch wird der Gruppenchat \"{name}\" und die darin enthaltenen Nachrichten auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
+    "prose--group-conversation-prompt": "Dadurch wird der Gruppenchat «{name}» und die darin enthaltenen Nachrichten auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
     "success--delete-conversation": "Chat wurde erfolgreich gelöscht"
   },
   "dialog--delete-message": {
@@ -184,22 +185,36 @@
   "dialog--edit-group": {
     "error--edit-group": "Gruppe bearbeiten fehlgeschlagen",
     "error--edit-group-members": "Gruppenmitglieder bearbeiten fehlgeschlagen",
+    "error--edit-group-picture": "Gruppenbild bearbeiten fehlgeschlagen",
     "label--group-name": "Gruppenname",
-    "label--title": "Gruppenname bearbeiten",
+    "label--group-picture": "Bild bearbeiten",
+    "label--title": "Gruppedetails bearbeiten",
     "success--edit-group-members": "Die Gruppenmitglieder wurden erfolgreich bearbeitet",
-    "success--edit-group-name": "Der Gruppenname wurde erfolgreich bearbeitet"
+    "success--edit-group-name": "Der Gruppenname wurde erfolgreich bearbeitet",
+    "success--edit-group-picture": "Das Gruppenbild wurde erfolgreich bearbeitet"
   },
   "dialog--edit-group-members": {
     "label--title": "Gruppenmitglieder bearbeiten"
+  },
+  "dialog--edit-profile-picture": {
+    "action--delete": "Bild entfernen",
+    "action--save": "Änderungen speichern",
+    "action--select": "Bild auswählen",
+    "error--file-wrong-format": "Die ausgewählte Datei hat das falsche Format",
+    "error--loading-file-failed": "Die ausgewählte Datei konnte nicht geladen werden",
+    "error--setting-blob-failed": "Setzen des Profilbilds fehlgeschlagen",
+    "hint--drag-image": "Ausschnitt durch Ziehen anpassen",
+    "hint--drop-file": "Datei hier ablegen",
+    "label--title": "Profilbild bearbeiten"
   },
   "dialog--empty-conversation": {
     "action--contact-conversation-confirm": "Chat leeren",
     "action--distribution-list-conversation-confirm": "Chat leeren",
     "action--group-conversation-confirm": "Gruppenchat leeren",
     "label--title": "Chat leeren",
-    "prose--contact-conversation-prompt": "Dadurch werden alle Nachrichten inklusive Medien und Dokumenten in diesem Chat mit \"{name}\" auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
-    "prose--distribution-list-conversation-prompt": "Dadurch werden alle Nachrichten inklusive Medien und Dokumenten in dieser Verteilerliste \"{name}\" auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
-    "prose--group-conversation-prompt": "Dadurch werden alle Nachrichten inklusive Medien und Dokumenten in diesem Gruppenchat \"{name}\" auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten)."
+    "prose--contact-conversation-prompt": "Dadurch werden alle Nachrichten inklusive Medien und Dokumenten in diesem Chat mit «{name}» auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
+    "prose--distribution-list-conversation-prompt": "Dadurch werden alle Nachrichten inklusive Medien und Dokumenten in dieser Verteilerliste «{name}» auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten).",
+    "prose--group-conversation-prompt": "Dadurch werden alle Nachrichten inklusive Medien und Dokumenten in diesem Gruppenchat «{name}» auf diesem Gerät gelöscht (aber nicht auf Ihren anderen Geräten)."
   },
   "dialog--error-connection": {
     "action--confirm-reconnect": "Erneut verbinden",
@@ -306,6 +321,7 @@
     "label--url": "URL",
     "label--username": "Benutzername",
     "prose--enter-config": "{fullAppName} ist der selbstgehostete sichere Messenger für Unternehmen. Bitte geben Sie die Zugangsdaten ein, die Sie von Ihrem Unternehmen erhalten haben.",
+    "prose--enter-config-short": "Bitte geben Sie die Zugangsdaten ein, die Sie von Ihrer Organisation erhalten haben.",
     "prose--forget-credentials": "Zugangsdaten vergessen? Bitte kontaktieren Sie Ihren {fullAppName}-Administrator.",
     "prose--private-user": "Falls Sie Privatanwender sind, laden Sie {shortAppName} von <slot_1 /> herunter."
   },
@@ -462,6 +478,8 @@
     "error--creation-failed": "Gruppe erstellen fehlgeschlagen",
     "error--group-detail-load": "Details konnten nicht geladen werden",
     "error--group-edit-not-creator": "Sie können die Gruppe nicht bearbeiten, weil Sie nicht der Ersteller sind",
+    "error--pick-profile-picture": "Auswählen des Bildes fehlgeschlagen",
+    "hint--new-group-picture": "Gruppenbild",
     "hint--profile-picture": "Profilbild von «{name}»",
     "label--delete-error": "Gruppe konnte nicht gelöscht werden",
     "label--delete-group-title": "«{groupName}» löschen",
@@ -470,6 +488,7 @@
     "label--dissolve-and-delete-group-title": "«{groupName} unwiderruflich auflösen und löschen",
     "label--dissolve-error": "Gruppe konnte nicht aufgelöst werden",
     "label--dissolve-group-title": "«{groupName}» auflösen",
+    "label--edit-picture": "Gruppenbild bearbeiten",
     "label--group-detail": "Gruppendetails",
     "label--group-management": "Gruppenverwaltung",
     "label--group-members": "{n, plural, =0 {Keine Gruppenmitglieder} =1 {Gruppenmitglied} other {Gruppenmitglieder}}",
@@ -623,14 +642,13 @@
     "label--poll-state-closed": "Die Umfrage ist beendet, eine Abstimmung ist nicht mehr möglich",
     "label--results-title": "Umfrageergebnisse",
     "label--view-votes": "Umfrageergebnisse anzeigen",
-    "prose--poll-closed": "Überprüfen Sie die Ergebnisse für \"{description}\""
+    "prose--poll-closed": "Überprüfen Sie die Ergebnisse für «{description}»"
   },
   "search": {
     "action--search-more": "Weitere finden",
     "label--search-input-placeholder": "Suchen...",
     "label--title-conversations": "Chats",
     "label--title-messages": "Nachrichten",
-    "label--title-receivers": "Kontakte & Gruppen",
     "prose--no-results": "Keine Resultate gefunden."
   },
   "settings": {
@@ -644,6 +662,8 @@
     "action--play-notification-sound-default": "Ein",
     "action--play-notification-sound-off": "Aus",
     "action--toggle-debug-panel": "Debug-Panel toggeln",
+    "error--profile-picture-settings-delete": "Ihr Profilbild konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+    "error--profile-picture-settings-update": "Ihr Profilbild konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut.",
     "error--settings-update": "Einstellungen konnten nicht angepasst werden. Bitte versuchen Sie es erneut.",
     "hint--own-profile-picture": "Mein Profilbild",
     "label--about": "Über {shortAppName}",
@@ -734,8 +754,9 @@
     "prose--subtitle": "Kontakte, Chats und Listen"
   },
   "settings--profile": {
+    "hint--profile-picture-visibility": "Sie können diese Einstellung in der Mobil-App unter «Profil» ändern.",
     "label--delete-profile": "{shortAppName}-ID und Daten löschen",
-    "label--profile-picture-everyone": "Alle",
+    "label--profile-picture-everyone": "Alle, denen Sie schreiben",
     "label--profile-picture-nobody": "Niemand",
     "label--profile-picture-selected": "Ausgewählte Kontakte",
     "label--profile-picture-visibility": "Wer kann Ihr Profilbild sehen?",
@@ -760,6 +781,8 @@
     "prose--group-member-changed": "{addedCount, plural, =0 {} =1 {{addedMembers} wurde zu der Gruppe hinzugefügt} other {{addedMembers} wurden zu der Gruppe hinzugefügt}}{and, plural, =0 {} other { und }}{removedCount, plural, =0 {} =1 {{removedMembers} wurde von der Gruppe entfernt} other {{removedMembers} wurden von der Gruppe entfernt}}",
     "prose--group-members-left": "{leftCount, plural, =0 {} =1 {{leftMembers} hat die Gruppe verlassen} other {{leftMembers} haben die Gruppe verlassen}}",
     "prose--group-name-changed": "Der Gruppenname wurde von «{old}» zu «{new}» geändert",
+    "prose--group-profile-picture-removed": "Das Gruppenbild wurde erfolgreich entfernt",
+    "prose--group-profile-picture-set": "Das Gruppenbild wurde erfolgreich geändert",
     "prose--startup-processing-reflection-queue": "Nachrichten werden synchronisiert…",
     "prose--user-added": "Sie wurden der Gruppe hinzugefügt",
     "prose--user-kicked": "Sie wurden aus der Gruppe entfernt",

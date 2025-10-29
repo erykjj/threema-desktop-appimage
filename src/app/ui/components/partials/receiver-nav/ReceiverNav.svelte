@@ -24,7 +24,7 @@
   import type {DbContactUid, DbGroupUid, DbReceiverLookup} from '~/common/db';
   import type {AnyReceiver, ContactInit, GroupInit} from '~/common/model';
   import type {IdentityString} from '~/common/network/types';
-  import {DEFAULT_CATEGORY} from '~/common/settings';
+  import type {ReadonlyUint8Array} from '~/common/types';
   import {ensureError, unreachable} from '~/common/utils/assert';
   import type {Remote} from '~/common/utils/endpoint';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
@@ -62,10 +62,6 @@
 
   function handleClickBack(): void {
     router.go({nav: ROUTE_DEFINITIONS.nav.conversationList.withoutParams()});
-  }
-
-  function handleClickSettings(): void {
-    router.goToSettings({category: DEFAULT_CATEGORY});
   }
 
   function handleClickEditItem(item: ContextMenuItemHandlerProps<AnyReceiver>): void {
@@ -134,11 +130,12 @@
   async function createGroup(
     groupInit: Pick<GroupInit, 'name'>,
     members: ReadonlySet<DbContactUid>,
+    profilePictureBytes: ReadonlyUint8Array | undefined,
   ): Promise<DbGroupUid | undefined> {
     if (viewModelController === undefined) {
       throw new Error('Error creating group: The ReceiverListViewModelController was undefined');
     }
-    return await viewModelController.createGroup(groupInit, members);
+    return await viewModelController.createGroup(groupInit, members, profilePictureBytes);
   }
 
   function handleChangeRouterState(): void {
@@ -205,12 +202,7 @@
   >
     {#snippet snippetTopbar()}
       <div>
-        <TopBar
-          onclickaddcontact={() => (addressBookState = 'contact-add-form')}
-          onclickaddgroup={() => (addressBookState = 'group-add-form')}
-          onclickback={handleClickBack}
-          onclicksettings={handleClickSettings}
-        />
+        <TopBar onclickback={handleClickBack} />
       </div>
     {/snippet}
   </AddressBook>

@@ -1,5 +1,6 @@
 {
   "common": {
+    "action--back": "Back",
     "action--cancel": "Cancel",
     "action--edit": "Edit",
     "action--next": "Next"
@@ -144,7 +145,7 @@
     "prose--contact-conversation-prompt": "This will delete the chat with {name} and its messages on this device (but not on your other devices).",
     "prose--distribution-list-conversation-prompt": "This will delete this distribution list and its messages on this device (but not on your other devices).",
     "prose--group-conversation-member": "However, you will stay a member of this group.",
-    "prose--group-conversation-prompt": "This will delete the group chat \"{name}\" and its messages on this device (but not on your other devices).",
+    "prose--group-conversation-prompt": "This will delete the group chat “{name}” and its messages on this device (but not on your other devices).",
     "success--delete-conversation": "Chat successfully deleted"
   },
   "dialog--delete-message": {
@@ -152,7 +153,7 @@
     "action--delete-locally": "Delete from This Device",
     "label--title": "Delete message",
     "prose--delete-message": "Do you really want to delete this message?",
-    "prose--delete-not-supported-partial": "Note: If you select \"{buttonText}\", this message will not be deleted for the following group members: {names}{n, plural, =0 {.} other { and {n} others.}} To support deleted messages, they need to install the latest {shortAppName} version."
+    "prose--delete-not-supported-partial": "Note: If you select “{buttonText}”, this message will not be deleted for the following group members: {names}{n, plural, =0 {.} other { and {n} others.}} To support deleted messages, they need to install the latest {shortAppName} version."
   },
   "dialog--delete-profile": {
     "label--title": "Remove {shortAppName} ID and Data",
@@ -184,22 +185,36 @@
   "dialog--edit-group": {
     "error--edit-group": "Failed to edit group",
     "error--edit-group-members": "Failed to edit group members",
+    "error--edit-group-picture": "Failed to edit group picture",
     "label--group-name": "Group Name",
-    "label--title": "Edit Group",
+    "label--group-picture": "Edit picture",
+    "label--title": "Edit Group Details",
     "success--edit-group-members": "Group members successfully edited",
-    "success--edit-group-name": "Group name successfully edited"
+    "success--edit-group-name": "Group name successfully edited",
+    "success--edit-group-picture": "Group picture successfully edited"
   },
   "dialog--edit-group-members": {
     "label--title": "Edit Group Members"
+  },
+  "dialog--edit-profile-picture": {
+    "action--delete": "Remove Picture",
+    "action--save": "Save Changes",
+    "action--select": "Select Picture",
+    "error--file-wrong-format": "Selected file has the wrong format",
+    "error--loading-file-failed": "Failed to load the selected file",
+    "error--setting-blob-failed": "Failed to set a new profile picture",
+    "hint--drag-image": "Drag to reposition picture",
+    "hint--drop-file": "Drop file here",
+    "label--title": "Edit Profile Picture"
   },
   "dialog--empty-conversation": {
     "action--contact-conversation-confirm": "Empty Chat",
     "action--distribution-list-conversation-confirm": "Empty Chat",
     "action--group-conversation-confirm": "Empty Group Chat",
     "label--title": "Empty Chat",
-    "prose--contact-conversation-prompt": "This will delete all messages including all media and documents in this chat with \"{name}\" on this device (but not on your other devices).",
-    "prose--distribution-list-conversation-prompt": "This will delete all messages including all media and documents in the \"{name}\" distribution list on this device (but not on your other devices).",
-    "prose--group-conversation-prompt": "This will delete all messages including all media and documents in the \"{name}\" group chat on this device (but not on your other devices)."
+    "prose--contact-conversation-prompt": "This will delete all messages including all media and documents in this chat with “{name}” on this device (but not on your other devices).",
+    "prose--distribution-list-conversation-prompt": "This will delete all messages including all media and documents in the “{name}” distribution list on this device (but not on your other devices).",
+    "prose--group-conversation-prompt": "This will delete all messages including all media and documents in the “{name}” group chat on this device (but not on your other devices)."
   },
   "dialog--error-connection": {
     "action--confirm-reconnect": "Reconnect",
@@ -306,6 +321,7 @@
     "label--url": "URL",
     "label--username": "Username",
     "prose--enter-config": "{fullAppName} is the self-hosted secure messenger for companies. Please enter the credentials provided by your company.",
+    "prose--enter-config-short": "Please enter the credentials provided by your organization.",
     "prose--forget-credentials": "Forgot your credentials? Please contact your {fullAppName} administrator.",
     "prose--private-user": "If you are a private user, please visit <slot_1 /> to download {shortAppName}."
   },
@@ -462,23 +478,26 @@
     "error--creation-failed": "Failed to create group",
     "error--group-detail-load": "Details could not be loaded",
     "error--group-edit-not-creator": "You cannot edit the group because you are not the creator",
-    "hint--profile-picture": "Profile picture of \"{name}\"",
+    "error--pick-profile-picture": "An error ocurred when picking the profile picture",
+    "hint--new-group-picture": "Group profile picture",
+    "hint--profile-picture": "Profile picture of “{name}”",
     "label--delete-error": "Could not delete the group",
-    "label--delete-group-title": "Delete \"{groupName}\"",
+    "label--delete-group-title": "Delete “{groupName}”",
     "label--delete-success": "Successfully deleted the group",
     "label--disband-success": "Successfully dissolved the group",
-    "label--dissolve-and-delete-group-title": "Dissolve and Delete \"{groupName}\" Permanently",
+    "label--dissolve-and-delete-group-title": "Dissolve and Delete “{groupName}” Permanently",
     "label--dissolve-error": "Could not dissolve the group",
-    "label--dissolve-group-title": "Dissolve \"{groupName}\"",
+    "label--dissolve-group-title": "Dissolve “{groupName}”",
+    "label--edit-picture": "Edit Group Picture",
     "label--group-detail": "Group Details",
     "label--group-management": "Group Management",
     "label--group-members": "{n, plural, =0 {No Group Members} =1 {Group Member} other {Group Members}}",
     "label--group-members-count-long": "{n, plural, =0 {No Group Members} =1 {1 Group Member} other {# Group Members}}",
     "label--group-members-count-short": "{n, plural, =1 {1 Member} other {# Members}}",
     "label--group-name": "Group Name",
-    "label--leave-and-delete-group-title": "Leave and Delete \"{groupName}\" Permanently",
+    "label--leave-and-delete-group-title": "Leave and Delete “{groupName}” Permanently",
     "label--leave-error": "Could not leave the group",
-    "label--leave-group-title": "Leave \"{groupName}\"",
+    "label--leave-group-title": "Leave “{groupName}”",
     "label--leave-success": "Successfully left the group",
     "label--new-group": "New Group",
     "label--remove-member-failure": "Could not remove group member",
@@ -630,7 +649,6 @@
     "label--search-input-placeholder": "Search...",
     "label--title-conversations": "Chats",
     "label--title-messages": "Messages",
-    "label--title-receivers": "Contacts & Groups",
     "prose--no-results": "No results found."
   },
   "settings": {
@@ -644,6 +662,8 @@
     "action--play-notification-sound-default": "On",
     "action--play-notification-sound-off": "Off",
     "action--toggle-debug-panel": "Toggle Debug Panel",
+    "error--profile-picture-settings-delete": "Unable to delete your profile picture, please try again.",
+    "error--profile-picture-settings-update": "Unable to update your profile picture, please try again.",
     "error--settings-update": "Unable to update settings, please try again.",
     "hint--own-profile-picture": "My profile picture",
     "label--about": "About {shortAppName}",
@@ -734,10 +754,11 @@
     "prose--subtitle": "Contacts, Chats, Lists"
   },
   "settings--profile": {
+    "hint--profile-picture-visibility": "You can change this setting in the mobile app in the “Profile” tab.",
     "label--delete-profile": "Remove {shortAppName} ID and Data",
-    "label--profile-picture-everyone": "Everyone",
+    "label--profile-picture-everyone": "Everyone you write to",
     "label--profile-picture-nobody": "Nobody",
-    "label--profile-picture-selected": "Selected",
+    "label--profile-picture-selected": "Selected contacts",
     "label--profile-picture-visibility": "Who can see your profile picture?",
     "label--public-key": "Public Key",
     "label--threema-id": "{shortAppName} ID",
@@ -756,10 +777,12 @@
     "prose--chat-restored": "This device was relinked. Future messages will appear below.",
     "prose--group-call-ended": "Group call has ended",
     "prose--group-call-started": "{startedBy} has started a group call",
-    "prose--group-created-name": "The group name was changed to \"{name}\"",
+    "prose--group-created-name": "The group name was changed to “{name}”",
     "prose--group-member-changed": "{addedCount, plural, =0 {} =1 {{addedMembers} was added to the group} other {{addedMembers} were added to the group}}{and, plural, =0 {} other {, and }}{removedCount, plural, =0 {} =1 {{removedMembers} was removed from the group} other {{removedMembers} were removed from the group}}",
     "prose--group-members-left": "{leftCount, plural, =0 {} =1 {{leftMembers} left the group} other {{leftMembers} left the group}}",
-    "prose--group-name-changed": "The group name was changed from \"{old}\" to \"{new}\"",
+    "prose--group-name-changed": "The group name was changed from “{old}” to “{new}”",
+    "prose--group-profile-picture-removed": "The group picture was removed",
+    "prose--group-profile-picture-set": "The group picture was updated",
     "prose--startup-processing-reflection-queue": "Syncing messages…",
     "prose--user-added": "You were added to the group",
     "prose--user-kicked": "You were removed from the group",

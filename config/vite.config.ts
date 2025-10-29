@@ -32,7 +32,6 @@ import {
 import {readCustomConfig} from './custom-config.mjs';
 import cjsExternals from './vite-plugins/cjs-externals';
 import {subresourceIntegrityPlugin} from './vite-plugins/subresource-integrity';
-import {tsWorkerPlugin} from './vite-plugins/ts-worker';
 
 /**
  * Minimal package.json schema, extracting some components we need.
@@ -245,6 +244,21 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
         appName = determineAppName(buildFlavor, 'Threema');
     }
 
+    let buildPlatform: ImportMeta['env']['BUILD_PLATFORM'];
+    switch (process.platform) {
+        case 'darwin':
+            buildPlatform = 'macos';
+            break;
+        case 'linux':
+            buildPlatform = 'linux';
+            break;
+        case 'win32':
+            buildPlatform = 'windows';
+            break;
+        default:
+            throw new Error(`Build platform ${process.platform} is not supported`);
+    }
+
     return {
         // Dev
         DEV_SERVER_PORT: env.devServerPort,
@@ -253,6 +267,7 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
         DEBUG: env.mode === 'development',
 
         // Build variables
+        BUILD_PLATFORM: buildPlatform,
         BUILD_MODE: env.mode,
         BUILD_TARGET: env.target,
         BUILD_VERSION: pkg.version,
@@ -448,7 +463,6 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
                       forceBuildInstrument: true,
                   })
                 : undefined,
-        tsWorkerPlugin: env.entry === 'app' ? tsWorkerPlugin() : undefined,
         commonjsExternals: cjsExternals({
             externals: [
                 ...external,
@@ -564,13 +578,6 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
             };
             break;
         default: // Nothing to do
-    }
-    if (plugins.tsWorkerPlugin !== undefined) {
-        const plugin = plugins.tsWorkerPlugin;
-        rollupOptions.output = {
-            ...rollupOptions.output,
-            assetFileNames: (asset) => plugin.synchronizeAsset(asset),
-        };
     }
 
     // Common config
