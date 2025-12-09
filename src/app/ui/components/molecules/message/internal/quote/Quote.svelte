@@ -5,13 +5,13 @@
   import LazyImage from '~/app/ui/components/atoms/lazy-image/LazyImage.svelte';
   import Prose from '~/app/ui/components/atoms/prose/Prose.svelte';
   import Text from '~/app/ui/components/atoms/text/Text.svelte';
-  import AudioPlayer from '~/app/ui/components/molecules/audio-player/AudioPlayer.svelte';
   import FileInfo from '~/app/ui/components/molecules/message/internal/file-info/FileInfo.svelte';
+  import QuotedAudio from '~/app/ui/components/molecules/message/internal/quote/internal/quoted-audio/QuotedAudio.svelte';
   import type {QuoteProps} from '~/app/ui/components/molecules/message/internal/quote/props';
   import Sender from '~/app/ui/components/molecules/message/internal/sender/Sender.svelte';
   import {i18n} from '~/app/ui/i18n';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
-  import {unreachable} from '~/common/utils/assert';
+  import {svelteUnreachable} from '~/app/ui/utils/svelte';
 
   const {
     alt,
@@ -19,7 +19,6 @@
     clickable = false,
     file,
     onclick,
-    onerror,
     poll,
     sender,
     mode = 'quote',
@@ -41,7 +40,11 @@
 <button class={buttonClass} class:captioned={content !== undefined} disabled={!clickable} {onclick}>
   {#if sender !== undefined && mode === 'quote'}
     <span class="sender">
-      <Sender name={sender.name} color={sender.color} />
+      <Sender
+        color={sender.color}
+        messageHasThumbnail={file?.thumbnail !== undefined}
+        name={sender.name}
+      />
     </span>
   {:else if mode === 'edit'}
     <span class="title">
@@ -57,7 +60,7 @@
   {#if file !== undefined}
     {#if file.type === 'audio'}
       <span class="audio">
-        <AudioPlayer duration={file.duration} fetchAudio={file.fetchFileBytes} {onerror} />
+        <QuotedAudio {file} />
       </span>
     {:else if file.type === 'file'}
       <span class="file">
@@ -100,7 +103,7 @@
         anything. -->
       {/if}
     {:else}
-      {unreachable(file.type)}
+      {svelteUnreachable(file.type)}
     {/if}
   {/if}
 

@@ -1,4 +1,5 @@
 import type {LogInfo} from '~/common/node/file-storage/log-info';
+import type {RemoteSecretErrorType} from '~/common/remote-secret';
 import type {DomainCertificatePin, ReadonlyUint8Array, u53} from '~/common/types';
 
 export interface ErrorDetails {
@@ -174,6 +175,28 @@ export interface ElectronIpc {
     readonly storeUserPassword: (password: string) => Promise<boolean>;
 
     /**
+     * Restart the app with the given {@link RemoteSecretErrorType} as the reason.
+     */
+    readonly remoteSecretErrorRestartApp: (errorType: RemoteSecretErrorType) => void;
+
+    /**
+     * Restart the app because Remote Secret is activated and the system is on the verge of being
+     * suspended.
+     */
+    readonly remoteSecretSystemSuspensionRestartApp: () => void;
+
+    /**
+     * Return the {@link RemoteSecretErrorType} the app was launched with, if any.
+     */
+    readonly getRemoteSecretLaunchParameter: () => RemoteSecretErrorType | undefined;
+
+    /**
+     * Return true if the app was restarted due to a system suspension when remote secret is
+     * activated.
+     */
+    readonly getRemoteSecretSystemSuspensionRestartParameter: () => boolean;
+
+    /**
      * Display a reminder on the desktop indicating that the user’s screen is being shared.
      */
     readonly showScreenSharingReminder: (text: string, label: string) => void;
@@ -200,6 +223,11 @@ export interface ElectronIpc {
      * Registers a callback to run when the `electron-main` thread requests to stop screen sharing.
      */
     readonly registerOnScreenSharingStopCallback: (callback: () => void) => void;
+
+    /**
+     * Register a callback for `on-suspend` and `on-lock` events.
+     */
+    readonly registerOnSuspendCallback: (callback: () => Promise<void>) => void;
 }
 
 export interface ScreenSharingReminderDetails {

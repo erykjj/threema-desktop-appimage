@@ -12,14 +12,17 @@
   import DeviceCookieMismatchDialog from '~/app/ui/components/partials/system-dialog/internal/device-cookie-mismatch-dialog/DeviceCookieMismatchDialog.svelte';
   import InvalidWorkCredentialsDialog from '~/app/ui/components/partials/system-dialog/internal/invalid-work-credentials-dialog/InvalidWorkCredentialsDialog.svelte';
   import ManualAppUpdateDialog from '~/app/ui/components/partials/system-dialog/internal/manual-app-update-dialog/ManualAppUpdateDialog.svelte';
+  import RemoteSecretsActivationDialog from '~/app/ui/components/partials/system-dialog/internal/remote-secrets-activation-dialog/RemoteSecretsActivationDialog.svelte';
+  import RemoteSecretsDeactivationDialog from '~/app/ui/components/partials/system-dialog/internal/remote-secrets-deactivation-dialog/RemoteSecretsDeactivationDialog.svelte';
+  import RemoteSecretsSystemSuspendDialog from '~/app/ui/components/partials/system-dialog/internal/remote-secrets-system-suspend-dialog/RemoteSecretsSystemSuspendDialog.svelte';
   import ScreenSharingPickerDialog from '~/app/ui/components/partials/system-dialog/internal/screen-sharing-picker-dialog/ScreenSharingPickerDialog.svelte';
   import ServerAlertDialog from '~/app/ui/components/partials/system-dialog/internal/server-alert-dialog/ServerAlertDialog.svelte';
   import UnrecoverableStateDialog from '~/app/ui/components/partials/system-dialog/internal/unrecoverable-state-dialog/UnrecoverableStateDialog.svelte';
   import type {SystemDialogProps} from '~/app/ui/components/partials/system-dialog/props';
+  import {svelteUnreachable} from '~/app/ui/utils/svelte';
   import {systemDialogStore} from '~/common/dom/ui/system-dialog';
   import type {SystemDialogAction} from '~/common/system-dialog';
   import type {f64, u53} from '~/common/types';
-  import {unreachable} from '~/common/utils/assert';
 
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.system-dialog');
@@ -59,7 +62,7 @@
     <AutoAppUpdateDownloadDialog
       {...systemDialog.dialog.context}
       onclose={() => handleClose(systemDialog)}
-      oncompletion={() => handleSelectAction('confirmed', systemDialog)}
+      oncompletion={() => handleSelectAction({type: 'confirmed'}, systemDialog)}
       {progress}
     />
   {:else if systemDialog.dialog.type === 'auto-app-update-failed'}
@@ -124,7 +127,23 @@
       {...systemDialog.dialog.context}
       onclose={() => handleClose(systemDialog)}
     />
+  {:else if systemDialog.dialog.type === 'remote-secrets-activation'}
+    <RemoteSecretsActivationDialog
+      {...systemDialog.dialog.context}
+      onselectaction={(action) => handleSelectAction(action, systemDialog)}
+      {services}
+    />
+  {:else if systemDialog.dialog.type === 'remote-secrets-deactivation'}
+    <RemoteSecretsDeactivationDialog
+      {...systemDialog.dialog.context}
+      onselectaction={(action) => handleSelectAction(action, systemDialog)}
+      {services}
+    />
+  {:else if systemDialog.dialog.type === 'remote-secrets-system-suspend'}
+    <RemoteSecretsSystemSuspendDialog
+      onselectaction={(action) => handleSelectAction(action, systemDialog)}
+    />
   {:else}
-    {unreachable(systemDialog.dialog)}
+    {svelteUnreachable(systemDialog.dialog)}
   {/if}
 {/each}

@@ -1,13 +1,17 @@
 <script lang="ts">
+  import {onDestroy, untrack} from 'svelte';
+
+  import VideoPreview from '~/app/ui/components/partials/conversation/internal/message-list/internal/message-media-viewer-modal/internal/video-preview/VideoPreview.svelte';
   import {i18n} from '~/app/ui/i18n';
   import type {MediaFile, ValidationResult} from '~/app/ui/modal/media-message';
   import FileType from '~/app/ui/modal/media-message/FileType.svelte';
   import Checkbox from '~/app/ui/svelte-components/blocks/Checkbox/Checkbox.svelte';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import Image from '~/app/ui/svelte-components/blocks/Image/Image.svelte';
-  import {unreachable} from '~/common/utils/assert';
+  import {svelteUnreachable, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {isSupportedImageType} from '~/common/utils/image';
   import {byteSizeToHumanReadable} from '~/common/utils/number';
+  import {isVideoFileType} from '~/common/utils/video';
 
   interface Props {
     readonly mediaFile: MediaFile;
@@ -15,9 +19,33 @@
     readonly validationResult: ValidationResult;
   }
 
+  let previewElement = $state<SvelteNullableBinding<HTMLElement>>(null);
+
+  let videoUrl = $state<string | undefined>(undefined);
+
+  $effect(() => {
+    untrack(() => {
+      if (videoUrl !== undefined) {
+        URL.revokeObjectURL(videoUrl);
+      }
+    });
+
+    if (!isVideoFileType(mediaFile.file.type)) {
+      return;
+    }
+
+    videoUrl = URL.createObjectURL(mediaFile.file);
+  });
+
   const {mediaFile, onremove, validationResult}: Props = $props();
 
   const sendAsFile = $derived(mediaFile.sendAsFile);
+
+  onDestroy(() => {
+    if (videoUrl !== undefined) {
+      URL.revokeObjectURL(videoUrl);
+    }
+  });
 </script>
 
 <template>
@@ -36,7 +64,7 @@
             {:else if reason === 'captionTooLong'}
               {$i18n.t('messaging.error--send-file-caption-too-long', 'Caption is too long')}
             {:else}
-              {unreachable(reason)}
+              {svelteUnreachable(reason)}
             {/if}
           </span>
         {/each}
@@ -49,6 +77,37 @@
           alt={mediaFile.sanitizedFilenameDetails.name}
           draggable={false}
         />
+      {:else if isVideoFileType(mediaFile.file.type)}
+        <!-- Only if a thumbnail is generated, this is a type that can be handled by media bunny and
+        thus be sent as a video.-->
+        {#await mediaFile.thumbnail then thumbnail}
+          {#if thumbnail !== undefined}
+            {#if videoUrl !== undefined}
+              <div class="video-preview">
+                <VideoPreview
+                  bind:element={previewElement}
+                  video={{status: 'loaded', type: 'video', url: videoUrl}}
+                  options={{
+                    autoplay: false,
+                    controlslist: 'nofullscreen nodownload noplaybackrate noremoteplayback',
+                    loop: false,
+                    sizingBehavior: 'stretch',
+                  }}
+                ></VideoPreview>
+              </div>
+            {:else}
+              <Image
+                src={thumbnail.blob}
+                alt={mediaFile.sanitizedFilenameDetails.name}
+                draggable={false}
+              />
+            {/if}
+          {:else}
+            <div class="type">
+              <FileType filenameDetails={mediaFile.sanitizedFilenameDetails} />
+            </div>
+          {/if}
+        {/await}
       {:else}
         <div class="type">
           <FileType filenameDetails={mediaFile.sanitizedFilenameDetails} />
@@ -58,14 +117,24 @@
     <div class="options">
       <div class="left">
         <div class="send-option">
-          {#if isSupportedImageType(mediaFile.file.type)}
-            <Checkbox id="send-as-file-checkbox" bind:checked={$sendAsFile} />
-            <label class="label" for="send-as-file-checkbox">
-              {$i18n.t(
-                'dialog--compose-media-message.label--send-as-file-option',
-                'Send as File (Original Size)',
-              )}
-            </label>
+          {#if isSupportedImageType(mediaFile.file.type) || isVideoFileType(mediaFile.file.type)}
+            {#await mediaFile.thumbnail then thumbnail}
+              <!--
+              In supported image types, thumbnails are always supported. For videos, we know
+              that if the thumbnail was generated, mediabunny supports the type. In that case, we
+              want to offer the possibility to send as file. If no thumbnail was generated, the
+              video is sent as media file anyway.
+               -->
+              {#if thumbnail !== undefined}
+                <Checkbox id="send-as-file-checkbox" bind:checked={$sendAsFile} />
+                <label class="label" for="send-as-file-checkbox">
+                  {$i18n.t(
+                    'dialog--compose-media-message.label--send-as-file-option',
+                    'Send as File (Original Size)',
+                  )}
+                </label>
+              {/if}
+            {/await}
           {/if}
         </div>
       </div>
@@ -118,10 +187,18 @@
 
     .preview {
       grid-row: 1 / span 3;
+
       grid-column: 1 / span 1;
       display: flex;
       justify-content: center;
       align-items: center;
+
+      .video-preview {
+        width: 100%;
+        height: 100%;
+
+        padding-bottom: rem(56px);
+      }
 
       .type {
         width: rem(64px);

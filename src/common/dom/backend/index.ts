@@ -36,6 +36,10 @@ import {
 import {DeviceJoinProtocol, type DeviceJoinResult} from '~/common/dom/backend/join';
 import * as oppf from '~/common/dom/backend/onprem/oppf';
 import {OPPF_FILE_SCHEMA} from '~/common/dom/backend/onprem/oppf';
+import {
+    activateRemoteSecret,
+    handleRemoteSecretMdmParameterChange,
+} from '~/common/dom/backend/remote-secret';
 import {unlockDatabaseKey, transferOldMessages} from '~/common/dom/backend/restore-db';
 import {randomBytes} from '~/common/dom/crypto/random';
 import {DebugBackend} from '~/common/dom/debug';
@@ -68,9 +72,11 @@ import {
     type ServicesForKeyStorageFactory,
     type KeyStorageOppfConfig,
     type InnerKeyStorageFileContentsV2,
+    type RemoteSecretWriteData,
 } from '~/common/key-storage';
 import {LoadingInfo} from '~/common/loading';
 import type {Logger, LoggerFactory} from '~/common/logging';
+import {getAndParseMdm} from '~/common/mdm';
 import {BackendMediaService, type IFrontendMediaService} from '~/common/media';
 import type {Repositories} from '~/common/model';
 import {ModelRepositories} from '~/common/model/repositories';
@@ -84,6 +90,11 @@ import {
 import {type DirectoryBackend, DirectoryError} from '~/common/network/protocol/directory';
 import {PersistentProtocolStateBackend} from '~/common/network/protocol/persistent-protocol-state';
 import type {RendezvousCloseCause} from '~/common/network/protocol/rendezvous';
+import {
+    RemoteSecretMonitoringProtocolBackend,
+    StubRemoteSecretMonitoringProtocolBackend,
+    type RemoteSecretMonitoringBase,
+} from '~/common/network/protocol/task/libthreema/ remote-secret-monitor';
 import {TaskManager} from '~/common/network/protocol/task/manager';
 import {VolatileProtocolStateBackend} from '~/common/network/protocol/volatile-protocol-state';
 import {StubWorkBackend, type WorkBackend} from '~/common/network/protocol/work';
@@ -103,6 +114,7 @@ import type {SystemDialogService} from '~/common/system-dialog';
 import type {TestDataJson} from '~/common/test-data';
 import type {ReadonlyUint8Array, u53} from '~/common/types';
 import {
+    assert,
     assertError,
     assertUnreachable,
     ensureError,
@@ -152,6 +164,7 @@ const MAX_DISCONNECTS_THRESHOLD = 1;
  * - key-storage-migration-error: An error related to a key storage migration occurred.
  * - onprem-configuration-error: An error related to the onprem configuration occurred.
  * - missing-work-credentials: This is a work app but no credentials could be found in the key storage.
+ * - remote-secret-error: An error ocurred when activating or deactivating remote secret.
  */
 export type BackendCreationErrorType =
     | 'no-identity'
@@ -160,7 +173,8 @@ export type BackendCreationErrorType =
     | 'key-storage-migration-error'
     | 'key-storage-error-wrong-password'
     | 'onprem-configuration-error'
-    | 'missing-work-credentials';
+    | 'missing-work-credentials'
+    | 'remote-secret-error';
 
 const BACKEND_CREATION_ERROR_TRANSFER_HANDLER = registerErrorTransferHandler<
     BackendCreationError,
@@ -233,6 +247,8 @@ export interface BackendCreator extends ProxyMarked {
  * Service factories needed for a backend worker.
  */
 export interface FactoriesForBackend {
+    /** Instantiate identity presence factory. */
+    readonly hasIdentity: () => boolean;
     /** Instantiate logger factory. */
     readonly logging: (rootTag: string, defaultStyle: string) => LoggerFactory;
     /** Instantiate key storage. */
@@ -490,7 +506,10 @@ function initEarlyBackendServicesWithoutConfig(
         logging.logger('com.system-dialog'),
     );
     const taskManager = new TaskManager({logging});
-    const keyStorage = factories.keyStorage({crypto}, logging.logger('key-storage'));
+    const keyStorage = factories.keyStorage(
+        {crypto, electron, logging, systemInfo: backendInit.systemInfo},
+        logging.logger('key-storage'),
+    );
     const tempFile = factories.tempFileStorage(logging.logger('temp-file-storage'));
     const volatileProtocolState = new VolatileProtocolStateBackend();
     const webrtc = endpoint.wrap(backendInit.webRtcEndpoint, logging.logger('com.webrtc'));
@@ -518,10 +537,19 @@ function initEarlyBackendServicesWithoutConfig(
  */
 function initEarlyBackendServicesWithConfig(
     factories: FactoriesForBackend,
-    {config, crypto, logging}: Pick<ServicesForBackend, 'crypto' | 'config' | 'logging'>,
+    {
+        config,
+        crypto,
+        electron,
+        logging,
+        systemInfo,
+    }: Pick<ServicesForBackend, 'config' | 'crypto' | 'electron' | 'logging' | 'systemInfo'>,
     workData: IQueryableStore<ThreemaWorkData | undefined> | undefined,
 ): EarlyBackendServicesThatRequireConfig {
-    const file = factories.fileStorage({config, crypto}, logging.logger('storage'));
+    const file = factories.fileStorage(
+        {config, crypto, electron, logging, systemInfo},
+        logging.logger('storage'),
+    );
     const directory = new FetchDirectoryBackend(
         {config, logging},
         workData === undefined
@@ -644,7 +672,10 @@ function initBackendServices(
  * Write key storage with the provided data.
  */
 async function writeKeyStorage(
-    {keyStorage}: Pick<ServicesForBackend, 'keyStorage'>,
+    services: Pick<
+        ServicesForBackend,
+        'config' | 'electron' | 'keyStorage' | 'logging' | 'systemInfo'
+    >,
     password: string,
     identityData: IdentityData,
     deviceIds: DeviceIds,
@@ -652,24 +683,45 @@ async function writeKeyStorage(
     ck: RawClientKey,
     dgk: RawDeviceGroupKey,
     databaseKey: RawDatabaseKey,
+    thRemoteSecretParameter: boolean,
     workCredentials?: ThreemaWorkCredentials,
     onPremConfig?: KeyStorageOppfConfig,
 ): Promise<void> {
+    const {config, keyStorage} = services;
+    let remoteSecretWriteData: RemoteSecretWriteData | undefined;
+
+    if (thRemoteSecretParameter) {
+        assert(
+            workCredentials !== undefined,
+            'Work credentials must be present when turning on remote secrets',
+        );
+        remoteSecretWriteData = await activateRemoteSecret(
+            services,
+            config.WORK_SERVER_URL,
+            {workCredentials},
+            identityData.identity,
+            ck,
+        );
+    }
     try {
-        await keyStorage.write(password, {
-            schemaVersion: 2,
-            identityData: {
-                identity: identityData.identity,
-                ck,
-                serverGroup: identityData.serverGroup,
+        await keyStorage.write(
+            password,
+            {
+                schemaVersion: 2,
+                identityData: {
+                    identity: identityData.identity,
+                    ck,
+                    serverGroup: identityData.serverGroup,
+                },
+                deviceCookie,
+                dgk,
+                databaseKey,
+                deviceIds: {...deviceIds},
+                workCredentials: workCredentials === undefined ? undefined : {...workCredentials},
+                onPremConfig: onPremConfig === undefined ? undefined : {...onPremConfig},
             },
-            deviceCookie,
-            dgk,
-            databaseKey,
-            deviceIds: {...deviceIds},
-            workCredentials: workCredentials === undefined ? undefined : {...workCredentials},
-            onPremConfig: onPremConfig === undefined ? undefined : {...onPremConfig},
-        });
+            remoteSecretWriteData,
+        );
     } catch (error) {
         throw new BackendCreationError(
             'key-storage-error',
@@ -696,6 +748,7 @@ export interface BackendHandle extends ProxyMarked {
     readonly directory: Pick<DirectoryBackend, 'identity'>;
     readonly keyStorage: Pick<KeyStorage, 'changePassword' | 'changeWorkCredentials'>;
     readonly model: Repositories;
+    readonly onSystemSuspend: () => Promise<void>;
     readonly viewModel: IViewModelRepository;
     readonly work: WorkBackend;
 }
@@ -713,6 +766,7 @@ export class Backend {
     private readonly _backgroundJobScheduler: BackgroundJobScheduler;
     private readonly _connectionManager: ConnectionManager;
     private readonly _debug: DebugBackend;
+    private readonly _remoteSecretMonitorProtocol: RemoteSecretMonitoringBase;
     private _capture?: RawCaptureHandlers;
 
     private constructor(private readonly _services: ServicesForBackend) {
@@ -732,6 +786,7 @@ export class Backend {
             directory: _services.directory,
             model: _services.model,
             keyStorage: _services.keyStorage,
+            onSystemSuspend: this.onSystemSuspend.bind(this),
             viewModel: _services.viewModel,
             work: _services.work,
         };
@@ -744,20 +799,49 @@ export class Backend {
                 `Backend created.\nDevice IDs:\n  DGID = ${dgid}\n  D2M  = ${d2m}\n  CSP  = ${csp}`,
             );
         }
+
+        // Subscribe to the remote secret store to act when it is triggered.
+        if (import.meta.env.BUILD_VARIANT !== 'consumer') {
+            this._services.model.user.workSettings
+                .get()
+                .controller.currentRemoteSecretMdmParameter.subscribe((thRemoteSecretSet) => {
+                    handleRemoteSecretMdmParameterChange(this._services, thRemoteSecretSet).catch(
+                        (error: unknown) => {
+                            if (error instanceof KeyStorageError) {
+                                throw error;
+                            }
+                            throw new BackendCreationError(
+                                'remote-secret-error',
+                                `Failed to ${thRemoteSecretSet !== undefined ? 'activate' : 'deactivate'} due to error: ${extractErrorMessage(ensureError(error), 'short')}`,
+                            );
+                        },
+                    );
+                });
+        }
+
+        this._remoteSecretMonitorProtocol =
+            import.meta.env.BUILD_VARIANT === 'consumer'
+                ? StubRemoteSecretMonitoringProtocolBackend.init(
+                      this._services,
+                      this._backgroundJobScheduler,
+                  )
+                : RemoteSecretMonitoringProtocolBackend.init(
+                      this._services,
+                      this._backgroundJobScheduler,
+                  );
     }
 
     /**
-     * Return whether or not an identity (i.e. a key storage file) is present.
+     * Return whether or not an identity (i.e. a key storage file) is present in the expected
+     * location inside the given `profileDirectoryPath`.
      */
     public static hasIdentity(
-        factories: FactoriesForBackend,
+        factories: Pick<FactoriesForBackend, 'hasIdentity'>,
         {logging}: Pick<ServicesForBackend, 'logging'>,
     ): boolean {
         const log = logging.logger('backend.create');
 
-        const crypto = new TweetNaClBackend(randomBytes);
-        const keyStorage = factories.keyStorage({crypto}, logging.logger('key-storage'));
-        if (keyStorage.isAnyGenerationPresent()) {
+        if (factories.hasIdentity()) {
             log.info('Identity found');
             return true;
         }
@@ -1142,7 +1226,7 @@ export class Backend {
                 : undefined;
 
         await writeKeyStorage(
-            phase1Services,
+            {...phase1Services, config},
             profile.keyStoragePassword,
             identityData,
             deviceIds,
@@ -1150,6 +1234,7 @@ export class Backend {
             rawClientKeyForKeyStorage,
             dgkForKeyStorage,
             databaseKeyForKeyStorage,
+            false,
             workCredentials,
         );
 
@@ -1742,7 +1827,7 @@ export class Backend {
             await updateSyncingPhase('encrypting');
             // Write key storage
             await writeKeyStorage(
-                phase1Services,
+                services,
                 userPassword,
                 identityData,
                 deviceIds,
@@ -1750,6 +1835,11 @@ export class Backend {
                 rawCkForKeyStorage,
                 dgkForKeyStorage,
                 databaseKeyForKeyStorage,
+                getAndParseMdm(
+                    joinResult.mdmParameters?.threemaParameters ?? new Map(),
+                    'th_enable_remote_secret',
+                    log,
+                ) === true,
                 joinResult.workCredentials,
                 onPremConfig,
             );
@@ -1778,6 +1868,19 @@ export class Backend {
             }
             return await throwLinkingError(`Initial connection with server failed: ${errorInfo} `, {
                 kind: 'registration-error',
+            });
+        }
+
+        // After everything is initialized, we can safely write the transmitted MDM parameters to
+        // the model.
+        if (
+            joinResult.mdmParameters !== undefined &&
+            // This should never be true in combination with `mdmParameters` but we add the
+            // condition as a sanity check here.
+            import.meta.env.BUILD_VARIANT !== 'consumer'
+        ) {
+            services.model.user.workSettings.get().controller.update({
+                threemaMdmParameters: joinResult.mdmParameters.threemaParameters,
             });
         }
 
@@ -1846,6 +1949,22 @@ export class Backend {
             debug: {tag: 'capture'},
         });
         return store;
+    }
+
+    /**
+     * Handle the system suspend signal from electron.
+     */
+    public async onSystemSuspend(): Promise<void> {
+        if (import.meta.env.BUILD_VARIANT === 'consumer') {
+            return;
+        }
+        if (this._services.keyStorage.remoteSecretData?.get() !== undefined) {
+            // Remote secret is activated, so we force a restart on suspend.
+            this._log.debug('Restarting app on suspend because remote secret is active');
+            await this._services.electron
+                .remoteSecretSystemSuspensionRestartApp()
+                .catch(assertUnreachable);
+        }
     }
 
     /**

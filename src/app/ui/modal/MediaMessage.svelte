@@ -25,19 +25,22 @@
   import Caption from '~/app/ui/modal/media-message/Caption.svelte';
   import ConfirmClose from '~/app/ui/modal/media-message/ConfirmClose.svelte';
   import Miniatures from '~/app/ui/modal/media-message/Miniatures.svelte';
+  import {toast} from '~/app/ui/snackbar';
   import IconButton from '~/app/ui/svelte-components/blocks/Button/IconButton.svelte';
+  import CircularProgress from '~/app/ui/svelte-components/blocks/CircularProgress/CircularProgress.svelte';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import TitleAndClose from '~/app/ui/svelte-components/blocks/ModalDialog/Header/TitleAndClose.svelte';
   import ModalDialog from '~/app/ui/svelte-components/blocks/ModalDialog/ModalDialog.svelte';
   import type {FileLoadResult} from '~/app/ui/utils/file';
   import {nodeIsOrContainsTarget} from '~/app/ui/utils/node';
-  import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
+  import {reactive, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {type Dimensions, ensureU53, type u53} from '~/common/types';
   import {unreachable} from '~/common/utils/assert';
   import type {SingleUnicodeEmoji} from '~/common/utils/emoji';
   import {getSanitizedFileNameDetails} from '~/common/utils/file';
   import {isSupportedImageType} from '~/common/utils/image';
   import {WritableStore} from '~/common/utils/store';
+  import {isVideoFileType} from '~/common/utils/video';
   import type {SendFileBasedMessageInformation} from '~/common/viewmodel/conversation/main/controller/types';
 
   const log = globals.unwrap().uiLogging.logger('ui.component.media-message-modal');
@@ -50,7 +53,9 @@
      * Whether or not more files can be attached to the message.
      */
     readonly moreFilesAttachable?: boolean;
-    readonly onclicksend: (details: SendFileBasedMessageInformation) => void;
+    readonly onclicksend: (
+      details: SendFileBasedMessageInformation,
+    ) => Promise<unknown>[] | undefined;
     readonly onclose: () => void;
     readonly services: Pick<AppServicesForSvelte, 'backend' | 'electron' | 'emojis'>;
     readonly title: string;
@@ -72,6 +77,8 @@
   let modalDialogComponent = $state<SvelteNullableBinding<ModalDialog>>(null);
   let sendButtonTooltipComponent = $state<SvelteNullableBinding<Tooltip>>(null);
   let captionComponent = $state<SvelteNullableBinding<Caption>>(null);
+
+  let submitButtonLoading = $state(false);
 
   let emojiButtonElement = $state<SvelteNullableBinding<HTMLDivElement>>(null);
   let isEmojiPickerVisible = $state<boolean>(false);
@@ -152,6 +159,7 @@
     const files: SendFileBasedMessageInformation['files'] = await Promise.all(
       mediaFiles.map(async (mediaFile) => {
         const isImage = isSupportedImageType(mediaFile.file.type);
+        const isVideo = isVideoFileType(mediaFile.file.type);
 
         // If file is an image, downsize it to save bandwidth and strip metadata.
         let fileBlob: Blob;
@@ -167,11 +175,15 @@
             fileBlob = resizeResult.blob;
             dimensions = resizeResult.dimensions;
           }
+        } else if (isVideo && !sendAsFile) {
+          fileBlob = mediaFile.file;
+          // The original dimensions of the thumbnail are equal to the dimensions of the video.
+          dimensions = (await mediaFile.thumbnail)?.originalDimensions;
         } else {
           fileBlob = mediaFile.file;
         }
 
-        const thumbnailBlob = await mediaFile.thumbnail;
+        const thumbnailBlob = (await mediaFile.thumbnail)?.blob;
         return {
           bytes: new Uint8Array(await fileBlob.arrayBuffer()),
           thumbnailBytes:
@@ -189,10 +201,26 @@
       }),
     );
 
-    onclicksend?.({
+    submitButtonLoading = true;
+
+    const promises = onclicksend?.({
       type: 'files',
       files,
     });
+
+    if (promises !== undefined) {
+      await Promise.all(promises).catch((error) => {
+        log.error('Sending media files failed with error: ', error);
+        toast.addSimpleFailure(
+          $i18n.t(
+            'dialog--compose-media-message.error--failed-to-send',
+            'Failed to send media files',
+          ),
+        );
+      });
+    }
+
+    submitButtonLoading = false;
 
     visible = false;
     onclose?.();
@@ -284,12 +312,10 @@
 
   const activeCaption = $derived(activeMediaFile?.caption);
   $effect(() => {
-    // Trigger reactivity of `mediaFiles` when `activeCaption` changes (e.g. to trigger another
-    // validation).
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    $activeCaption;
-
-    mediaFiles = [...mediaFiles];
+    reactive(() => {
+      // We need to do this assignemnt so that the validation is triggered again.
+      mediaFiles = [...mediaFiles];
+    }, [$activeCaption]);
   });
 
   const isSendingEnabled = $derived(
@@ -414,8 +440,18 @@
                 onmouseenter={handleTriggerMouseEnter}
                 onmouseleave={handleTriggerMouseLeave}
               >
-                <IconButton flavor="filled" disabled={!isSendingEnabled} onclick={sendMessages}>
-                  <MdIcon theme="Filled">arrow_upward</MdIcon>
+                <IconButton
+                  flavor="filled"
+                  disabled={!isSendingEnabled || submitButtonLoading}
+                  onclick={sendMessages}
+                >
+                  {#if submitButtonLoading}
+                    <div class="progress">
+                      <CircularProgress variant="indeterminate" color="current" />
+                    </div>
+                  {:else}
+                    <MdIcon theme="Filled">arrow_upward</MdIcon>
+                  {/if}
                 </IconButton>
               </button>
 
@@ -520,6 +556,11 @@
 
       .send {
         @include clicktarget-button-circle;
+
+        .progress {
+          height: rem(20px);
+          width: rem(20px);
+        }
       }
 
       &.disabled {

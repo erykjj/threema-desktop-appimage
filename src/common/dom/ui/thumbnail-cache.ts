@@ -117,6 +117,7 @@ export class ThumbnailCacheService {
                     store.set(undefined);
                     return;
                 }
+
                 const blob = new Blob([result.bytes], {type: result.mediaType});
                 createImageBitmap(blob)
                     .then((bitmap) => {
@@ -147,6 +148,8 @@ export class ThumbnailCacheService {
      * Return the thumbnail bytes for the specified {@link messageId} within the conversation with
      * {@link receiverLookup}.
      *
+     * Return `syncing` if the thumbnail bytes are not present yet but the state is `syncing`.
+     *
      * Return `undefined` in the following cases:
      *
      * - The converseation was not found
@@ -169,8 +172,9 @@ export class ThumbnailCacheService {
         }
         switch (message.type) {
             case 'image':
-            case 'video':
+            case 'video': {
                 return await message.get().controller.thumbnailBlob();
+            }
             case 'text':
             case 'audio':
             case 'file':

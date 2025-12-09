@@ -6,7 +6,6 @@
   import FileType from '~/app/ui/modal/media-message/FileType.svelte';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import Image from '~/app/ui/svelte-components/blocks/Image/Image.svelte';
-  import {isSupportedImageType} from '~/common/utils/image';
 
   const log = globals.unwrap().uiLogging.logger('ui.component.modal.media-message.miniature');
 
@@ -19,7 +18,7 @@
 
   const {active = false, disabled = false, mediaFile, onclick, validationResult}: Props = $props();
 
-  let thumbnail: Blob | undefined = $state();
+  let thumbnail: Awaited<MediaFile['thumbnail']> = $state();
   function updateThumbnail(currentMediaFile: MediaFile): void {
     currentMediaFile.thumbnail
       .then((value) => {
@@ -43,8 +42,8 @@
     </div>
   {/if}
   <div class="overlay"></div>
-  {#if isSupportedImageType(mediaFile.file.type) && thumbnail !== undefined && !$sendAsFile}
-    <Image class="thumbnail-image" src={thumbnail} alt={mediaFile.file.name} />
+  {#if thumbnail !== undefined && !$sendAsFile}
+    <Image class="thumbnail-image" src={thumbnail.blob} alt={mediaFile.file.name} />
   {:else}
     <div class="type">
       <FileType filenameDetails={mediaFile.sanitizedFilenameDetails} />

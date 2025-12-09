@@ -22,12 +22,15 @@
       'auto-app-update-failed',
       'auto-app-update-prompt',
       'device-cookie-mismatch',
+      'device-protocols-incompatible',
       'invalid-work-credentials',
       'manual-app-update',
+      'remote-secrets-activation',
+      'remote-secrets-deactivation',
+      'remote-secrets-system-suspend',
+      'screen-sharing-picker',
       'server-alert',
       'unrecoverable-state',
-      'device-protocols-incompatible',
-      'screen-sharing-picker',
     ] as const
   ).map((type: Exclude<SystemDialog['type'], 'connection-error'>) => {
     switch (type) {
@@ -181,6 +184,45 @@
             });
           },
           label: 'Screen Sharing Picker',
+        };
+
+      case 'remote-secrets-activation':
+        return {
+          type: 'option',
+          handler: () => {
+            systemDialog.open({
+              type,
+              context: {
+                previouslyAttemptedPassword: undefined,
+              },
+            });
+          },
+          label: 'Activate Remote Secrets',
+        };
+
+      case 'remote-secrets-deactivation':
+        return {
+          type: 'option',
+          handler: () => {
+            systemDialog.open({
+              type,
+              context: {
+                previouslyAttemptedPassword: undefined,
+              },
+            });
+          },
+          label: 'Deactivate Remote Secrets',
+        };
+
+      case 'remote-secrets-system-suspend':
+        return {
+          type: 'option',
+          handler: () => {
+            systemDialog.open({
+              type,
+            });
+          },
+          label: 'Remote Secrets System Suspension',
         };
 
       default:

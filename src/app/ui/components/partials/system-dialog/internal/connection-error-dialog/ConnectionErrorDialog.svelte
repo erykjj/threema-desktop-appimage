@@ -9,7 +9,7 @@
   import type {ConnectionErrorDialogProps} from '~/app/ui/components/partials/system-dialog/internal/connection-error-dialog/props';
   import {i18n} from '~/app/ui/i18n';
   import {unlinkAndCreateBackup} from '~/app/ui/utils/profile';
-  import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
+  import {svelteUnreachable, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {unreachable} from '~/common/utils/assert';
 
   const {uiLogging} = globals.unwrap();
@@ -30,7 +30,7 @@
             isFocused: true,
             label: $i18n.t('dialog--common.action--ignore', 'Ignore'),
             onclick: () => {
-              onselectaction?.('dismissed');
+              onselectaction?.({type: 'dismissed'});
               modalComponent?.close();
             },
             type: 'filled',
@@ -43,7 +43,7 @@
           {
             label: $i18n.t('dialog--common.action--ignore', 'Ignore'),
             onclick: () => {
-              onselectaction?.('dismissed');
+              onselectaction?.({type: 'dismissed'});
               modalComponent?.close();
             },
             type: 'naked',
@@ -67,7 +67,7 @@
           {
             label: $i18n.t('dialog--common.action--ignore', 'Ignore'),
             onclick: () => {
-              onselectaction?.('dismissed');
+              onselectaction?.({type: 'dismissed'});
               modalComponent?.close();
             },
             type: 'naked',
@@ -76,7 +76,7 @@
             isFocused: true,
             label: $i18n.t('dialog--error-connection.action--confirm-reconnect', 'Reconnect'),
             onclick: () => {
-              onselectaction?.('confirmed');
+              onselectaction?.({type: 'confirmed'});
               modalComponent?.close();
             },
             type: 'filled',
@@ -209,7 +209,7 @@
         </p>
       {/if}
     {:else}
-      {unreachable(error)}
+      {svelteUnreachable(error)}
     {/if}
   </div>
 </Modal>

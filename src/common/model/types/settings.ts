@@ -14,6 +14,8 @@ import type {
     ComposeBarEnterMode,
     AnimatedImageMode,
 } from '~/common/enum';
+import type * as protobuf from '~/common/internal-protobuf/settings';
+import type {MdmAcceptedParamters} from '~/common/mdm';
 import type {AutoDownload} from '~/common/model/settings/media';
 import type {ProfilePictureShareWith} from '~/common/model/settings/profile';
 import type {ControllerUpdate, ControllerUpdateFromLocal, Model} from '~/common/model/types/common';
@@ -24,6 +26,7 @@ import type {DeviceName, IdentityString, Nickname} from '~/common/network/types'
 import type {RawBlobKey} from '~/common/network/types/keys';
 import type {ReadonlyUint8Array, StrictExtract} from '~/common/types';
 import type {ProxyMarked} from '~/common/utils/endpoint';
+import type {IQueryableStore} from '~/common/utils/store';
 
 // Profile Settings
 
@@ -181,6 +184,10 @@ export type AppearanceSettings = Model<AppearanceSettingsView, AppearanceSetting
 export interface MediaSettingsView {
     readonly autoDownload: AutoDownload;
     readonly animatedImageMode: AnimatedImageMode;
+    readonly videoQuality: Exclude<
+        protobuf.MediaSettings_VideoQuality,
+        protobuf.MediaSettings_VideoQuality.UNRECOGNIZED
+    >;
 }
 export type MediaSettingsUpdate = Partial<MediaSettingsView>;
 export type MediaSettingsController = {
@@ -203,9 +210,11 @@ export interface WorkSettingsView {
     };
     readonly orgName?: string;
     readonly support?: string;
+    readonly threemaMdmParameters: ReadonlyMap<string, MdmAcceptedParamters>;
 }
 export type WorkSettingsUpdate = Partial<WorkSettingsView>;
 export type WorkSettingsController = {
+    readonly currentRemoteSecretMdmParameter: IQueryableStore<boolean | undefined>;
     readonly lifetimeGuard: ModelLifetimeGuard<WorkSettingsView>;
     readonly update: (change: WorkSettingsUpdate) => void;
 } & ProxyMarked;

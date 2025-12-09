@@ -1,12 +1,22 @@
-import type {PollAnnounceType, PollAnswerType, PollDisplayMode, PollState} from '~/common/enum';
+import type {
+    MessageType,
+    PollAnnounceType,
+    PollAnswerType,
+    PollDisplayMode,
+    PollState,
+} from '~/common/enum';
 import type {
     OutboundFileMessageInitFragment,
     OutboundImageMessageInitFragment,
     OutboundPollMessageInitFragment,
     OutboundTextMessageInitFragment,
+    OutboundVideoMessageInitFragment,
+    OutboundAudioMessageInitFragment,
 } from '~/common/network/protocol/task/message-processing-helpers';
 import type {IdentityString, MessageId, PollId} from '~/common/network/types';
-import type {Dimensions, ReadonlyUint8Array, u53} from '~/common/types';
+import type {Dimensions, f64, ReadonlyUint8Array, u53} from '~/common/types';
+import type {transcodeAudioToMp4Aac, transcodeAudioToMp4Opus} from '~/common/utils/audio';
+import type {transcodeVideoToMp4H264} from '~/common/utils/video';
 
 /**
  * Required data the {@link ConversationViewModelController} needs to send a message.
@@ -34,6 +44,7 @@ export interface SendFileBasedMessageInformation {
         readonly thumbnailMediaType?: string;
         readonly dimensions?: Dimensions;
         readonly sendAsFile: boolean;
+        readonly duration?: u53;
     }[];
 }
 
@@ -68,4 +79,20 @@ export type OutboundMessageInitFragment =
     | Omit<OutboundTextMessageInitFragment, 'direction' | 'id' | 'createdAt'>
     | Omit<OutboundFileMessageInitFragment, 'direction' | 'id' | 'createdAt'>
     | Omit<OutboundImageMessageInitFragment, 'direction' | 'id' | 'createdAt'>
+    | Omit<OutboundVideoMessageInitFragment, 'direction' | 'id' | 'createdAt'>
+    | Omit<OutboundAudioMessageInitFragment, 'direction' | 'id' | 'createdAt'>
     | Omit<OutboundPollMessageInitFragment, 'direction' | 'id' | 'createdAt'>;
+
+export type TranscodeFunction =
+    | typeof transcodeVideoToMp4H264
+    | typeof transcodeAudioToMp4Aac
+    | typeof transcodeAudioToMp4Opus;
+
+export interface TranscodingResult {
+    readonly type: MessageType.AUDIO | MessageType.FILE | MessageType.VIDEO;
+    readonly bytes: ReadonlyUint8Array;
+    readonly duration: f64;
+    readonly mediaType: string;
+    readonly fileName: string;
+    readonly fileSize: u53;
+}

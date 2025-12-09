@@ -14,9 +14,9 @@
   import type {MessageProps} from '~/app/ui/components/molecules/message/props';
   import Poll from '~/app/ui/components/partials/poll/Poll.svelte';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
+  import {svelteUnreachable} from '~/app/ui/utils/svelte';
   import {MAX_CONVERSATION_THUMBNAIL_SIZE} from '~/common/dom/ui/media';
   import type {u53} from '~/common/types';
-  import {unreachable} from '~/common/utils/assert';
   import {durationToString} from '~/common/utils/date';
   import {hasProperty} from '~/common/utils/object';
 
@@ -80,7 +80,11 @@
   <div class={`body ${direction}`} class:clickable>
     {#if options.showSender !== false && direction !== 'outbound'}
       <span class="sender">
-        <Sender name={sender.name} color={sender.color} />
+        <Sender
+          color={sender.color}
+          messageHasThumbnail={file?.thumbnail !== undefined}
+          name={sender.name}
+        />
       </span>
     {/if}
 
@@ -90,7 +94,6 @@
         content={{
           text: quote.fallbackText,
         }}
-        {onerror}
       />
     {:else if quote !== undefined}
       <span class="quote">
@@ -100,7 +103,6 @@
           clickable={true}
           file={quote.file}
           onclick={onclickquote}
-          {onerror}
           poll={quote.poll}
           sender={quote.sender}
         />
@@ -110,11 +112,11 @@
     {#if file !== undefined}
       {#if file.type === 'audio'}
         <span class="audio">
-          <AudioPlayer duration={file.duration} fetchAudio={file.fetchFileBytes} {onerror}>
-            {#snippet snippetFooter(duration)}
+          <AudioPlayer audioFile={file} {onerror}>
+            {#snippet snippetFooter(audioTimestamp)}
               <span class="footer">
                 <span class="size">
-                  <Text text={durationToString(duration ?? 0)} wrap={false} />
+                  <Text text={durationToString(audioTimestamp ?? 0)} wrap={false} />
                 </span>
                 {#if messageInfoPlacement === 'preview'}
                   <span class="status">
@@ -194,7 +196,7 @@
           {/if}
         </span>
       {:else}
-        {unreachable(file.type)}
+        {svelteUnreachable(file.type)}
       {/if}
     {/if}
 
@@ -233,6 +235,16 @@
     flex-direction: column;
 
     .sender {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: stretch;
+
+      // Force element to only take up as much space as is available to it, and not cause to grow
+      // its container.
+      width: min-content;
+      min-width: 100%;
+
       padding: 0 0 rem(4px) 0;
 
       // If `.sender` is a general-preceding sibling of `.audio`, `.file`, or `.thumbnail`.

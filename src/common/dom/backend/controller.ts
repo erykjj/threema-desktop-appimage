@@ -68,6 +68,7 @@ export class BackendController {
     public readonly debug: RemoteProxy<BackendHandle>['debug'];
     public readonly directory: RemoteProxy<BackendHandle>['directory'];
     public readonly keyStorage: RemoteProxy<BackendHandle>['keyStorage'];
+    public readonly onSystemSuspend: RemoteProxy<BackendHandle>['onSystemSuspend'];
     public readonly model: RemoteProxy<BackendHandle>['model'];
     public readonly viewModel: RemoteProxy<BackendHandle>['viewModel'];
     public readonly work: RemoteProxy<BackendHandle>['work'];
@@ -93,6 +94,7 @@ export class BackendController {
         this.directory = _remote.directory;
         this.keyStorage = _remote.keyStorage;
         this.model = _remote.model;
+        this.onSystemSuspend = _remote.onSystemSuspend;
         this.viewModel = _remote.viewModel;
         this.work = _remote.work;
     }
@@ -250,6 +252,25 @@ export class BackendController {
         let identityIsReady = false;
         let backendEndpoint;
         if (await creator.hasIdentity()) {
+            // If this is a remote secret system suspension restart, show a dialog disabling direct
+            // login.
+            if (
+                passwordForExistingKeyStorage !== undefined &&
+                services.electron.remoteSecretSystemSuspensionRestartParameter()
+            ) {
+                const handle = services.systemDialog.open({type: 'remote-secrets-system-suspend'});
+                await handle.closed;
+            }
+
+            // If a remote secret error ocurred that forced a restart, pretend there is no password
+            // in the keychain to show the correct error message.
+            if (
+                passwordForExistingKeyStorage !== undefined &&
+                services.electron.getRemoteSecretLaunchParameter() !== undefined
+            ) {
+                passwordForExistingKeyStorage = undefined;
+            }
+
             // eslint-disable-next-line no-labels
             loopToCreateBackendWithKeyStorage: for (;;) {
                 log.debug('Loop to create backend with existing key storage');
@@ -315,6 +336,7 @@ export class BackendController {
                             return assertUnreachable(
                                 'Cannot continue linking process without work data',
                             );
+                        case 'remote-secret-error':
                         case 'handled-linking-error':
                             throw new Error(
                                 `Unexpected error type: ${error.type} (${errorMessage})`,
@@ -420,6 +442,7 @@ export class BackendController {
                     case 'key-storage-migration-error':
                     case 'key-storage-error-wrong-password':
                     case 'missing-work-credentials':
+                    case 'remote-secret-error':
                         throw new Error(
                             `Unexpected error type: ${error.type} (${extractErrorMessage(
                                 error,

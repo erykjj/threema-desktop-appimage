@@ -18,11 +18,11 @@
   import {toast} from '~/app/ui/snackbar';
   import IconButton from '~/app/ui/svelte-components/blocks/Button/IconButton.svelte';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
-  import {reactive} from '~/app/ui/utils/svelte';
+  import {reactive, svelteUnreachable} from '~/app/ui/utils/svelte';
   import {display} from '~/common/dom/ui/state';
   import type {SettingsCategory} from '~/common/settings';
   import type {ReadonlyUint8Array} from '~/common/types';
-  import {ensureError, unreachable} from '~/common/utils/assert';
+  import {ensureError} from '~/common/utils/assert';
   import type {Remote} from '~/common/utils/endpoint';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
   import type {SettingsViewModelBundle} from '~/common/viewmodel/settings';
@@ -39,9 +39,8 @@
   let viewModelStore = $state<IQueryableStore<RemoteSettingsViewModelStoreValue | undefined>>(
     new ReadableStore(undefined),
   );
-  let viewModelController = $state<
-    Remote<SettingsViewModelBundle>['viewModelController'] | undefined
-  >(undefined);
+  let viewModelController: Remote<SettingsViewModelBundle>['viewModelController'] | undefined =
+    undefined;
 
   let currentCategory = $state<Exclude<SettingsCategory, 'calls' | 'privacy' | 'work'>>('profile');
 
@@ -197,7 +196,7 @@
       {:else if currentCategory === 'security'}
         <SecuritySettings {services} />
       {:else}
-        {unreachable(currentCategory)}
+        {svelteUnreachable(currentCategory)}
       {/if}
     </div>
   </div>

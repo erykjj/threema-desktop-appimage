@@ -11,6 +11,7 @@
   import {
     getTextContent,
     getTranslatedSyncButtonTitle,
+    isSyncedFile,
     isUnsyncedOrSyncingFile,
     shouldShowReactionButtons,
   } from '~/app/ui/components/partials/conversation/internal/message-list/internal/regular-message/helpers';
@@ -25,7 +26,7 @@
   import {handleCopyImage, handleSaveAsFile} from '~/app/ui/utils/file-sync/handlers';
   import {syncAndGetPayload} from '~/app/ui/utils/file-sync/helpers';
   import {isNotesGroup} from '~/app/ui/utils/receiver';
-  import {reactive} from '~/app/ui/utils/svelte';
+  import {reactive, svelteUnreachable} from '~/app/ui/utils/svelte';
   import {escapeHtmlUnsafeChars} from '~/app/ui/utils/text';
   import {getDisplayTimestampForMessage} from '~/app/ui/utils/timestamp';
   import {extractErrorMessage} from '~/common/error';
@@ -197,10 +198,6 @@
           conversation.receiver.lookup,
           services,
         ),
-        onerror: (error) =>
-          log.error(
-            `An error occurred in a child component: ${extractErrorMessage(error, 'short')}`,
-          ),
         poll: rawQuote.pollData,
         sender: rawQuote.sender,
       };
@@ -325,14 +322,14 @@
                         {:else if sync.direction === undefined}
                           help
                         {:else}
-                          {unreachable(sync.direction)}
+                          {svelteUnreachable(sync.direction)}
                         {/if}
                       </MdIcon>
                     {:else if sync.state === 'syncing'}
                       <!-- TODO(DESK-948): Cancellation <MdIcon theme="Filled">close</MdIcon>. -->
                       <IconButtonProgressBarOverlay />
                     {:else}
-                      {unreachable(sync.state)}
+                      {svelteUnreachable(sync.state)}
                     {/if}
                   </button>
                 {/if}
@@ -368,7 +365,7 @@
                       fillReactions: conversation.receiver.type === 'contact',
                       alwaysShowNumber: conversation.receiver.type === 'group',
                     },
-                    hideVideoPlayButton: isUnsyncedOrSyncingFile(file),
+                    hideVideoPlayButton: !isSyncedFile(file),
                   }}
                   {pollData}
                   quote={quoteProps}
@@ -422,7 +419,6 @@
 
       .message {
         border-radius: rem(10px);
-        overflow: hidden;
 
         .sync-button {
           --c-icon-button-progress-bar-overlay-color: var(--mc-message-overlay-button-color);

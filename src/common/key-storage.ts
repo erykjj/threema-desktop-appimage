@@ -9,11 +9,16 @@ import {BaseError, type BaseErrorOptions} from '~/common/error';
 import {TRANSFER_HANDLER} from '~/common/index';
 import {OuterKeyStorageV2_Argon2idParameters_Argon2Version} from '~/common/internal-protobuf/key-storage-file';
 import {
+    ensureBaseUrl,
     ensureCspDeviceId,
     ensureD2mDeviceId,
     ensureDeviceCookie,
     ensureIdentityString,
+    ensureRemoteSecretAuthenticationToken,
+    ensureRemoteSecretHash,
     ensureServerGroup,
+    type RawRemoteSecret,
+    type RemoteSecretData,
 } from '~/common/network/types';
 import {wrapRawClientKey, wrapRawDeviceGroupKey} from '~/common/network/types/keys';
 import {KiB, MiB, type u8, type u53, type u16} from '~/common/types';
@@ -247,6 +252,19 @@ export type OuterKeyStorageFileContentsV2 = Readonly<
     v.Infer<typeof OUTER_KEY_STORAGE_FILE_CONTENTS_SCHEMA_V2>
 >;
 
+export const INTERMEDIATE_KEY_STORAGE_RS_PROTECTED_SCHEMA = v.object({
+    remoteSecretAuthenticationToken: instanceOf(Uint8Array).map(
+        ensureRemoteSecretAuthenticationToken,
+    ),
+    remoteSecretHash: instanceOf(Uint8Array).map(ensureRemoteSecretHash),
+    onPremCachedRemoteSecretEndpointUrl: v.string().map((url) => ensureBaseUrl(url, 'https:')),
+    encryptedInner: instanceOf(Uint8Array).map(ensureEncryptedDataWithNonceAhead),
+});
+
+export type IntermediateKeyStorageRsProtectedContents = Readonly<
+    v.Infer<typeof INTERMEDIATE_KEY_STORAGE_RS_PROTECTED_SCHEMA>
+>;
+
 export const INTERMEDIATE_KEY_STORAGE_FILE_CONTENTS_SCHEMA_V1 = v
     .object({
         inner: v.union(
@@ -256,8 +274,12 @@ export const INTERMEDIATE_KEY_STORAGE_FILE_CONTENTS_SCHEMA_V1 = v
                     plaintextInner: instanceOf(Uint8Array),
                 })
                 .rest(v.unknown()),
-            // TODO(DESK-1935): Add schema for the server side secret encoded intermediate key storage
-            // here.
+            v
+                .object({
+                    $case: v.literal('remoteSecretProtectedInner'),
+                    remoteSecretProtectedInner: INTERMEDIATE_KEY_STORAGE_RS_PROTECTED_SCHEMA,
+                })
+                .rest(v.unknown()),
         ),
     })
     .rest(v.unknown());
@@ -375,27 +397,40 @@ export type InnerKeyStorageFileContentsV2 = Readonly<v.Infer<typeof INNER_KEY_ST
 export type KeyStorageOppfConfig = v.Infer<typeof KEY_STORAGE_OPPF_CONFIG>;
 
 /** Services required by the key storage factory. */
-export type ServicesForKeyStorageFactory = Pick<ServicesForBackend, 'crypto'>;
+export type ServicesForKeyStorageFactory = Pick<
+    ServicesForBackend,
+    'crypto' | 'electron' | 'logging' | 'systemInfo'
+>;
 
 /** Services required by the key storage. */
-export type ServicesForKeyStorage = Pick<ServicesForBackend, 'crypto'>;
+export type ServicesForKeyStorage = Pick<
+    ServicesForBackend,
+    'crypto' | 'electron' | 'logging' | 'systemInfo'
+>;
+
+export type RemoteSecretWriteData = RemoteSecretData & {readonly key: RawRemoteSecret};
+export type RemoteSecretStoreData =
+    | (RemoteSecretData & {readonly initialTimeoutMs: u53})
+    | undefined;
+export type WorkDataStoreData = ThreemaWorkData | undefined;
 
 /**
  * Stores and retrieves secret keys securely.
  */
 export interface KeyStorage extends ProxyMarked {
     /**
+     * Source of truth of the remote secret data of this user. If undefined, this is not a work
+     * build. The value of the store can initially be undefined but must be set properly as soon as
+     * the key storage is decrypted.
+     */
+    readonly remoteSecretData: IQueryableStore<RemoteSecretStoreData> | undefined;
+
+    /**
      * Source of truth of the work data of this user. Is undefined if this is not a work build. The
      * value of the store can be initially undefined. It is the responsibility of the caller to make
      * sure the value is defined when it is needed.
      */
-    readonly workData: IQueryableStore<ThreemaWorkData | undefined> | undefined;
-    /**
-     * Check if one of the key storage files (deprecated or current) is present in the file system.
-     * If not, there is no identity set up for the app and the initial setup process should be
-     * probably triggered.
-     */
-    readonly isAnyGenerationPresent: () => boolean;
+    readonly workData: IQueryableStore<WorkDataStoreData> | undefined;
 
     /**
      * Read, decrypt and decode the key storage file in the file system and return a
@@ -403,14 +438,21 @@ export interface KeyStorage extends ProxyMarked {
      *
      * @throws {KeyStorageError} In case reading, validating or decrypting the key storage fails.
      */
-    readonly read: (password: string) => Promise<InnerKeyStorageFileContentsV2>;
+    readonly read: (
+        password: string,
+        rs?: RawRemoteSecret,
+    ) => Promise<InnerKeyStorageFileContentsV2>;
 
     /**
      * Write the key storage file to the file system.
      *
      * @throws {KeyStorageError} In case encrypting or writing the key storage fails.
      */
-    readonly write: (password: string, contents: InnerKeyStorageFileContentsV2) => Promise<void>;
+    readonly write: (
+        password: string,
+        contents: InnerKeyStorageFileContentsV2,
+        remoteSecretData?: RemoteSecretWriteData,
+    ) => Promise<void>;
 
     /**
      * Change the key storage password.

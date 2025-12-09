@@ -29,6 +29,11 @@ import type {LogFileInfo, LogInfo} from '~/common/node/file-storage/log-info';
 import {directoryModeInternalObjectIfPosix, fileModeInternalObjectIfPosix} from '~/common/node/fs';
 import {FileLogger} from '~/common/node/logging';
 import {removeOldProfiles, getLatestProfilePath} from '~/common/node/old-profiles';
+import {getSafeStoragePasswordPath} from '~/common/node/safe-storage/helpers';
+import {
+    ensureRemoteSecretMonitorErrorType,
+    type RemoteSecretErrorType,
+} from '~/common/remote-secret';
 import {
     ensureSpkiValue,
     type DomainCertificatePin,
@@ -54,17 +59,30 @@ import {
 } from './electron-utils';
 import {createTlsCertificateVerifier} from './tls-cert-verifier';
 
+// Exit codes
+//
+// Note: Keep this in sync with exit codes in `launcher` rust crate.
 const EXIT_CODE_UNCAUGHT_ERROR = 7;
 const EXIT_CODE_RESTART = 8;
 const EXIT_CODE_DELETE_PROFILE_AND_RESTART = 9;
 const EXIT_CODE_RENAME_PROFILE_AND_RESTART = 10;
 const EXIT_CODE_RESTART_AND_INSTALL_UPDATE = 11;
 
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_BLOCKED = 30;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_INVALID_STATE = 31;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_MISMATCH = 32;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_NOT_FOUND = 33;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_SERVER_ERROR = 34;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_TIMEOUT = 35;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_NETWORK_ERROR = 36;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_RATE_LIMIT_EXCEEDED = 37;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_INVALID_CREDENTIALS = 38;
+const EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_UNKNOWN = 39;
+const EXIT_CODE_RESTART_REMOTE_SECRET_SYSTEM_SUSPENSION = 40;
+
 // Path name for user data, see
 // https://www.electronjs.org/docs/latest/api/app#appgetpathname
 const ELECTRON_PATH_USER_DATA = 'userData';
-
-const KEYSTORAGE_PASSWORD_FILENAME = 'keystorage.password.bin';
 
 /**
  * Run parameters parsed from CLI arguments.
@@ -76,6 +94,7 @@ const RUN_PARAMETER_BOOL_SCHEMA = v
             ? v.ok(bool === 'true')
             : v.err(`Expected "true" or "false", but got "${bool}"`),
     );
+const RUN_PARAMETER_REMOTE_SECRET_ERROR_SCHEMA = v.string().map(ensureRemoteSecretMonitorErrorType);
 const RUN_PARAMETERS_SCHEMA = v.object({
     'profile': v
         .string()
@@ -86,6 +105,8 @@ const RUN_PARAMETERS_SCHEMA = v.object({
             }
             return v.err('Profile name is only allowed to contain lower-case letters or numbers');
         }),
+    'remote-secret-error': RUN_PARAMETER_REMOTE_SECRET_ERROR_SCHEMA.optional(),
+    'remote-secret-suspend-restart': RUN_PARAMETER_BOOL_SCHEMA.optional(),
     'single-instance-lock': RUN_PARAMETER_BOOL_SCHEMA.optional(),
     'test-data': v.string().optional(),
 });
@@ -97,6 +118,8 @@ type RunParameters = Readonly<v.Infer<typeof RUN_PARAMETERS_SCHEMA>>;
 const RUN_PARAMETERS_DOCS: {readonly [K in keyof RunParameters]: string} = {
     'profile':
         '<session-profile-name> – The name of the profile to use. Only lower-case letters and numbers are allowed. "default" by default.',
+    'remote-secret-error':
+        '<error-type> – Display a specific remote secret error type at login. Internal option, not useful to change manually.',
     'single-instance-lock':
         '<true|false> – Prevent running multiple instances of Threema Desktop at the same time (default: "true"). Development option, disable at your own risk!',
     'test-data': '<path> – Path to test data including a profile. Used for e2e testing.',
@@ -387,7 +410,7 @@ interface MainInit {
     readonly appPath: string;
     readonly fileLogger: FileLogger | undefined;
     readonly log: Logger;
-    readonly appUrl: string;
+    readonly appBaseUrl: URL;
     readonly electronSettings: ElectronSettings;
 }
 
@@ -495,11 +518,11 @@ Version information:
     log.info(`File system storage path: ${appPath}`);
 
     // Determine URL
-    let appUrl: string;
+    let appBaseUrl: URL;
     if (!import.meta.env.DEBUG) {
-        appUrl = 'threemadesktop://app/';
+        appBaseUrl = new URL('threemadesktop://app/');
     } else {
-        appUrl = `${new URL(`http://localhost:${import.meta.env.DEV_SERVER_PORT}/`)}`;
+        appBaseUrl = new URL(`http://localhost:${import.meta.env.DEV_SERVER_PORT}/`);
     }
 
     // Done
@@ -508,7 +531,7 @@ Version information:
         appPath,
         fileLogger,
         log,
-        appUrl,
+        appBaseUrl,
         electronSettings,
     };
 }
@@ -516,11 +539,11 @@ Version information:
 // Run the Electron process after initialisation. This drives the state of the app. Keep this block
 // to a bare minimum and move stateless functions out of it, so that state is easy to track!
 function main(
-    {parameters, appPath, fileLogger, appUrl, electronSettings}: MainInit,
+    {parameters, appPath, fileLogger, appBaseUrl, electronSettings}: MainInit,
     signal: {readonly start: boolean},
 ): void {
     function isValidAppUrl(url?: string): boolean {
-        return url?.replace(/#.*/u, '') === appUrl;
+        return url?.replace(/#.*/u, '') === `${appBaseUrl}`;
     }
 
     /**
@@ -535,6 +558,8 @@ function main(
     function restartApplication(
         mode:
             | 'delete-profile-and-restart'
+            | `remote-secret-error-${RemoteSecretErrorType}`
+            | 'remote-secret-system-suspension'
             | 'rename-profile-and-restart'
             | 'restart'
             | 'restart-and-install-update',
@@ -544,17 +569,65 @@ function main(
                 log.info(`Requesting profile deletion and app restart`);
                 return electron.app.exit(EXIT_CODE_DELETE_PROFILE_AND_RESTART);
             }
+
+            case 'remote-secret-error-blocked':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_BLOCKED);
+
+            case 'remote-secret-error-invalid-state':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_INVALID_STATE);
+
+            case 'remote-secret-error-mismatch':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_MISMATCH);
+
+            case 'remote-secret-error-not-found':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_NOT_FOUND);
+
+            case 'remote-secret-error-server-error':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_SERVER_ERROR);
+
+            case 'remote-secret-error-timeout':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_TIMEOUT);
+
+            case 'remote-secret-error-network-error':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_NETWORK_ERROR);
+
+            case 'remote-secret-error-rate-limit-exceeded':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_RATE_LIMIT_EXCEEDED);
+
+            case 'remote-secret-error-invalid-credentials':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_INVALID_CREDENTIALS);
+
+            case 'remote-secret-system-suspension':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_SYSTEM_SUSPENSION);
+
+            case 'remote-secret-error-unknown':
+                log.info(`Requesting app restart due to remote secret error: ${mode}`);
+                return electron.app.exit(EXIT_CODE_RESTART_REMOTE_SECRET_ERROR_UNKNOWN);
+
             case 'rename-profile-and-restart': {
                 log.info(`Requesting profile renaming and app restart`);
                 return electron.app.exit(EXIT_CODE_RENAME_PROFILE_AND_RESTART);
             }
+
             case 'restart': {
                 log.info(`Requesting app restart`);
                 return electron.app.exit(EXIT_CODE_RESTART);
             }
+
             case 'restart-and-install-update':
                 log.info(`Requesting app restart and update install`);
                 return electron.app.exit(EXIT_CODE_RESTART_AND_INSTALL_UPDATE);
+
             default:
                 return unreachable(mode);
         }
@@ -712,6 +785,31 @@ function main(
                 },
             )
             .on(
+                ElectronIpcCommand.REMOTE_SECRET_ERROR_RESTART_APP,
+                (event: electron.IpcMainEvent, errorType: RemoteSecretErrorType) => {
+                    validateSenderFrame(event.senderFrame);
+                    restartApplication(`remote-secret-error-${errorType}`);
+                },
+            )
+            .on(
+                ElectronIpcCommand.REMOTE_SECRET_SYSTEM_SUSPENSION_RESTART_APP,
+                (event: electron.IpcMainEvent) => {
+                    validateSenderFrame(event.senderFrame);
+                    restartApplication('remote-secret-system-suspension');
+                },
+            )
+            .on(ElectronIpcCommand.GET_REMOTE_SECRET_ERROR_LAUNCH_PARAMETER, (event) => {
+                validateSenderFrame(event.senderFrame);
+                event.returnValue = parameters['remote-secret-error'];
+            })
+            .on(
+                ElectronIpcCommand.GET_REMOTE_SECRET_SYSTEM_SUSPENSION_LAUNCH_PARAMETER,
+                (event) => {
+                    validateSenderFrame(event.senderFrame);
+                    event.returnValue = parameters['remote-secret-suspend-restart'] ?? false;
+                },
+            )
+            .on(
                 ElectronIpcCommand.SCREEN_SHARING_SHOW_REMINDER,
                 (event: electron.IpcMainEvent, text: string, label: string) => {
                     validateSenderFrame(event.senderFrame);
@@ -722,7 +820,7 @@ function main(
                         screenSharingReminderWindow = undefined;
                     }
 
-                    showScreenSharingReminder(appUrl, text, label)
+                    showScreenSharingReminder(appBaseUrl, text, label)
                         .then((win) => {
                             screenSharingReminderWindow = win;
                         })
@@ -771,16 +869,16 @@ function main(
         });
         electron.ipcMain.handle(ElectronIpcCommand.LOAD_USER_PASSWORD, (event) => {
             validateSenderFrame(event.senderFrame);
-            const userPasswordFile = path.join(appPath, 'data', KEYSTORAGE_PASSWORD_FILENAME);
 
-            if (!fs.existsSync(userPasswordFile)) {
+            const safeStoragePasswordPath = getSafeStoragePasswordPath(appPath);
+            if (!fs.existsSync(safeStoragePasswordPath)) {
                 log.info('Password file not found, loading password skipped.');
                 return undefined;
             }
 
             if (electron.safeStorage.isEncryptionAvailable()) {
                 try {
-                    const encryptedPassword = fs.readFileSync(userPasswordFile);
+                    const encryptedPassword = fs.readFileSync(safeStoragePasswordPath);
                     return electron.safeStorage.decryptString(encryptedPassword);
                 } catch {
                     log.warn(`Failed to read or decrypt the password.`);
@@ -796,12 +894,13 @@ function main(
             ElectronIpcCommand.STORE_USER_PASSWORD,
             (event, password: string) => {
                 validateSenderFrame(event.senderFrame);
-                const userPasswordFile = path.join(appPath, 'data', KEYSTORAGE_PASSWORD_FILENAME);
+
                 if (electron.safeStorage.isEncryptionAvailable()) {
+                    const safeStoragePasswordPath = getSafeStoragePasswordPath(appPath);
                     try {
                         const encryptedPassword = electron.safeStorage.encryptString(password);
                         const options = {...fileModeInternalObjectIfPosix()};
-                        fs.writeFileSync(userPasswordFile, encryptedPassword, options);
+                        fs.writeFileSync(safeStoragePasswordPath, encryptedPassword, options);
                         return true;
                     } catch {
                         log.error(`Failed to store or encrypt the password.`);
@@ -1112,10 +1211,10 @@ function main(
             window.webContents.openDevTools();
         }
         log.debug(`Running in mode: ${import.meta.env.BUILD_MODE} with parameters:\n`, parameters);
-        log.info(`Serving app from ${appUrl}`);
+        log.info(`Serving app from ${appBaseUrl}`);
         window
-            .loadURL(appUrl)
-            .catch((error: unknown) => log.error(`Unable to load URL ${appUrl}`, error));
+            .loadURL(`${appBaseUrl}`)
+            .catch((error: unknown) => log.error(`Unable to load URL ${appBaseUrl}`, error));
         if (!import.meta.env.DEBUG) {
             // In release builds, we don't include the "Toggle Developer Tools" menu entry. Without the
             // menu entry, the corresponding keyboard shortcut (Ctrl+Shift+i) doesn't work anymore.
@@ -1451,6 +1550,20 @@ function main(
 
     // Create main BrowserWindow when electron is ready
     electron.app.on('ready', () => start());
+
+    electron.powerMonitor.on('suspend', () => {
+        if (window === undefined) {
+            return;
+        }
+        window.webContents.send(ElectronIpcCommand.SYSTEM_SUSPENDING);
+    });
+
+    electron.powerMonitor.on('lock-screen', () => {
+        if (window === undefined) {
+            return;
+        }
+        window.webContents.send(ElectronIpcCommand.SYSTEM_SUSPENDING);
+    });
 
     // Check if we have missed an 'activate'/'ready' event and need to start
     if (signal.start) {

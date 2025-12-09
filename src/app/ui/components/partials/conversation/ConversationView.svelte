@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {onDestroy, onMount, tick} from 'svelte';
+  import {onDestroy, onMount, tick, untrack} from 'svelte';
 
   import {globals} from '~/app/globals';
   import {ROUTE_DEFINITIONS} from '~/app/routing/routes';
@@ -50,10 +50,9 @@
   import type {FileResult} from '~/app/ui/svelte-components/utils/filelist';
   import type {FileLoadResult} from '~/app/ui/utils/file';
   import {isNotesGroup} from '~/app/ui/utils/receiver';
-  import {type SvelteNullableBinding, reactive} from '~/app/ui/utils/svelte';
+  import {type SvelteNullableBinding, reactive, svelteUnreachable} from '~/app/ui/utils/svelte';
   import type {DbReceiverLookup} from '~/common/db';
   import {ConversationCategory, MessageDirection, ReceiverType} from '~/common/enum';
-  import {extractErrorMessage} from '~/common/error';
   import {EDIT_MESSAGE_GRACE_PERIOD_IN_MINUTES} from '~/common/network/protocol/constants';
   import {FEATURE_MASK_FLAG, type MessageId} from '~/common/network/types';
   import {assertUnreachable, ensureError, unreachable, unwrap} from '~/common/utils/assert';
@@ -105,9 +104,10 @@
   let viewModelStore = $state<IQueryableStore<RemoteConversationViewModelStoreValue | undefined>>(
     new ReadableStore(undefined),
   );
-  let viewModelController = $state<
-    Remote<ConversationViewModelBundle>['viewModelController'] | undefined
-  >(undefined);
+
+  let viewModelController: Remote<ConversationViewModelBundle>['viewModelController'] | undefined =
+    undefined;
+  let isViewModelLoaded = $state<boolean>(false);
 
   // The message to bring into view initially.
   let initiallyVisibleMessageId = $state<MessageId | undefined>(undefined);
@@ -229,10 +229,6 @@
           conversationReceiverLookup,
           services,
         ),
-        onerror: (error) =>
-          log.error(
-            `An error occurred in a child component: ${extractErrorMessage(error, 'short')}`,
-          ),
         poll: quotedMessageProps.pollData,
         sender: quotedMessageProps.sender,
       },
@@ -255,7 +251,7 @@
       return;
     }
     composeBarState = {
-      type: 'insert',
+      type: 'quote',
       quotedMessage,
       editedMessage: undefined,
       mentionString: undefined,
@@ -355,6 +351,20 @@
     modalState = {type: 'create-poll'};
   }
 
+  function handleClickStartRecording(): void {
+    composeBarState = {
+      type: 'record',
+      quotedMessage: undefined,
+      editedMessage: undefined,
+      mentionString: undefined,
+      emojiSearchString: undefined,
+    };
+  }
+
+  function handleClickDeleteRecording(): void {
+    resetComposeBar();
+  }
+
   function handleChangeRouterState(): void {
     const routerState = router.get();
     if (routerState.main.id === 'conversation') {
@@ -372,6 +382,7 @@
     if (receiver === undefined) {
       viewModelStore = new ReadableStore(undefined);
       viewModelController = undefined;
+      isViewModelLoaded = false;
       return;
     }
 
@@ -427,6 +438,7 @@
         // Unpack bundle.
         viewModelStore = viewModelBundle.viewModelStore;
         viewModelController = viewModelBundle.viewModelController;
+        isViewModelLoaded = true;
 
         // Check supported features.
         deleteMessageFeatureSupport = viewModelStore
@@ -463,7 +475,7 @@
           };
         } else if (draft?.extended?.type === 'quote') {
           composeBarState = {
-            type: 'insert',
+            type: 'quote',
             quotedMessage: draft.extended.quote,
             editedMessage: undefined,
             mentionString: undefined,
@@ -557,30 +569,38 @@
       | TextMessageWithByteLength
       | SendFileBasedMessageInformation
       | SendPollBasedMessageInformation,
-  ): void {
+  ): Promise<unknown>[] | undefined {
+    const resultPromises: Promise<unknown>[] = [];
     switch (message.type) {
       case 'poll':
-      case 'files':
-        viewModelController?.sendMessage(message).catch(assertUnreachable);
+      case 'files': {
+        const promise = viewModelController?.sendMessage(message).catch(assertUnreachable);
+        if (promise !== undefined) {
+          resultPromises.push(promise);
+        }
         break;
+      }
 
       case 'text': {
         const {byteLength, text} = message;
 
         // Do not send empty messages.
         if (text.trim() === '') {
-          return;
+          return undefined;
         }
 
         // If the message is small, just send it.
         if (byteLength <= import.meta.env.MAX_TEXT_MESSAGE_BYTES) {
-          viewModelController
+          const promise = viewModelController
             ?.sendMessage({
               type: 'text',
               text,
               quotedMessageId: composeBarState.quotedMessage?.id,
             })
             .catch(assertUnreachable);
+          if (promise !== undefined) {
+            resultPromises.push(promise);
+          }
           break;
         }
 
@@ -607,25 +627,29 @@
             toast.addSimpleFailure(
               $i18n.t('messaging.error--chunking-failed', 'Could not send message'),
             );
-            return;
+            return undefined;
           }
 
           stringIndex += chunkingResult.text.length;
           byteIndex = chunkingResult.newStartByteIndex;
           graphemeIndex = chunkingResult.newGraphemeStartIndex;
-          viewModelController
+          const promise = viewModelController
             ?.sendMessage({
               type: 'text',
               text: chunkingResult.text,
               quotedMessageId: composeBarState.quotedMessage?.id,
             })
             .catch(assertUnreachable);
+
+          if (promise !== undefined) {
+            resultPromises.push(promise);
+          }
         }
         break;
       }
 
       default:
-        unreachable(message);
+        return unreachable(message);
     }
 
     resetComposeBar();
@@ -645,6 +669,8 @@
         block: 'end',
       })
       .catch(assertUnreachable);
+
+    return resultPromises;
   }
 
   function handleCloseModal(): void {
@@ -862,7 +888,7 @@
           ...composeBarState,
           mentionString: undefined,
         };
-      } else if (composeBarState.type === 'insert') {
+      } else if (composeBarState.type === 'quote') {
         handleClickCloseQuote();
       } else {
         handleClickEditClose();
@@ -1010,7 +1036,7 @@
   });
 </script>
 
-{#if $viewModelStore !== undefined && viewModelController !== undefined && messagesStore !== undefined}
+{#if $viewModelStore !== undefined && isViewModelLoaded && messagesStore !== undefined}
   <DropZoneProvider
     overlay={{
       message: $i18n.t('messaging.hint--drop-files-to-send', 'Drop files here to send'),
@@ -1121,7 +1147,9 @@
                   await viewModelController?.sendPollCloseMessage(lookup).catch(assertUnreachable);
                 },
               },
-              setCurrentViewportMessages: viewModelController.setCurrentViewportMessages,
+              // Unwrap is fine because we check it above. This is needed because of svelte 5.
+              setCurrentViewportMessages: unwrap(untrack(() => viewModelController))
+                .setCurrentViewportMessages,
               unreadMessagesCount: $viewModelStore.unreadMessagesCount,
             }}
             {messagesStore}
@@ -1215,6 +1243,9 @@
               onattachfiles={handleAddFiles}
               onclickapplyedit={handleClickApplyEdit}
               onclickcreatepoll={handleClickCreatePoll}
+              onclickstartrecording={handleClickStartRecording}
+              onclickdeleterecording={handleClickDeleteRecording}
+              onclicksendrecording={handleClickSend}
               onclicksend={handleClickSend}
               onistyping={handleIsTyping}
               onpaste={(text) => insertComposeBarText($viewModelStore.receiver, text)}
@@ -1276,7 +1307,7 @@
   {:else if modalState.type === 'create-poll'}
     <CreatePollModal onsend={handleClickSend} onclose={handleCloseModal} {services} />
   {:else}
-    {unreachable(modalState)}
+    {svelteUnreachable(modalState)}
   {/if}
 {/if}
 

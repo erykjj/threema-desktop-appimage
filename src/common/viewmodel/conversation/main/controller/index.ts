@@ -14,16 +14,21 @@ import {
 import {TRANSFER_HANDLER} from '~/common/index';
 import type {Logger} from '~/common/logging';
 import type {Conversation} from '~/common/model';
+import type {MediaBasedMessageType} from '~/common/model/types/message/common';
 import type {ModelStore} from '~/common/model/utils/model-store';
 import {randomMessageId, randomPollId} from '~/common/network/protocol/utils';
 import type {MessageId, StatusMessageId} from '~/common/network/types';
 import {wrapRawBlobKey} from '~/common/network/types/keys';
 import {assert, unreachable, unwrap} from '~/common/utils/assert';
 import {PROXY_HANDLER, type ProxyMarked, type Remote} from '~/common/utils/endpoint';
-import {isSupportedImageType} from '~/common/utils/image';
 import type {RemoteAbortListener} from '~/common/utils/signal';
 import {type IQueryableStore, WritableStore} from '~/common/utils/store';
 import type {IViewModelRepository, ServicesForViewModel} from '~/common/viewmodel';
+import {
+    getMessageType,
+    transcodeAudioAndSetProperties,
+    transcodeVideoAndSetProperties,
+} from '~/common/viewmodel/conversation/main/controller/helpers';
 import type {
     SendMessageEventDetail,
     SendFileBasedMessageInformation,
@@ -92,7 +97,7 @@ export interface IConversationViewModelController extends ProxyMarked {
          * @throws if the current conversation is not a left group.
          */
         readonly deleteGroup: () => Promise<boolean>;
-    } & ProxyMarked;
+    };
 }
 
 export class ConversationViewModelController implements IConversationViewModelController {
@@ -205,6 +210,7 @@ export class ConversationViewModelController implements IConversationViewModelCo
             case 'files':
                 outgoingMessageInitFragments = await this._prepareFileBasedMessageInitFragments(
                     messageEventDetail.files,
+                    this._log,
                 );
                 break;
             case 'poll':
@@ -346,6 +352,7 @@ export class ConversationViewModelController implements IConversationViewModelCo
      */
     private async _prepareFileBasedMessageInitFragments(
         files: SendFileBasedMessageInformation['files'],
+        log?: Logger,
     ): Promise<OutboundMessageInitFragment[]> {
         const {crypto, file} = this._services;
 
@@ -361,52 +368,95 @@ export class ConversationViewModelController implements IConversationViewModelCo
                 crypto.randomBytes(new Uint8Array(NACL_CONSTANTS.KEY_LENGTH)),
             );
 
-            // Store data in file system
-            const fileData = await file.store(fileInfo.bytes);
+            const commonFileProperties = {
+                caption: fileInfo.caption?.length === 0 ? undefined : fileInfo.caption,
+                correlationId,
+                encryptionKey,
+            };
+
             const thumbnailFileData =
                 fileInfo.thumbnailBytes !== undefined
                     ? await file.store(fileInfo.thumbnailBytes)
                     : undefined;
 
             // Determine message type based on media type
-            let messageType: MessageType;
-            if (isSupportedImageType(fileInfo.mediaType) && !fileInfo.sendAsFile) {
-                messageType = MessageType.IMAGE;
-            } else {
-                messageType = MessageType.FILE;
-            }
+            let messageType: MediaBasedMessageType = getMessageType(fileInfo);
 
-            // Determine init based on type
-            const commonFileProperties = {
-                caption: fileInfo.caption?.length === 0 ? undefined : fileInfo.caption,
-                correlationId,
-                encryptionKey,
-                fileName: fileInfo.fileName,
-                fileSize: fileInfo.fileSize,
-                mediaType: fileInfo.mediaType,
-                thumbnailMediaType: fileInfo.thumbnailMediaType,
-                fileData,
-                thumbnailFileData,
-            };
-            switch (messageType) {
-                case MessageType.FILE:
-                    outgoingMessageInitFragments.push({
-                        type: 'file',
-                        ...commonFileProperties,
-                    });
-                    break;
-                case MessageType.IMAGE: {
-                    outgoingMessageInitFragments.push({
-                        type: 'image',
-                        ...commonFileProperties,
-                        renderingType: ImageRenderingType.REGULAR,
-                        animated: false, // TODO(DESK-1115)
-                        dimensions: fileInfo.dimensions,
-                    });
-                    break;
+            for (;;) {
+                switch (messageType) {
+                    case MessageType.FILE:
+                        outgoingMessageInitFragments.push({
+                            type: 'file',
+                            ...commonFileProperties,
+                            fileName: fileInfo.fileName,
+                            fileSize: fileInfo.fileSize,
+                            mediaType: fileInfo.mediaType,
+                            fileData: await file.store(fileInfo.bytes),
+                        });
+                        break;
+                    case MessageType.VIDEO: {
+                        const transcodingResult = await transcodeVideoAndSetProperties(
+                            fileInfo.bytes,
+                            this._services.model.user.mediaSettings.get().view.videoQuality,
+                            log,
+                        );
+
+                        if (transcodingResult === undefined) {
+                            log?.debug('Could not transcode video, sending the message as file');
+                            messageType = MessageType.FILE;
+                            continue;
+                        }
+
+                        const {bytes, ...rest} = transcodingResult;
+                        outgoingMessageInitFragments.push({
+                            ...commonFileProperties,
+                            ...rest,
+                            fileData: await file.store(bytes),
+                            dimensions: fileInfo.dimensions,
+                            thumbnailMediaType: fileInfo.thumbnailMediaType,
+                            thumbnailFileData,
+                        });
+                        break;
+                    }
+                    case MessageType.AUDIO: {
+                        const transcodingResult = await transcodeAudioAndSetProperties(
+                            fileInfo.bytes,
+                            log,
+                        );
+
+                        if (transcodingResult === undefined) {
+                            log?.debug('Could not transcode audio, sending the message as file');
+                            messageType = MessageType.FILE;
+                            continue;
+                        }
+
+                        const {bytes, ...rest} = transcodingResult;
+                        outgoingMessageInitFragments.push({
+                            ...commonFileProperties,
+                            ...rest,
+                            fileData: await file.store(bytes),
+                        });
+                        break;
+                    }
+                    case MessageType.IMAGE:
+                        outgoingMessageInitFragments.push({
+                            type: 'image',
+                            ...commonFileProperties,
+                            fileName: fileInfo.fileName,
+                            fileSize: fileInfo.fileSize,
+                            mediaType: fileInfo.mediaType,
+                            fileData: await file.store(fileInfo.bytes),
+                            renderingType: ImageRenderingType.REGULAR,
+                            animated: false, // TODO(DESK-1115)
+                            dimensions: fileInfo.dimensions,
+                            thumbnailMediaType: fileInfo.thumbnailMediaType,
+                            thumbnailFileData,
+                        });
+                        break;
+                    default:
+                        unreachable(messageType);
                 }
-                default:
-                    unreachable(messageType);
+                break;
             }
         }
 

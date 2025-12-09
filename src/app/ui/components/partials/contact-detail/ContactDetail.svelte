@@ -16,9 +16,9 @@
   import ProfilePictureModal from '~/app/ui/components/partials/modals/profile-picture-modal/ProfilePictureModal.svelte';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
-  import {reactive} from '~/app/ui/utils/svelte';
+  import {reactive, svelteUnreachable} from '~/app/ui/utils/svelte';
   import type {DbContactReceiverLookup} from '~/common/db';
-  import {assertUnreachable, ensureError, unreachable} from '~/common/utils/assert';
+  import {assertUnreachable, ensureError} from '~/common/utils/assert';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
 
   const {uiLogging} = globals.unwrap();
@@ -34,7 +34,7 @@
   let viewModelStore = $state<IQueryableStore<RemoteContactDetailViewModelStoreValue | undefined>>(
     new ReadableStore(undefined),
   );
-  let viewModelController = $state<RemoteContactDetailViewController | undefined>(undefined);
+  let viewModelController: RemoteContactDetailViewController | undefined = undefined;
 
   let modalState = $state<ModalState>({type: 'none'});
 
@@ -180,7 +180,7 @@
   });
 </script>
 
-{#if $viewModelStore !== undefined && viewModelController !== undefined}
+{#if $viewModelStore !== undefined}
   <div class="container">
     <div class="top-bar">
       <TopBar onclickback={handleClickBack} onclickclose={handleClickClose} />
@@ -203,7 +203,7 @@
 {:else if modalState.type === 'profile-picture'}
   <ProfilePictureModal {...modalState.props} onclose={handleCloseModal} />
 {:else}
-  {unreachable(modalState)}
+  {svelteUnreachable(modalState)}
 {/if}
 
 <style lang="scss">

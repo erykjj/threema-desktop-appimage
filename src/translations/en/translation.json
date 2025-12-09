@@ -1,4 +1,7 @@
 {
+  "audio-recorder": {
+    "error--microphone-permission-denied": "Microphone access is denied. Please review the permissions in the system settings."
+  },
   "common": {
     "action--back": "Back",
     "action--cancel": "Cancel",
@@ -23,6 +26,7 @@
     "error--contact-list-load": "Contacts could not be loaded",
     "hint--badge-consumer": "This contact uses {shortAppName}’s consumer version.",
     "hint--badge-work": "This contact uses the business version {fullAppName}.",
+    "hint--no-contacts": "Your contact list is empty.",
     "hint--own-profile-picture": "My profile picture",
     "hint--profile-picture": "Profile picture of {name}",
     "label--add-contact": "New Contact",
@@ -107,9 +111,12 @@
     "action--relink": "Relink Device",
     "action--retry": "Retry",
     "action--save": "Save",
-    "action--send": "Send"
+    "action--send": "Send",
+    "label--locked-due-to-system-suspend": "System Suspension Detected",
+    "prose--locked-due-to-system-suspend": "{fullAppName} was locked to protect your data while your device was suspended."
   },
   "dialog--compose-media-message": {
+    "error--failed-to-send": "Failed to send media files",
     "hint--drop-files-to-add": "Drop files to send",
     "label--media-message-caption": "Add a Caption",
     "label--send-as-file-option": "Send as File (Original Size)",
@@ -406,6 +413,18 @@
     "prose--description-p2": "Your messages will be kept if you relink with the same {shortAppName} ID as before.",
     "prose--failed": "Something went wrong when relinking your profile. Please check your connection and try again"
   },
+  "dialog--remote-secrets-activation-dialog": {
+    "error--incorrect-password": "The entered password is incorrect. Please try again.",
+    "label--password": "App Password",
+    "label--title": "DualLock Has Been Activated",
+    "prose--description": "Your administrator has enabled DualLock. This feature keeps your chats safe if your device is lost or stolen. <slot_1>Learn more</slot_1>"
+  },
+  "dialog--remote-secrets-deactivation-dialog": {
+    "error--incorrect-password": "The entered password is incorrect. Please try again.",
+    "label--password": "App Password",
+    "label--title": "DualLock Has Been Deactivated",
+    "prose--description": "If you need more information, please contact your administrator."
+  },
   "dialog--server-alert": {
     "error--another-device-p1": "The server has detected a connection from a different device with the same {shortAppName} ID.",
     "error--another-device-p2": "If you haven't used your {shortAppName} ID on another device or with an older app version in the meantime, please contact the support and send a log file if possible.",
@@ -416,9 +435,29 @@
   "dialog--startup-unlock": {
     "error--incorrect-password": "The entered password is incorrect. Please try again.",
     "label--password": "App Password",
+    "label--remote-secret-error-blocked": "App Has Been Locked",
+    "label--remote-secret-error-invalid-credentials": "Invalid Credentials",
+    "label--remote-secret-error-invalid-state": "App Has Been Locked",
+    "label--remote-secret-error-mismatch": "DualLock Token Not Found",
+    "label--remote-secret-error-network-error": "DualLock Network Error",
+    "label--remote-secret-error-not-found": "DualLock Token Not Found",
+    "label--remote-secret-error-rate-limit-exceeded": "Maximal Number of Fetching Requests Exceeded",
+    "label--remote-secret-error-server-error": "Fetching DualLock Token Failed",
+    "label--remote-secret-error-timeout": "Fetching Request Timed Out",
+    "label--remote-secret-error-unknown": "App Has Been Locked",
     "label--save-password": "Save securely on device",
     "label--title": "Enter App Password",
     "markup--password-hint": "Forgot password?",
+    "prose--remote-secret-error-blocked": "Access to this app has been blocked by your administrator. Please contact your administrator for more information.",
+    "prose--remote-secret-error-invalid-credentials": "Your credentials are invalid. After entering your password, you will be asked to enter valid credentials.",
+    "prose--remote-secret-error-invalid-state": "An unknown error in relation to DualLock occurred. Please try again or contact your administrator.",
+    "prose--remote-secret-error-mismatch": "The DualLock token to decrypt your chats could not be found. Please contact your administrator for more information.",
+    "prose--remote-secret-error-network-error": "The connection for fetching the DualLock token failed because of a network error. Please try again.",
+    "prose--remote-secret-error-not-found": "The DualLock token to decrypt your chats could not be found. Please contact your administrator for more information.",
+    "prose--remote-secret-error-rate-limit-exceeded": "The connection for fetching the DualLock token failed because of too many attempts. Please try again in a few seconds.",
+    "prose--remote-secret-error-server-error": "The DualLock token to decrypt your chats could not be fetched. Please check your Internet connection and try again.",
+    "prose--remote-secret-error-timeout": "The connection for fetching the DualLock token timed out. Please try again.",
+    "prose--remote-secret-error-unknown": "An unknown error in relation to DualLock occurred. Please try again or contact your administrator.",
     "prose--save-password-tooltip": "Your password is stored using your system's default secure credential storage.",
     "prose--save-password-tooltip-unavailable": "{shortAppName} for Desktop could not detect a default secure credential storage on your device."
   },
@@ -636,7 +675,7 @@
     "error--close-polls": "Closing the poll failed",
     "label--answer-type-multiple": "Select one or more options",
     "label--answer-type-single": "Select one option",
-    "label--choice-votes": "{totalAmountVotes} vote(s)",
+    "label--choice-votes": "{n, plural, =1 {1 vote} other {# votes}}",
     "label--close-poll": "Close Poll",
     "label--number-of-participants": "{voted}/{total} participants",
     "label--poll-state-closed": "The poll has ended, and voting is no longer available",
@@ -667,6 +706,7 @@
     "error--settings-update": "Unable to update settings, please try again.",
     "hint--own-profile-picture": "My profile picture",
     "label--about": "About {shortAppName}",
+    "label--activated": "Activated",
     "label--appearance": "Appearance",
     "label--chat": "Chat",
     "label--devices": "Devices",
@@ -747,8 +787,15 @@
     "label--gifs": "GIFs",
     "label--section-media": "Media",
     "label--title": "Media and Storage",
+    "label--video-quality": "Video Quality",
+    "label--video-quality-high": "High",
+    "label--video-quality-low": "Low",
+    "label--video-quality-medium": "Medium",
     "prose--play-gifs": "Automatically play GIFs if smaller than 5 MB",
     "prose--subtitle": "Automatically download media, GIFs"
+  },
+  "settings--pofile": {
+    "label--remote-secret": "DualLock"
   },
   "settings--privacy": {
     "prose--subtitle": "Contacts, Chats, Lists"

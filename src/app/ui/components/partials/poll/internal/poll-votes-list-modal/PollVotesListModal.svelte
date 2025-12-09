@@ -1,21 +1,26 @@
 <script lang="ts">
   import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import Modal from '~/app/ui/components/hocs/modal/Modal.svelte';
-  import {getParticipants, sortChoicesByVotes} from '~/app/ui/components/partials/poll/helpers';
-  import ViewVotesItem from '~/app/ui/components/partials/poll/internal/poll-votes-list-modal/internal/poll-votes-list-item/PollVotesListItem.svelte';
+  import {
+    getParticipants,
+    sortChoicesByVotesAndMapToSelected,
+  } from '~/app/ui/components/partials/poll/helpers';
+  import PollVotesListItem from '~/app/ui/components/partials/poll/internal/poll-votes-list-modal/internal/poll-votes-list-item/PollVotesListItem.svelte';
   import type {PollVotesListModalProps} from '~/app/ui/components/partials/poll/internal/poll-votes-list-modal/props';
   import {i18n} from '~/app/ui/i18n';
-  import {PollDisplayMode} from '~/common/enum';
 
   const {
-    displayMode,
     choices,
     description,
+    displayMode,
     onclose,
     receiver,
     selfReceiverData,
     services,
   }: PollVotesListModalProps = $props();
+
+  const sortedChoicesByVotes = $derived(sortChoicesByVotesAndMapToSelected(displayMode, choices));
+  const winnerVotes = $derived(sortedChoicesByVotes[0]?.numVotes ?? 0);
 </script>
 
 <Modal
@@ -36,20 +41,18 @@
   <div class="description">
     <Text text={description} family="primary" />
   </div>
-  {#each sortChoicesByVotes(displayMode, choices) as choice (choice.choiceId)}
-    {@const selectedVotes = choice.votes.filter((v) => v.selected)}
-
-    <ViewVotesItem
+  {#each sortedChoicesByVotes as choice (choice.choiceId)}
+    <PollVotesListItem
       description={choice.description}
+      {displayMode}
       participants={getParticipants(
         receiver,
         selfReceiverData,
-        selectedVotes.map((v) => v.senderIdentity),
+        choice.selectedVotes.map((vote) => vote.senderIdentity),
       )}
+      isWinner={choice.numVotes > 0 && choice.numVotes >= winnerVotes}
       {services}
-      totalAmountVotes={displayMode === PollDisplayMode.SUMMARY
-        ? (choice.totalAmountVotes ?? 0)
-        : selectedVotes.length}
+      totalAmountVotes={choice.numVotes}
     />
   {/each}
 </Modal>

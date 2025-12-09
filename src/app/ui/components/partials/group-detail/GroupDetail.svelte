@@ -22,11 +22,11 @@
   import ProfilePictureModal from '~/app/ui/components/partials/modals/profile-picture-modal/ProfilePictureModal.svelte';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
-  import {reactive} from '~/app/ui/utils/svelte';
+  import {reactive, svelteUnreachable} from '~/app/ui/utils/svelte';
   import type {DbGroupReceiverLookup, DbReceiverLookup} from '~/common/db';
   import {ReceiverType, ReceiverTypeUtils} from '~/common/enum';
   import type {DisbandGroupIntent, LeaveGroupIntent} from '~/common/model/types/group';
-  import {assertUnreachable, ensureError, unreachable} from '~/common/utils/assert';
+  import {assertUnreachable, ensureError} from '~/common/utils/assert';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
   import type {GroupReceiverData} from '~/common/viewmodel/utils/receiver';
 
@@ -44,7 +44,7 @@
   let viewModelStore = $state<IQueryableStore<RemoteGroupDetailViewModelStoreValue | undefined>>(
     new ReadableStore(undefined),
   );
-  let viewModelController = $state<RemoteGroupDetailViewModelController | undefined>(undefined);
+  let viewModelController: RemoteGroupDetailViewModelController | undefined = undefined;
 
   let modalState = $state<ModalState>({type: 'none'});
 
@@ -371,7 +371,7 @@
   );
 </script>
 
-{#if $viewModelStore !== undefined && viewModelController !== undefined}
+{#if $viewModelStore !== undefined}
   <div class="container">
     <div class="top-bar">
       <TopBar onclickback={handleClickBack} onclickclose={handleClickClose} />
@@ -408,7 +408,7 @@
 {:else if modalState.type === 'delete-group'}
   <DeleteGroupModal {...modalState.props} onclose={handleCloseModal} />
 {:else}
-  {unreachable(modalState)}
+  {svelteUnreachable(modalState)}
 {/if}
 
 <style lang="scss">

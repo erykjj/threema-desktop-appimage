@@ -18,6 +18,15 @@
     }),
   );
 
+  /**
+   * TODO(DESK-1998): Revert the commit that added this comment
+   * const videoQualityDropdownItems = $derived(
+   * createDropdownItems(getVideoQualityDropdown($i18n), (newValue) => {
+   * actions.updateSettings({videoQuality: newValue});
+   * }),
+   * );
+   **/
+
   function onToggleAnimatedImageModeSettings(): void {
     actions.updateSettings({
       animatedImageMode:
@@ -50,5 +59,12 @@
         )}
       ></Text>
     </KeyValueList.ItemWithSwitch>
+    <!-- TODO(DESK-1998): Revert the commit that added this comment
+    <KeyValueList.ItemWithDropdown
+      items={videoQualityDropdownItems}
+      key={$i18n.t('settings--media.label--video-quality', 'Video Quality')}
+      ><Text text={getVideoQualityLabel(settings.videoQuality, $i18n)}></Text>
+    </KeyValueList.ItemWithDropdown>
+    -->
   </KeyValueList.Section>
 </KeyValueList>

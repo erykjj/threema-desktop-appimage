@@ -1,6 +1,7 @@
 import type {ProfilePictureReceiverData} from '~/app/ui/components/partials/profile-picture-button/props';
 import {PollDisplayMode} from '~/common/enum';
 import type {IdentityString} from '~/common/network/types';
+import type {i53, u53} from '~/common/types';
 import {unreachable} from '~/common/utils/assert';
 import type {PollData} from '~/common/viewmodel/conversation/main/message/regular-message/store/types';
 import type {AnyReceiverData, SelfReceiverData} from '~/common/viewmodel/utils/receiver';
@@ -44,20 +45,37 @@ export function getParticipants(
 }
 
 /**
- * Sort the choices in descending order based on the total number of votes (if available) or the
- * number of selected votes.
+ * Extract all selected votes of each choice and summarize them in a total vote count by which they
+ * are sorted.
+ *
+ * Returns an array of choices sorted by the total number of votes a choice got with all the votes
+ * the choice got.
+ *
+ * Important: In summary mode, `selectedVotes` will only contain the vote of the user (if any).
  */
-export function sortChoicesByVotes(
-    displayMode: PollData['displayMode'],
+export function sortChoicesByVotesAndMapToSelected(
+    displayMode: PollDisplayMode,
     choices: PollData['choices'],
-): PollData['choices'] {
-    return choices.sort(
-        (a, b) =>
-            (displayMode === PollDisplayMode.SUMMARY
-                ? (b.totalAmountVotes ?? 0)
-                : b.votes.filter((v) => v.selected).length) -
-            (displayMode === PollDisplayMode.SUMMARY
-                ? (a.totalAmountVotes ?? 0)
-                : a.votes.filter((v) => v.selected).length),
-    );
+): {
+    readonly description: PollData['choices'][u53]['description'];
+    readonly selectedVotes: PollData['choices'][u53]['votes'];
+    readonly numVotes: u53;
+    readonly choiceId: i53;
+}[] {
+    return choices
+        .map((choice) => {
+            const selectedVotes = choice.votes.filter((v) => v.selected);
+            return {
+                description: choice.description,
+                // In summary mode, selected votes will not always be emtpy, but it may contain the
+                // vote of the user themself.
+                selectedVotes,
+                numVotes:
+                    displayMode === PollDisplayMode.SUMMARY
+                        ? (choice.totalAmountVotes ?? 0)
+                        : selectedVotes.length,
+                choiceId: choice.choiceId,
+            };
+        })
+        .sort((a, b) => b.numVotes - a.numVotes);
 }

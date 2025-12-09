@@ -61,6 +61,16 @@ export class ModelStoreCache<
         return store;
     }
 
+    /**
+     * Get the model store from the map (if any).
+     *
+     * Note: Since this hands out the reference, only use when you know what you are doing and when
+     * you instantly get rid of the reference again. Otherwise, this may result in memory leaks.
+     */
+    public get(key: TKey): TModelStore | undefined {
+        return this._stores.get(key);
+    }
+
     public add<TInConcreteStore extends TModelStore = TModelStore>(
         key: TKey,
         create: () => TInConcreteStore,
