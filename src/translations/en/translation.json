@@ -117,6 +117,7 @@
   },
   "dialog--compose-media-message": {
     "error--failed-to-send": "Failed to send media files",
+    "error--failed-to-send-one-file": "The file {fileName} could not be sent. Please try again.",
     "hint--drop-files-to-add": "Drop files to send",
     "label--media-message-caption": "Add a Caption",
     "label--send-as-file-option": "Send as File (Original Size)",
@@ -614,6 +615,7 @@
     "error--send-file-caption-too-long": "Caption is too long",
     "error--send-file-file-too-large": "File is too big",
     "error--send-file-miscellaneous-errors": "Some files contain errors",
+    "hint--audio-fallback-to-file": "Audio sent as a file due to missing codec support on Linux",
     "hint--call-ended": "Call ended",
     "hint--call-screen-sharing-enabled": "You are sharing your screen",
     "hint--drop-files-to-send": "Drop files here to send",

@@ -334,6 +334,20 @@
     draftStore.set(undefined);
   }
 
+  function handleClickCloseInlineMentionPicker(current: ComposeBarState): void {
+    composeBarState = {
+      ...current,
+      mentionString: undefined,
+    };
+  }
+
+  function handleClickCloseInlineEmojiPicker(current: ComposeBarState): void {
+    composeBarState = {
+      ...current,
+      emojiSearchString: undefined,
+    };
+  }
+
   function handleClickEditClose(): void {
     resetComposeBar();
     draftStore.set(undefined);
@@ -562,6 +576,21 @@
     });
     resetComposeBar();
     draftStore.set(undefined);
+  }
+
+  function handleClickSendRecording(
+    message: SendFileBasedMessageInformation,
+  ): ReturnType<typeof handleClickSend> {
+    if (import.meta.env.BUILD_PLATFORM === 'linux') {
+      toast.addSimple(
+        $i18n.t(
+          'messaging.hint--audio-fallback-to-file',
+          'Audio sent as a file due to missing codec support on Linux',
+        ),
+      );
+    }
+
+    return handleClickSend(message);
   }
 
   function handleClickSend(
@@ -883,16 +912,20 @@
     }
 
     if (event.key === 'Escape') {
+      // Note: Order is important here, because if e.g. editing is active and the emoji picker is
+      // open at the same time:
+      // - First ESC should close the emoji picker.
+      // - Second ESC should exit edit mode.
       if (composeBarState.mentionString !== undefined) {
-        composeBarState = {
-          ...composeBarState,
-          mentionString: undefined,
-        };
+        handleClickCloseInlineMentionPicker(composeBarState);
+      } else if (composeBarState.emojiSearchString !== undefined) {
+        handleClickCloseInlineEmojiPicker(composeBarState);
       } else if (composeBarState.type === 'quote') {
         handleClickCloseQuote();
-      } else {
+      } else if (composeBarState.editedMessage !== undefined) {
         handleClickEditClose();
       }
+
       composeBarComponent?.focus();
       return;
     }
@@ -1245,7 +1278,7 @@
               onclickcreatepoll={handleClickCreatePoll}
               onclickstartrecording={handleClickStartRecording}
               onclickdeleterecording={handleClickDeleteRecording}
-              onclicksendrecording={handleClickSend}
+              onclicksendrecording={handleClickSendRecording}
               onclicksend={handleClickSend}
               onistyping={handleIsTyping}
               onpaste={(text) => insertComposeBarText($viewModelStore.receiver, text)}
