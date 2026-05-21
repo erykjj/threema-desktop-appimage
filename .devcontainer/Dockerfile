@@ -1,78 +1,147 @@
 ARG DEBIAN_VERSION
-FROM debian:${DEBIAN_VERSION}
+FROM docker.io/debian:${DEBIAN_VERSION}
 
-# Update apt cache
-RUN apt-get update
-
-# Install general dependencies
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    apt-utils \
+# Install development dependencies.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get -y install --no-install-recommends \
+    # General dependencies.
     build-essential \
     ca-certificates \
-    clang-format \
     curl \
+    file \
     git \
     jq \
     less \
+    libegl1 \
+    libgl1 \
+    libwayland-client0 \
+    libwayland-cursor0 \
+    libwayland-egl1 \
+    libxkbcommon0 \
+    locales \
+    musl-tools \
+    net-tools \
+    pkg-config \
+    procps \
     protobuf-compiler \
     python3 \
     python3-setuptools \
-    tzdata \
-    xz-utils
+    ripgrep \
+    unzip \
+    wget \
+    # Claude Code sandboxing.
+    bubblewrap \
+    socat \
+    # Browsers for Karma tests.
+    chromium \
+    firefox-esr \
+    # Dependencies for Playwright (alternative to `npx playwright install-deps`, see
+    # https://github.com/microsoft/playwright/issues/12227).
+    fonts-freefont-ttf \
+    fonts-ipafont-gothic \
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    fonts-tlwg-loma-otf \
+    fonts-unifont \
+    fonts-wqy-zenhei \
+    libasound2 \
+    libasound2t64 \
+    libatk-bridge2.0-0t64 \
+    libatk1.0-0t64 \
+    libatspi2.0-0t64 \
+    libcairo-gobject2 \
+    libcairo2 \
+    libcups2t64 \
+    libdbus-1-3 \
+    libdbus-glib-1-2 \
+    libdrm2 \
+    libfontconfig1 \
+    libfreetype6 \
+    libgbm1 \
+    libgdk-pixbuf-2.0-0 \
+    libglib2.0-0t64 \
+    libgtk-3-0t64 \
+    libharfbuzz0b \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb-shm0 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxkbcommon0 \
+    libxrandr2 \
+    libxrender1 \
+    libxtst6 \
+    xfonts-scalable \
+    xvfb \
+    # Headless Wayland VNC for non-Wayland hosts (macOS etc.).
+    novnc \
+    sway \
+    sway-backgrounds \
+    swaybg \
+    wayvnc \
+    websockify \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install general packaging dependencies
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    p7zip
+# Locale setup.
+RUN echo 'en_US.UTF-8 UTF-8' > /etc/locale.gen \
+ && locale-gen en_US.UTF-8 \
+ && update-locale LANG=en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
-# Install flatpak packaging dependencies
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    appstream-util \
-    flatpak \
-    flatpak-builder \
-    python3-aiohttp \
-    python3-toml
+# Set browser paths for Karma tests.
+ENV CHROMIUM_BIN=/usr/bin/chromium
+ENV FIREFOX_BIN=/usr/bin/firefox-esr
 
-# Install asset generation dependencies
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    imagemagick \
-    optipng
+# noVNC: Serve `vnc.html` by default.
+RUN ln -sf /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
-# Install wasm-opt directly from binaryen release
-ARG BINARYEN_VERSION
-RUN binaryen_archive="binaryen-version_${BINARYEN_VERSION}-$(uname -m)-linux.tar.gz" \
- && curl --proto '=https' --tlsv1.3 -OLSsf \
-    "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/${binaryen_archive}" \
- && tar -zxf ${binaryen_archive} \
- && mv binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt /bin/
+# noVNC: Set sensible defaults.
+RUN set -eux; \
+  cat > /usr/share/novnc/defaults.json <<'JSON'
+{
+  "autoconnect": true,
+  "reconnect": true,
+  "resize": "remote"
+}
+JSON
 
-# Add user
+# Create non-root user.
 ARG USER_UID=1000
 ARG USER_GID=1000
-ARG USER_NAME=threema
-RUN groupadd -g $USER_GID -o $USER_NAME \
- && useradd -l -m -u $USER_UID -g $USER_GID -o -s /bin/bash $USER_NAME \
- && cp /etc/skel/.bashrc /home/$USER_NAME/.bashrc
-USER threema
+ARG USER_NAME=node
+RUN groupadd --gid $USER_GID $USER_NAME \
+  && useradd --uid $USER_UID --gid $USER_NAME --shell /bin/bash --create-home $USER_NAME
 
-# Install required Node version
-ARG NODE_VERSION
-RUN mkdir /home/$USER_NAME/.node \
- && _node_arch=$(if [ "$(uname -m)" = "x86_64" ]; then echo "x64"; elif [ "$(uname -m)" = "aarch64" ]; then echo "arm64"; else uname -m; fi) \
- && curl -L https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-${_node_arch}.tar.xz | tar -C /home/$USER_NAME/.node -xJf - \
- && echo "" >> /home/$USER_NAME/.bashrc \
- && echo "# Threema Desktop" >> /home/$USER_NAME/.bashrc \
- && echo "export PATH=/home/$USER_NAME/.node/node-v$NODE_VERSION-linux-${_node_arch}/bin:${PATH}" >> /home/$USER_NAME/.bashrc \
- && echo "update-notifier=false" >> /home/$USER_NAME/.npmrc
+# Create directories with user ownership.
+#
+# Note: VS Code Dev Containers will automatically adjust UID/GID via `updateRemoteUserUID`.
+RUN mkdir -p /code && chown node:node /code
 
-# Install Rust
-ARG RUST_VERSION
-RUN curl --proto '=https' --tlsv1.3 -sSf "https://sh.rustup.rs" \
-  | sh -s -- --default-toolchain ${RUST_VERSION} --component rust-src -y
-ENV PATH="/home/${USER_NAME}/.cargo/bin:${PATH}"
+# Copy scripts & configs.
+COPY --chown=node:node start.sh /home/node/start.sh
+RUN chmod +x /home/node/start.sh
+COPY --chown=node:node sway.conf /home/node/sway.conf
 
-# Install Rust WASM dependencies
-RUN rustup target add wasm32-unknown-unknown \
- && cargo install wasm-bindgen-cli
+# Switch to non-root user.
+USER node
 
-# Entrypoint
-CMD /bin/bash
+# Create persistent config directory with default ownership.
+RUN mkdir -p ~/.config-persistent/
+
+# Create Claude Code directories with default ownership.
+# Note: ~/.config/claude is where CLAUDE_CONFIG_DIR points; creating it here ensures the named
+# volume mounted at that path is initialized with node ownership (not root), so Claude Code can
+# freely create subdirectories.
+RUN mkdir -p ~/.config/claude/
+
+ENTRYPOINT ["/bin/bash"]

@@ -1,0 +1,465 @@
+@use 'sass:color';
+@use 'sass:map';
+
+@use './svelte-components/css-var' as *;
+@use './svelte-components/utils' as *;
+@use './svelte-components/conversion' as *;
+@use './svelte-components/theme';
+
+@use './branding/consumer' as *;
+@use './branding/work' as *;
+@use './branding/onprem' as *;
+@use './branding/custom' as *;
+@use './theme/light' as *;
+@use './theme/dark' as *;
+
+$brandings: (
+  consumer: $consumer,
+  work: $work,
+  onprem: $onprem,
+  custom: $custom,
+);
+
+@function -g($map, $key, $keys...) {
+  @return map-get-req($map, $key, $keys...);
+}
+
+@function -app-theme($theme, $branding) {
+  $t: -g($theme, app);
+  $b: $branding;
+
+  // prettier-ignore
+  @return (
+    // Scrollbar
+    --t-scrollbar-thumb-color: -g($t, scrollbar-thumb),
+    --t-scrollbar-thumb-color--hover: -g($t, scrollbar-thumb--hover),
+
+    // Global
+    --t-text-e1-color: -g($t, text-e1),
+    --t-text-e2-color: -g($t, text-e2),
+    --t-text-e3-color: -g($t, text-e3),
+    --t-text-anchor-color: -g($t, text-anchor),
+    --t-primary-text-anchor-color: -g($t, primary-text-anchor),
+    --t-color-primary: -g($t, primary-background),
+    --t-color-success: -g($t, success),
+
+    // Palette
+    --t-color-primary-50: -g($b, primary-color-50),
+    --t-color-primary-100: -g($b, primary-color-100),
+    --t-color-primary-200: -g($b, primary-color-200),
+    --t-color-primary-300: -g($b, primary-color-300),
+    --t-color-primary-400: -g($b, primary-color-400),
+    --t-color-primary-500: -g($b, primary-color-500),
+    --t-color-primary-600: -g($b, primary-color-600),
+    --t-color-primary-700: -g($b, primary-color-700),
+    --t-color-primary-800: -g($b, primary-color-800),
+    --t-color-primary-900: -g($b, primary-color-900),
+
+    // Main panels
+    --t-panel-gap-color: color-conforms(-g($t, panel-gap), $alpha: false),
+    --t-nav-background-color: color-conforms(-g($t, nav-background), $alpha: false),
+    --t-main-background-color: color-conforms(-g($t, main-background), $alpha: false),
+    --t-aside-background-color: color-conforms(-g($t, aside-background), $alpha: false),
+    --t-pairing-background-color: color-conforms(-g($t, pairing-background), $alpha: false),
+
+    // Main Welcome
+    --t-main-welcome-icon-color: -g($t, main-welcome-icon-color),
+
+    // Alert box
+    --t-alert-box-error-color: rgb(225,29, 36),
+    --t-alert-box-error-background-color: rgb(255, 223, 223),
+    --t-alert-box-info-color: -g(-g($brandings, work), primary-color-800),
+    --t-alert-box-info-background-color: -g(-g($brandings, work), primary-color-50),
+
+    // Animation
+    --t-spring-animation-easing: linear(
+      0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%, 1.017,
+      1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%,
+      1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%, 0.975 57.1%,
+      0.997 69.8%, 1.003 76.9%, 1.004 83.8%, 1
+    ),
+  );
+}
+
+@function -individual-components-theme($theme, $branding) {
+  $t: -g($theme, app);
+  $b: $branding;
+  $ic: -g($theme, individual-components);
+
+  // prettier-ignore
+  @return (
+    // List Element
+    --ic-list-element-background-color--hover: -g($ic, list-element-background-color--hover),
+    --ic-list-element-color: -g($ic, list-element-color),
+    // Divider
+    --ic-divider-background-color: -g($ic, divider-background-color),
+    // ContactNavigationContext Button
+    --ic-contact-navigation-context-button-color: -g($ic, contact-navigation-context-button-color),
+    --ic-contact-navigation-context-button-border-color--hover: -g($ic, contact-navigation-context-button-border-color--hover),
+    --ic-contact-navigation-context-button-background-color--hover: -g($ic, contact-navigation-context-button-background-color--hover),
+    --ic-contact-navigation-context-button-border-color--focus: -g($ic, contact-navigation-context-button-border-color--focus),
+    --ic-contact-navigation-context-button-background-color--focus: -g($ic, contact-navigation-context-button-background-color--focus),
+    --ic-contact-navigation-context-button-color--active: -g($ic, contact-navigation-context-button-color--active),
+    --ic-contact-navigation-context-button-border-color--active: -g($ic, contact-navigation-context-button-border-color--active),
+    --ic-contact-navigation-context-button-background-color--active: -g($ic, contact-navigation-context-button-background-color--active),
+    --ic-contact-navigation-context-button-opacity--disabled: -g($ic, contact-navigation-context-button-opacity--disabled),
+    // Swipe area
+    --ic-swipe-area-main-size: 100%,
+    --ic-swipe-area-left-size: 50%,
+    --ic-swipe-area-right-size: 50%,
+    // Swipe area button
+    --ic-swipe-area-button-background-color: -g($t, primary-background),
+    --ic-swipe-area-button-background-color--hover: -g($t, primary-background--hover),
+    --ic-swipe-area-button-background-color--active: -g($t, primary-background--active),
+    --ic-swipe-area-button-outline--focus: rem(1px) solid -g($t, primary-outline--focus),
+    --ic-swipe-area-button-icon-color: -g($t, primary-text-e1),
+    --ic-swipe-area-button-name-color: -g($t, primary-text-e1),
+    // Tooltip
+    --ic-tooltip-background-color: -g($ic, tooltip-background-color),
+    --ic-tooltip-color: -g($ic, tooltip-color),
+    --ic-tooltip-box-shadow: -g($ic, tooltip-box-shadow),
+    --ic-tooltip-chevron-drop-shadow-filter: -g($ic, tooltip-chevron-drop-shadow-filter)
+  );
+}
+
+@function -message-components-theme($theme, $branding) {
+  $t: -g($theme, app);
+  $b: $branding;
+  $mc: -g($theme, message-components);
+
+  // prettier-ignore
+  @return (
+      // Message footer
+      --mc-message-indicator-label: -g($mc, message-indicator-label),
+      --mc-message-indicator-column-gap: rem(4px),
+      --mc-message-indicator-icon-size: rem(12px),
+
+      // General message container
+      --mc-message-border-radius: rem(8px),
+      --mc-message-hover-background-color: -g($mc, message-hover-background-color),
+      --mc-message-background-color-incoming: -g($mc, message-background-color-incoming),
+      --mc-message-background-color-incoming-nav: -g($mc, message-background-color-incoming-nav),
+      --mc-message-background-color-outgoing: -g($mc, message-background-color-outgoing),
+      --mc-message-background-color-outgoing-nav: -g($mc, message-background-color-outgoing-nav),
+      --mc-message-highlight-overlay-color: -g($mc, message-highlight-overlay-color),
+      --mc-message-badge-color: -g($mc, message-badge-color),
+      --mc-message-badge-background-color: -g($mc, message-badge-background-color),
+      --mc-message-overlay-background-color: -g($mc, message-overlay-background-color),
+      --mc-message-overlay-button-color: -g($mc, message-overlay-button-color),
+      --mc-message-overlay-button-background-color: -g($mc, message-overlay-button-background-color),
+      --mc-message-overlay-button-background-color--hover: -g($mc, message-overlay-button-background-color--hover),
+      --mc-message-overlay-button-background-color--focus: -g($mc, message-overlay-button-background-color--focus),
+      --mc-message-overlay-button-background-color--active: -g($mc, message-overlay-button-background-color--active),
+      --mc-message-mention-background-color: -g($mc, message-mention-background-color),
+      --mc-message-mention-color: -g($mc, message-mention-color),
+      --mc-message-mention-me-background-color: -g($mc, message-mention-me-background-color),
+      --mc-message-mention-me-color: -g($mc, message-mention-me-color),
+      --mc-message-quote-border-width: rem(2px),
+      --mc-message-quote-text-color: -g($mc, message-quote-text-color),
+      --mc-message-quote-background-color--hover: -g($mc, message-quote-background-color--hover),
+
+      // Poll message
+      --mc-message-poll-choice-color--disabled: -g($mc, message-poll-choice-color--disabled),
+      --mc-message-poll-track-color--disabled: -g($mc, message-poll-track-color--disabled),
+
+      // Audio message
+      --mc-message-audio-slider-neutral-color: -g($mc, message-audio-slider-neutral-color),
+      --mc-slider-thumb-color-off--disabled: -g($mc, slider-thumb-color-off--disabled),
+
+
+
+      // File Message
+      --mc-message-file-icon-background-image: -g($mc, message-file-icon-background-image),
+      --mc-message-file-icon-width: -g($mc, message-file-icon-width),
+      --mc-message-file-icon-height: -g($mc, message-file-icon-height),
+      --mc-message-file-info-column-gap: -g($mc, message-file-info-column-gap),
+      --mc-message-file-info-row-gap: -g($mc, message-file-info-row-gap),
+      --mc-message-file-icon-font-size: -g($mc, message-file-icon-font-size),
+      --mc-message-file-icon-font-color: -g($mc, message-file-icon-font-color),
+      --mc-message-file-size-color: -g($mc, message-file-size-color),
+      --mc-message-file-error-color: -g($mc, message-file-error-color),
+
+      // Image message
+      --mc-message-image-placeholder-background-color: -g($mc, message-image-placeholder-background-color),
+
+      // Message status
+      --mc-message-status-acknowledged-color: -g($mc, message-status-acknowledged),
+      --mc-message-status-declined-color: -g($mc, message-status-declined),
+      --mc-message-status-error-color: -g($mc, message-status-error),
+
+      --mc-status-message-background-color: -g($mc, status-message-background-color)
+
+  );
+}
+
+@function -compound-components-theme($theme, $branding) {
+  $t: -g($theme, app);
+  $b: $branding;
+  $cc: -g($theme, compound-components);
+
+  // prettier-ignore
+  @return (
+    // Profile picture upload
+    --cc-profile-picture-upload-background-color: -g($cc, profile-picture-upload-background-color),
+
+    // Profile picture overlay
+    --cc-profile-picture-overlay-unread-background-color: -g($cc, profile-picture-overlay-unread-background-color),
+    --cc-profile-picture-overlay-unread-text-color: -g($cc, profile-picture-overlay-unread-text),
+    --cc-profile-picture-overlay-badge-size:
+    -g($cc, profile-picture-overlay-badge-size),
+    --cc-profile-picture-overlay-badge-icon-size:
+    -g($cc, profile-picture-overlay-badge-icon-size),
+    --cc-profile-picture-overlay-badge-icon-color:
+    -g($cc, profile-picture-overlay-badge-icon),
+    --cc-profile-picture-overlay-badge-icon-consumer-color:
+    -g($cc, profile-picture-overlay-badge-icon-consumer),
+    --cc-profile-picture-overlay-badge-icon-work-color:
+    -g($cc, profile-picture-overlay-badge-icon-work),
+
+    // ProfilePictureButton
+    --cc-profile-picture-button-background-color: -g($cc, profile-picture-button-background-color),
+    --cc-profile-picture-button-box-shadow-color: -g($cc, profile-picture-button-box-shadow-color),
+    --cc-profile-picture-button-box-shadow-color--hover: -g($cc, profile-picture-button-box-shadow-color--hover),
+    --cc-profile-picture-button-counter-background-color: -g($cc, profile-picture-button-counter-background-color),
+    --cc-profile-picture-button-counter-text-color: -g($cc, profile-picture-button-counter-text-color),
+    --cc-profile-picture-button-text-color: -g($cc, profile-picture-button-text-color),
+
+    // Conversation
+    --cc-conversation-header-background-color: -g($cc, conversation-header-background-color),
+    --cc-conversation-message-options-caret-color: -g($cc, conversation-message-options-caret-color),
+
+    // Conversation preview
+    --cc-conversation-preview-background-color:
+    color-conforms(-g($t, nav-background), $alpha: false),
+    --cc-conversation-preview-background-color--hover:
+    color-conforms(
+        color.scale(-g($t, nav-background), $lightness: -g($t, background-lightness--hover)),
+      $alpha: false
+    ),
+    --cc-conversation-preview-background-color--active:
+    color-conforms(
+        color.scale(-g($t, nav-background), $lightness: -g($t, background-lightness--active)),
+      $alpha: false
+    ),
+    --cc-conversation-preview-draft-text-color: -g($cc, conversation-preview-draft-text),
+    --cc-conversation-preview-properties-background-color:
+    color-conforms(-g($cc, conversation-preview-properties-background), $alpha: false),
+    --cc-conversation-preview-properties-call-background-color: -g($cc, conversation-preview-properties-call-background-color),
+    --cc-conversation-preview-properties-call-background-color--hover: -g($cc, conversation-preview-properties-call-background-color--hover),
+    --cc-conversation-preview-properties-call-text-color: -g($cc, conversation-preview-properties-call-text-color),
+    --cc-conversation-preview-properties-call-joined-background-color: -g($cc, conversation-preview-properties-call-joined-background-color),
+    --cc-conversation-preview-properties-call-joined-text-color: -g($cc, conversation-preview-properties-call-joined-text-color),
+    --cc-conversation-preview-properties-icon-color:
+    -g($cc, conversation-preview-properties-icon),
+    --cc-conversation-preview-properties-icon-pin-color:
+    -g($cc, conversation-preview-properties-icon-pin),
+    --cc-conversation-preview-message-text-color:
+    -g($cc, conversation-preview-message-text),
+    --cc-conversation-preview-status-text-color:
+    -g($cc, conversation-preview-status-text),
+    --cc-conversation-preview-swipe-area-button-gap:
+    color.scale(
+        color-conforms(-g($t, primary-background), $alpha: false),
+      $lightness: -g($cc, conversation-preview-swipe-area-gap-lightness)
+    ),
+
+    // Chat view
+    --cc-chat-scroll-to-bottom-button-color: -g($cc, chat-scroll-to-bottom-button-color),
+    --cc-chat-scroll-to-bottom-button-background-color: -g($cc, chat-scroll-to-bottom-button-background-color),
+    --cc-chat-scroll-to-bottom-button-background-color--hover: -g($cc, chat-scroll-to-bottom-button-background-color--hover),
+    --cc-chat-scroll-to-bottom-button-background-color--focus: -g($cc, chat-scroll-to-bottom-button-background-color--focus),
+    --cc-chat-scroll-to-bottom-button-background-color--active: -g($cc, chat-scroll-to-bottom-button-background-color--active),
+
+    // Contact details
+    --cc-contact-details-badge-consumer-text-color: -g($cc, contact-details-badge-consumer-text),
+    --cc-contact-details-badge-consumer-background-color: -g($cc, contact-details-badge-consumer-background),
+    --cc-contact-details-badge-work-text-color: -g($cc, contact-details-badge-work-text),
+    --cc-contact-details-badge-work-background-color: -g($cc, contact-details-badge-work-background),
+
+    // DropZoneProvider
+    --cc-drop-zone-provider-border-color: -g($b, primary-color-600),
+    --cc-drop-zone-provider-background-color: rgba(-g($b, primary-color-600), 10%),
+
+    // Receiver
+    --cc-contact-status-tag-background-color: -g($cc, contact-status-tag-background),
+    --cc-contact-status-tag-text-color: -g($cc, contact-status-tag-text),
+
+    // Search input
+    --cc-search-input-background-color: -g($cc, search-input-background),
+    --cc-search-input-background-color--focus: -g($cc, search-input-background--focus),
+    --cc-search-input-text-color: -g($t, text-e1),
+    --cc-search-input-placeholder-text-color: -g($t, text-e2),
+    --cc-search-input-icon-color: -g($t, text-e2),
+
+    // Switch
+    --cc-switch-thumb-color: -g($cc, switch-thumb-color),
+    --cc-switch-thumb-color--disabled: -g($cc, switch-thumb-color--disabled),
+    --cc-switch-thumb-color-off: -g($cc, switch-thumb-color-off),
+    --cc-switch-thumb-color-off--disabled: -g($cc, switch-thumb-color-off--disabled),
+    --cc-switch-track-color: -g($cc, switch-track-color),
+    --cc-switch-track-color--disabled: -g($cc, switch-track-color--disabled),
+    --cc-switch-track-color-off: -g($cc, switch-track-color-off),
+    --cc-switch-track-color-off--disabled: -g($cc, switch-track-color-off--disabled),
+    --cc-switch-thumb-glow-color: -g($cc, switch-thumb-glow-color),
+    --cc-switch-thumb-glow-color--active: -g($cc, switch-thumb-glow-color--active),
+    --cc-switch-thumb-glow-border-color: -g($cc, switch-thumb-glow-border-color),
+
+    // Menu items
+    --cc-menu-item-icon-text-background-color--hover: -g($cc, menu-item-icon-text-background-color--hover),
+    --cc-menu-item-icon-text-background-color--active: -g($cc, menu-item-icon-text-background-color--active),
+
+    // Compose area
+    --cc-compose-area-placeholder-text-color: -g($cc, compose-area-placeholder-text),
+    --cc-compose-area-padding: -g($cc, compose-area-padding),
+    --cc-compose-area-margin: -g($cc, compose-area-margin),
+    --cc-compose-area-quote-background-color: -g($cc, compose-area-quote-background),
+
+    // Compose bar
+    --cc-compose-bar-bytes-count-exceeded-color: -g($cc, compose-bar-bytes-count-exceeded-color),
+
+    // Emoji picker
+    --cc-emoji-picker-tab-button-background-color--hover: -g($cc, emoji-picker-tab-button-background-color--hover),
+    --cc-emoji-picker-tab-button-color: -g($cc, emoji-picker-tab-button-color),
+    --cc-emoji-picker-tab-button-color--active: -g($cc, emoji-picker-tab-button-color--active),
+    --cc-emoji-picker-emoji-button-background-color--hover: -g($cc, emoji-picker-emoji-button-background-color--hover),
+    --cc-emoji-picker-emoji-button-background-color--focus: -g($cc, emoji-picker-emoji-button-background-color--focus),
+    --cc-emoji-picker-emoji-button-background-color--active: -g($cc, emoji-picker-emoji-button-background-color--active),
+    --cc-emoji-picker-emoji-button-border-color--focus: -g($cc, emoji-picker-emoji-button-border-color--focus),
+    --cc-emoji-picker-customizer-background-color: -g($cc, emoji-picker-customizer-background-color),
+    --cc-emoji-picker-customizer-box-shadow: -g($cc, emoji-picker-customizer-box-shadow),
+    --cc-emoji-picker-customizer-handle-box-shadow: -g($cc, emoji-picker-customizer-handle-box-shadow),
+
+    // Emoji Picker
+    --cc-emoji-picker-popover-background-color: -g($cc, emoji-picker-popover-background-color),
+    --cc-emoji-picker-popover-box-shadow--hidden: -g($cc, emoji-picker-popover-box-shadow--hidden),
+    --cc-emoji-picker-popover-box-shadow--visible: -g($cc, emoji-picker-popover-box-shadow--visible),
+
+    // Emoji reactions strip
+    --cc-emoji-reactions-strip-bucket-background-color: -g($cc, emoji-reactions-strip-bucket-background-color),
+    --cc-emoji-reactions-strip-bucket-background-color--active: -g($cc, emoji-reactions-strip-bucket-background-color--active),
+    --cc-emoji-reactions-strip-bucket-background-color--active--hover: -g($cc, emoji-reactions-strip-bucket-background-color--active--hover),
+    --cc-emoji-reactions-strip-bucket-color: -g($cc, emoji-reactions-strip-bucket-color),
+    --cc-emoji-reactions-strip-bucket-border-color: -g($cc, emoji-reactions-strip-bucket-border-color),
+    --cc-emoji-reactions-strip-bucket-border-color--hover: -g($cc, emoji-reactions-strip-bucket-border-color--hover),
+    --cc-emoji-reactions-strip-bucket-border-color--active: -g($cc, emoji-reactions-strip-bucket-border-color--active),
+
+    // Emoji reactions favorite box
+    --cc-emoji-reactions-favorite-box-item-background-color--hover: -g($cc, emoji-reactions-favorite-box-item-background-color--hover),
+    --cc-emoji-reactions-favorite-box-item-background-color--active: -g($cc, emoji-reactions-favorite-box-item-background-color--active),
+    --cc-emoji-reactions-favorite-box-item-background-color--active--hover: -g($cc, emoji-reactions-favorite-box-item-background-color--active--hover),
+    --cc-emoji-reactions-favorite-box-item-opacity--disabled: -g($cc, emoji-reactions-favorite-box-item-opacity--disabled),
+
+    // Modal dialog
+    --cc-modal-dialog-background-color-rgb-triplet: -g($cc, modal-dialog-background-color-rgb-triplet),
+    --cc-modal-dialog-background-color: -g($cc, modal-dialog-background-color),
+
+    // MediaMessage Modal
+    --cc-media-message-background-color: -g($cc, media-message-background-color),
+    --cc-media-message-active-file-chip-background-color: -g($cc, media-message-active-file-chip-background-color),
+    --cc-media-message-active-file-chip-text-color: -g($cc, media-message-active-file-chip-text-color),
+    --cc-media-message-file-type-text-color: -g($cc, media-message-file-type-text-color),
+    --cc-media-message-file-type-background-image: -g($cc, media-message-file-type-background-image),
+    --cc-media-message-active-file-options-background-color: -g($cc, media-message-active-file-options-background-color),
+    --cc-media-message-active-file-options-text-color: -g($cc, media-message-active-file-options-text-color),
+    --cc-media-message-miniatures-background-color: -g($cc, media-message-miniatures-background-color),
+    --cc-media-message-miniatures-text-color: -g($cc, media-message-miniatures-text-color),
+
+    // Linking Wizard
+    --cc-linking-wizard-error-message-background: -g($cc, linking-wizard-error-message-background),
+
+    // Call Activity Sidebar
+    --cc-call-sidebar-title-color: -g($cc, call-sidebar-title-color),
+    --cc-call-sidebar--expanded-title-color: -g($cc, call-sidebar--expanded-title-color),
+    --cc-call-sidebar-subtitle-color: -g($cc, call-sidebar-subtitle-color),
+    --cc-call-sidebar--expanded-subtitle-color: -g($cc, call-sidebar--expanded-subtitle-color),
+    --cc-call-sidebar-action-icon-color: -g($cc, call-sidebar-action-icon-color),
+    --cc-call-sidebar--expanded-action-icon-color: -g($cc, call-sidebar--expanded-action-icon-color),
+
+    // Logo
+    --cc-logo-progress-bar-fill-color: -g($cc, logo-progress-bar-fill-color),
+
+    // Screen Sharing Picker Dialog
+    --cc-screen-sharing-picker-dialog-thumbnail-background-color: -g($cc, screen-sharing-picker-dialog-thumbnail-background-color),
+    --cc-screen-sharing-picker-dialog-thumbnail-background-color--hover: -g($cc, screen-sharing-picker-dialog-thumbnail-background-color--hover),
+    --cc-screen-sharing-picker-dialog-thumbnail-box-shadow: -g($cc, screen-sharing-picker-dialog-thumbnail-box-shadow),
+    --cc-screen-sharing-picker-dialog-thumbnail-box-shadow--hover: -g($cc, screen-sharing-picker-dialog-thumbnail-box-shadow--hover),
+    --cc-screen-sharing-picker-dialog-thumbnail-image-background-color: -g($cc, screen-sharing-picker-dialog-thumbnail-image-background-color),
+  );
+}
+
+@function -debug-components-theme($theme, $branding) {
+  $t: -g($theme, app);
+  $b: $branding;
+  $dc: -g($theme, debug-components);
+
+  // prettier-ignore
+  @return (
+    // Top bar
+    --dc-top-bar-background-color: color-conforms(-g($dc, top-bar-background-color), $alpha: false),
+    --dc-top-bar-border-color: -g($t, primary-background),
+  );
+}
+
+@function -generate-theme($branding, $theme-name) {
+  @if $theme-name == 'light' {
+    @return generate-light-theme($branding);
+  } @else if $theme-name == 'dark' {
+    @return generate-dark-theme($branding);
+  }
+}
+
+@mixin branded-theme($branding-name, $theme-name) {
+  // see https://github.com/prettier/prettier/issues/15369:
+  // prettier-ignore
+  $branding: config-merge(-g(theme.$brandings, $branding-name), -g($brandings, $branding-name));
+
+  &[data-branding='#{$branding-name}'],
+  // Apply theme & branding variables to the root `::backdrop` as well, as it does not inherit from
+  // any element and is not inherited from (which means CSS variables which are not defined for the
+  // pseudo-element directly would have no effect).
+  &[data-branding='#{$branding-name}'] ::backdrop {
+    // see https://github.com/prettier/prettier/issues/15369:
+    // prettier-ignore
+    $theme: config-merge(-g(theme.themes($branding), $theme-name), -generate-theme($branding, $theme-name));
+
+    // see https://github.com/prettier/prettier/issues/15369:
+    // prettier-ignore
+    @include def-var(-app-theme($theme, $branding)...);
+    @include def-var(theme.components-theme($theme, $branding)...);
+    // see https://github.com/prettier/prettier/issues/15369:
+    // prettier-ignore
+    @include def-var(-individual-components-theme($theme, $branding)...);
+    // see https://github.com/prettier/prettier/issues/15369:
+    // prettier-ignore
+    @include def-var(-message-components-theme($theme, $branding)...);
+    // see https://github.com/prettier/prettier/issues/15369:
+    // prettier-ignore
+    @include def-var(-compound-components-theme($theme, $branding)...);
+    // see https://github.com/prettier/prettier/issues/15369:
+    // prettier-ignore
+    @include def-var(-debug-components-theme($theme, $branding)...);
+  }
+}
+
+@mixin themes() {
+  $theme-names: ('light', 'dark');
+
+  @each $theme-name in $theme-names {
+    [data-theme='#{$theme-name}'] {
+      @each $branding-name, $branding in $brandings {
+        @include branded-theme($branding-name, $theme-name);
+      }
+    }
+  }
+
+  [data-theme='system'] {
+    @each $branding-name, $branding in $brandings {
+      @include branded-theme($branding-name, 'light');
+    }
+    @media (prefers-color-scheme: dark) {
+      @each $branding-name, $branding in $brandings {
+        @include branded-theme($branding-name, 'dark');
+      }
+    }
+  }
+}

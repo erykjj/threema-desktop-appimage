@@ -1,54 +1,51 @@
 # Architecture
 
-This file documents some aspects of the structure and architecture of the Threema desktop project.
+This file documents some aspects of the structure and architecture of the Threema Desktop monorepo.
 It is by no means complete, but should help with understanding and extending the codebase.
 
-## Overview
+The project is structured as a monorepo based on [pnpm workspaces](https://pnpm.io/workspaces), and
+uses [Turborepo](https://turborepo.dev) as the build system. The overall structure is as follows:
 
-In the [Electron process model](https://www.electronjs.org/docs/latest/tutorial/process-model/),
-there are three different process types:
+- `apps/`: Subprojects for individual products, such as the Threema Desktop Electron app.
+  - `desktop/`: Threema Desktop application based on Electron.
+- `packages/`: Subprojects for packages shared by multiple apps.
 
-- The `main` process. This is where a window is created and where the Electron application is
-  initialized. This process has access to all NodeJS APIs, but not to the DOM. In Threema Desktop,
-  the entry point is located at `src/electron/electron-main.ts`.
-- The `preload` script. This script runs in the browser process, but – in contrast to the renderer
-  process – can communicate with the main process.
-- The `renderer` process. This process loads the target webapplication and has access to the DOM and
-  the application's APIs. It does not have access to the NodeJS APIs. In Threema Desktop, the entry
-  point is the `src/index.html` file. In development mode, a local development web server is used,
-  while in release mode, the file is accessed directly through a `file://` URL.
+## Monorepo
 
-The entry point of the web application itself is located at `src/app/app.ts`. It loads all necessary
-services and also instantiates the backend worker.
+The following sections outlines some of the decisions that were made in relation to the monorepo
+structure.
 
-The backend worker contains all the main business logic used in Threema Desktop. It is the "core" of
-the application. The entry point can be found at `src/worker/backend/electron/backend.worker.ts`.
+### Pnpm
 
-## Directory Structure
+We use the [pnpm catalogs](https://pnpm.io/catalogs) feature to share package versions among
+packages. This allows pinning of dependency versions in a centralized manner via
+`pnpm-workspace.yaml`. The general rule is as follows:
 
-All source code is in the `src` directory:
+- A dependency which is only used in a single package is added to the respective package's
+  `package.json` directly. Example: Electron dependencies are pinned directly in
+  `apps/desktop/package.json`, because there is only one Electron application in the entire project.
+- A dependency which is used in multiple packages is pinned in `pnpm-workspace.yaml`, and then
+  reused in the `package.json` of each respective subpackage which uses the dependency by specifying
+  `"catalog:"` as the version. Example: `"eslint"`, because this dev dependency needs to be added to
+  every linted package.
 
-- `src/app` is the application that runs in the renderer process. It allows access to the DOM and a
-  subset of the Electron API.
-- `src/electron/electron-main` is the entrypoint for Electron. It allows full access to the Electron
-  API.
-- `src/common` is common code that can be imported by any of the other code bases.
-- `src/common/dom` is common code that uses parts of the DOM API and can be imported by any other
-  code base that provides the required subset of the DOM API. Note however that anything that can be
-  done without the DOM should be in `src/common` instead.
-- `src/common/node` is common code that uses the Node API and can be imported by any other code base
-  that provides a Node environment. Note however that anything that can be done without the Node API
-  should be in `src/common` instead.
-- `src/worker/backend` is the entrypoint of the backend worker that will be started by the
-  application. It does all the heavy lifting such as crypto, network connections and access to the
-  database. It allows access to the WebWorker API (which is a subset of the DOM).
-- `src/worker/backend/electron` is the entrypoint for the electron build variant. Code in this
-  directory should be as short as possible (glue code).
-- `src/rust` contains source code of the extra binaries written in rust, such as the
-  [launcher binary](./launcher-binary.md) or the [helper binary](./helper-binary.md) (privileged
-  launch daemon to facilitate auto-updates on macOS).
+### Turborepo
 
-Only source files matching `entry.*.ts` or `entry.ts` are valid entry points. This ensures that no
-functions are being invoked implicitly when including sources for unit testing since any
-`*.loader.ts` files will be excluded from testing. These files should therefore be as minimal as
-possible (i.e. include and call only).
+At the top-level of the project, there's a main `turbo.jsonc` config file which defines the common
+tasks used throughout the project. Individual packages may have their own `turbo.json` file, which
+is used to override or extend individual tasks and task options for the respective package.
+
+There are a few important behaviors to consider for Turborepo:
+
+- Task options (e.g. `dependsOn`) for the same task that are defined in both the top-level and
+  package-level Turbo config will not be merged! A package-level option always overrides the
+  equivalent option inherited from the top-level Turbo config. For example, if the top-level Turbo
+  config defines `dependsOn` for a task named `build`, defining `dependsOn` for the same task in
+  `apps/desktop/turbo.json` will cause Turbo to only consider the dependencies defined in
+  `apps/desktop/turbo.json` when building the `apps/desktop` package.
+- We use Turborepo in strict mode, which means only whitelisted environment variables are passed to
+  individual tasks. Therefore, each task needs to specify all environment variables it needs using
+  the `env` option.
+- Defining `env` in the top-level Turbo config is generally discouraged in this project, because it
+  affects the task's build hash for all packages. Environment variables should usually be defined in
+  the respective package-level Turbo config, and only for the respective tasks that need it.

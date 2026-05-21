@@ -1,0 +1,24 @@
+{
+  "$schema": "https://www.schemastore.org/tsconfig",
+  "extends": "@threema/ts-config/tsconfig.node22.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [],
+
+    // All paths MUST be defined here to ensure resolving works in Svelte
+    // components (since the svelte-preprocessor can only refer to a single
+    // TS config file)
+    "baseUrl": ".",
+    "paths": {
+      "~/electron/*": ["./electron/*"],
+      "~/common/*": ["./common/*"],
+      "~/app/*": ["./app/*"],
+      "~/test/*": ["./test/*"],
+      "~/worker/*": ["./worker/*"],
+      "~/translations/*": ["./translations/*"]
+    }
+  },
+  "include": []
+}

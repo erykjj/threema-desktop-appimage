@@ -1,0 +1,31 @@
+# Temporary
+/.temp/
+
+# Build directories
+/build/
+/export/
+
+# Electron
+/electron.pid
+
+# Testing & code coverage
+/.nyc_output_karma/
+/.nyc_output_mocha/
+/coverage/
+/junit/
+
+# Unused translation keys
+src/translations/**/*_old.json
+
+# Playwright
+/build/playwright/test-results
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+src/test/playwright/test-data-*.local.json
+src/test/playwright/test-data-*-live.json
+
+# Custom assets
+packaging/assets/icons/**/custom-onprem.*
+packaging/assets/installers/custom*
+src/public/res/**/custom-onprem/

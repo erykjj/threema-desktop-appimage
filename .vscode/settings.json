@@ -16,25 +16,33 @@
   "editor.formatOnSave": true,
   "editor.formatOnPaste": false,
   "files.exclude": {
-    "**/node_modules": true,
+    "**/node_modules": false,
     "**/.flatpak-builder": true,
     "**/target": true
   },
   "eslint.validate": ["html", "svelte", "typescript", "javascript"],
-  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
-  "typescript.preferences.importModuleSpecifier": "non-relative",
-  "typescript.preferences.preferTypeOnlyAutoImports": true,
+  "eslint.workingDirectories": [
+    {"pattern": "./apps/*/", "!cwd": false},
+    {"pattern": "./packages/*/", "!cwd": false}
+  ],
+  "js/ts.preferences.importModuleSpecifier": "non-relative",
+  "js/ts.preferences.preferTypeOnlyAutoImports": true,
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsserver.experimental.enableProjectDiagnostics": false,
   "rewrap.wrappingColumn": 100,
-  "typescript.tsdk": "node_modules/typescript/lib",
   "rust-analyzer.linkedProjects": [
-    "src/rust/common/Cargo.toml",
-    "src/rust/helper/Cargo.toml",
-    "src/rust/launcher/Cargo.toml"
+    "apps/desktop/src/rust/common/Cargo.toml",
+    "apps/desktop/src/rust/helper/Cargo.toml",
+    "apps/desktop/src/rust/launcher/Cargo.toml"
   ],
   "rust-analyzer.runnables.extraEnv": {
     "THREEMA_BUILD_FLAVOR": "consumer-sandbox"
   },
   "rust-analyzer.server.extraEnv": {
     "THREEMA_BUILD_FLAVOR": "consumer-sandbox"
+  },
+  "json.schemaDownload.trustedDomains": {
+    "https://turborepo.com/schema.json": true
   }
 }

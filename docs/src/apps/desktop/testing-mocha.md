@@ -1,0 +1,43 @@
+# Mocha: Node Unit Tests
+
+Root: `src/test/mocha/`
+
+Everything that needs access to NodeJS APIs and does not require a UI should be tested by a Mocha
+test.
+
+```bash
+# Run tests.
+pnpm run test:desktop:mocha:consumer-sandbox
+```
+
+To filter tests, you can pass arguments to mocha:
+
+```bash
+pnpm run test:desktop:mocha:consumer-sandbox -- --grep "load stored files"
+```
+
+For database tests, an in-memory SQLite database is used.
+
+## Task Tests
+
+We provide a `TestHandle` (in `src/test/mocha/common/backend-mocks.ts`) which mocks a handle and
+allows testing tasks.
+
+The `TestHandle` expects an ordered list of network expectations, for example:
+
+- Expect a message to be sent to the network
+- Expect a message to be reflected
+- Expect a message to be read from the network
+- Expect a transaction to be started
+- ...and so on
+
+> ⚠️ **Warning:** When using expectations in tests, always assert that the expectations have been
+> consumed after the test has ended! You can do this by calling the `finish()` method:
+>
+> ```ts
+> it('test something', async function () {
+>     const handle = new TestHandle(services, [...]);
+>     await task.run(handle);
+>     handle.finish();
+> });
+> ```

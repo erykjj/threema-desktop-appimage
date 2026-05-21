@@ -1,9 +1,0 @@
-{
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "lib": ["esnext"],
-    "types": ["electron", "node"]
-  },
-
-  "include": ["../common/vite-client.d.ts", "**/*.ts", "../common/node/electron-settings.ts"]
-}

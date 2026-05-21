@@ -1,44 +1,16 @@
 # NodeJS
-/node_modules/
-
-# Build directories
-/build/
-/export/
-
-# libthreema
-libs/libthreema/build
-libs/libthreema/node_modules
-libs/libthreema/target
-libs/libthreema/wasm/web/*.js
-libs/libthreema/wasm/web/*.wasm
-libs/libthreema/wasm/web/*.ts
-
-# Electron
-/electron.pid
-
-# Testing
-/junit/
+.pnpm-store
+node_modules
 
 # IDEs
-/.idea/
+.idea
 
-# Unused translation keys
-src/translations/**/*_old.json
-
-# Nyc output
-.nyc_output_mocha
-.nyc_output_karma
-coverage
-full_coverage_metadata
-
-# MacOS garbage
+# Temp files & build artifacts
 .DS_Store
+.turbo
+.prettiercache
+build/
+temp/
 
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-src/test/playwright/test-data-*.local.json
-src/test/playwright/test-data-*-live.json
-
+# Local config
+.claude/settings.local.json

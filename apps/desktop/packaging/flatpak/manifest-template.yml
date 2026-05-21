@@ -1,0 +1,130 @@
+app-id: {{app-id}}
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: run.sh
+separate-locales: false
+finish-args:
+  # Share IPC namespace with the host (improves X11 performance).
+  - --share=ipc
+  # Show window using Wayland or X11.
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Access sound devices using pulseaudio.
+  - --socket=pulseaudio
+  # Allow access to network.
+  - --share=network
+  # OpenGL rendering.
+  - --device=dri
+  # Webcam access for video calls (portal doesn't yet seem to be supported)
+  # https://github.com/electron/electron/issues/42608.
+  - --device=all
+  # Access directories.
+  - --filesystem=home
+  # Allow desktop notifications.
+  - --talk-name=org.freedesktop.Notifications
+  # Allow writing to system secrets storage.
+  - --talk-name=org.freedesktop.secrets
+  # Since this is electron, we also need access to the actual keystore DBuses.
+  - --talk-name=org.kde.kwalletd5
+  - --talk-name=org.kde.kwalletd6
+  # Use native Wayland if available.
+  - --env=ELECTRON_OZONE_PLATFORM_HINT=auto
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/threema-desktop/cargo
+modules:
+  # Because the flatpak runtime's libsecret is built with gcrypt (breaking Electron's keyring
+  # detection in the sandbox), we build libsecret explicitly without gcrypt backend, so that it uses
+  # the DBus backend (same as how it would work outside the sandbox).
+  - name: libsecret
+    buildsystem: meson
+    # See: https://gitlab.gnome.org/GNOME/libsecret/-/blob/30d98bc4fe644eb4839de14e43fe2cd1c3de3a5c/meson_options.txt.
+    config-opts:
+      - -Dmanpage=false
+      # Disable libsecret's optional crypto backend to avoid pulling in libgcrypt/gnutls, as we only
+      # need the Secret Service API (see:
+      # https://specifications.freedesktop.org/secret-service-spec/latest/description.html).
+      - -Dcrypto=disabled
+      # Vala bindings not needed.
+      - -Dvapi=false
+      - -Dgtk_doc=false
+      # GObject introspection not needed.
+      - -Dintrospection=false
+      # No need to generate bash completions in the sandbox.
+      - -Dbash_completion=disabled
+    # Remove some unnecessary files after build.
+    cleanup:
+      - /bin
+      - /include
+      - /lib/pkgconfig
+      - /share/man
+    sources:
+      - type: archive
+        url: https://download.gnome.org/sources/libsecret/0.21/libsecret-0.21.7.tar.xz
+        sha256: 6b452e4750590a2b5617adc40026f28d2f4903de15f1250e1d1c40bfd68ed55e
+
+  - name: threema-desktop
+    buildsystem: simple
+    sources:
+      # Prebuilt Electron app.
+      - type: dir
+        path: ../../../../build/apps/desktop/packaged/{{app-name}}-linux-x64
+        dest: prebuilt
+      # Launcher source code.
+      - type: dir
+        path: ../../src
+        dest: src
+      # Rust dependencies for the launcher build.
+      - generated-cargo-sources.json
+      # Wrapper to launch the app.
+      - type: file
+        path: run-wrapper.sh
+        dest-filename: run.sh
+      # Metadata files.
+      - type: file
+        path: ../../packaging/metadata/ch.threema.threema-desktop.metainfo.xml
+      - type: file
+        path: ../../packaging/metadata/ch.threema.threema-desktop.desktop
+      # Icon assets.
+      - type: dir
+        path: ../../packaging/assets/icons/flatpak
+        dest: icons
+
+    build-commands:
+      # Build launcher binary.
+      - cd src/rust/launcher/ && cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cd src/rust/launcher/ && THREEMA_BUILD_FLAVOR='{{flavor}}' cargo --offline build --release --features allow_path_override
+      # Copy prebuilt app to `/app/main`.
+      - mkdir -p /app/main
+      - cp -a prebuilt/* /app/main/
+      # Install launcher binary.
+      - install -Dm755 src/rust/launcher/target/release/ThreemaDesktopLauncher /app/main/ThreemaDesktopLauncher
+      # Install app wrapper.
+      - install -Dm755 run.sh /app/bin/
+      # Install metadata.
+      - install -Dm644 ch.threema.threema-desktop.metainfo.xml /app/share/metainfo/{{app-id}}.metainfo.xml
+      - install -Dm644 ch.threema.threema-desktop.desktop /app/share/applications/{{app-id}}.desktop
+      - sed -i 's/ch.threema.threema-desktop/{{app-id}}/g' /app/share/metainfo/{{app-id}}.metainfo.xml
+      - sed -i 's/ch.threema.threema-desktop/{{app-id}}/g' /app/share/applications/{{app-id}}.desktop
+      - sed -i "s#name>Threema<#name>{{app-name}}<#" /app/share/metainfo/{{app-id}}.metainfo.xml
+      - sed -i "s#Name=Threema#Name={{app-name}}#" /app/share/applications/{{app-id}}.desktop
+      - sed -i "s#StartupWMClass=Threema#StartupWMClass={{app-name}}#" /app/share/applications/{{app-id}}.desktop
+      # Install Icons.
+      - mkdir -p /app/share/icons/hicolor/{512x512,scalable}/apps/
+      - |
+        case {{flavor}} in
+          consumer-sandbox) icon_base=consumer-sandbox ;;
+          consumer-live) icon_base=consumer-live ;;
+          work-sandbox) icon_base=work-sandbox ;;
+          work-live) icon_base=work-live ;;
+          work-onprem) icon_base=work-onprem ;;
+          *) echo "Invalid flavor: {{flavor}}"; exit 1 ;;
+        esac
+        install -Dm644 icons/${icon_base}.svg /app/share/icons/hicolor/scalable/apps/{{app-id}}.svg
+        install -Dm644 icons/${icon_base}.png /app/share/icons/hicolor/512x512/apps/{{app-id}}.png

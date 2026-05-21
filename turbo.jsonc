@@ -1,0 +1,77 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "cacheDir": ".turbo/cache",
+  // Important: Do not use the `globalEnv` property unless absolutely necessary or desired, because
+  // value changes affect the caches of ALL tasks, regardless of whether a task uses the respective
+  // env variable. Instead, add the `env` property to individual tasks inside a package's OWN
+  // `turbo.json`. This will cause env variable value changes to only affect the respective task in
+  // the respective package.
+  "globalEnv": ["DEBUG"],
+  // Environment variables that don't contribute to the cache keys of tasks.
+  "globalPassThroughEnv": [
+    "CHROMIUM_FLAGS",
+    "ELECTRON_*",
+    "LIBGL_*",
+    "NODE_OPTIONS",
+    "PATH",
+    "WAYLAND_*",
+    "XDG_*"
+  ],
+  "tasks": {
+    "//#lint:prettier": {},
+    "//#lint:prettier:fix": {},
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "clean:build": {
+      "cache": false
+    },
+    "clean:node_modules": {
+      "cache": false
+    },
+    "coverage": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "cache": false,
+      "inputs": ["$TURBO_DEFAULT$"],
+      "persistent": true
+    },
+    "dist": {
+      "dependsOn": ["build"],
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "package": {
+      "dependsOn": ["dist"],
+      "inputs": ["$TURBO_DEFAULT$"]
+    },
+    "lint": {
+      "dependsOn": [
+        "//#lint:prettier",
+        "^lint:eslint",
+        "lint:eslint",
+        "^lint:svelte",
+        "lint:svelte",
+        "^lint:tsc",
+        "lint:tsc"
+      ]
+    },
+    "lint:eslint": {
+      "dependsOn": ["^build", "^lint:eslint"]
+    },
+    "lint:eslint:fix": {
+      "dependsOn": ["^build", "^lint:eslint:fix"]
+    },
+    "lint:fix": {
+      "dependsOn": ["//#lint:prettier:fix", "^lint:eslint:fix", "lint:eslint:fix"]
+    },
+    "lint:svelte": {
+      "dependsOn": ["^build", "^lint:svelte"]
+    },
+    "lint:tsc": {
+      "dependsOn": ["^build", "^lint:tsc"]
+    }
+  },
+  "ui": "tui"
+}

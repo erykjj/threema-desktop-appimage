@@ -1,0 +1,371 @@
+<!--
+  @component Renders a system dialog to inform the user about incompatible device cookies.
+-->
+<script lang="ts">
+  import {tick} from 'svelte';
+
+  import {globals} from '~/app/globals';
+  import Modal from '~/app/ui/components/hocs/modal/Modal.svelte';
+  import type {InvalidWorkCredentialsDialogProps} from '~/app/ui/components/partials/system-dialog/internal/invalid-work-credentials-dialog/props';
+  import {i18n} from '~/app/ui/i18n';
+  import {toast} from '~/app/ui/snackbar';
+  import Button from '~/app/ui/svelte-components/blocks/Button/Button.svelte';
+  import CircularProgress from '~/app/ui/svelte-components/blocks/CircularProgress/CircularProgress.svelte';
+  import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
+  import Password from '~/app/ui/svelte-components/blocks/Input/Password.svelte';
+  import TextInput from '~/app/ui/svelte-components/blocks/Input/Text.svelte';
+  import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
+  import {assertUnreachable} from '~/common/utils/assert';
+
+  const {uiLogging} = globals.unwrap();
+  const log = uiLogging.logger('ui.component.invalid-work-credentials-dialog');
+
+  const {onclose, onselectaction, services, workCredentials}: InvalidWorkCredentialsDialogProps =
+    $props();
+
+  const {backend, electron} = services.unwrap();
+
+  // To prevent user from viewing previous password, replace it with a placeholder.
+  // When submitting the form, if the placeholder text is unchanged, submit the original password.
+  const PASSWORD_PLACEHOLDER = '•'.repeat(Math.max(6, workCredentials.password.length));
+
+  let modalComponent = $state<SvelteNullableBinding<Modal>>(null);
+
+  let username = $state<string>(workCredentials.username);
+  let password = $state<string>(PASSWORD_PLACEHOLDER);
+  let checkingCredentials = $state<boolean>(false);
+  let credentialsValidity = $state<true | string | undefined>(undefined);
+
+  let checkingKeyStoragePassword = $state<boolean>(false);
+  let keyStoragePasswordInputComponent = $state<SvelteNullableBinding<Password>>();
+  let keyStoragePassword = $state<string>('');
+  let keyStoragePasswordValidity = $state<boolean | undefined>(undefined);
+
+  let deletingProfile = $state<boolean>(false);
+  let deleteProfileError = $state<string | undefined>(undefined);
+
+  function getPassword(): string {
+    return password === PASSWORD_PLACEHOLDER ? workCredentials.password : password;
+  }
+
+  function clearCredentialsError(): void {
+    credentialsValidity = undefined;
+  }
+
+  function clearKeyStorageError(): void {
+    keyStoragePasswordValidity = undefined;
+  }
+
+  function onCredentialsKeyDown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      checkCredentials().catch(assertUnreachable);
+    }
+  }
+
+  async function checkCredentials(): Promise<void> {
+    log.info('Checking Threema work license');
+    clearCredentialsError();
+    checkingCredentials = true;
+
+    // Check newly input credentials.
+    let status;
+    try {
+      status = await backend.work.checkLicense({
+        username,
+        password: getPassword(),
+      });
+    } catch (error) {
+      log.error(`Work license check failed: ${error}`);
+      checkingCredentials = false;
+      credentialsValidity = $i18n.t(
+        'dialog--invalid-work-credentials.error--validation-failed',
+        'Validation of {fullAppName} credentials failed. Please check your Internet connection and try again.',
+        {
+          fullAppName: import.meta.env.APP_NAME,
+        },
+      );
+      return;
+    }
+
+    // Persist new credentials.
+    //
+    // TODO(DESK-1373): Periodic work credential check broken after credential update.
+    checkingCredentials = false;
+    credentialsValidity = status.valid ? true : status.message;
+    tick()
+      .then(() => keyStoragePasswordInputComponent?.focusAndSelect())
+      .catch(assertUnreachable);
+  }
+
+  function storeCredentials(modal: typeof modalComponent): void {
+    log.info('Storing credentials');
+    clearKeyStorageError();
+    checkingKeyStoragePassword = true;
+    backend.keyStorage
+      .setWorkCredentials(keyStoragePassword, {
+        username,
+        password: getPassword(),
+      })
+      .then(() => {
+        // Success! Show a toast and close.
+        toast.addSimpleSuccess(
+          $i18n.t(
+            'dialog--invalid-work-credentials.prose--update-success',
+            '{fullAppName} credentials successfully updated',
+            {
+              fullAppName: import.meta.env.APP_NAME,
+            },
+          ),
+        );
+        onselectaction?.({type: 'confirmed'});
+        modal?.close();
+      })
+      .catch(() => {
+        // Error. Probably a wrong key storage password.
+        keyStoragePasswordValidity = false;
+        checkingKeyStoragePassword = false;
+      });
+  }
+
+  function deleteProfileAndRestartApp(): void {
+    deletingProfile = true;
+    backend.connectionManager
+      .selfKickFromMediator()
+      .then(() => {
+        electron.deleteProfileAndRestartApp({createBackup: true});
+      })
+      .catch((error: unknown) => {
+        // TODO(DESK-1228): Delete profile anyways if selfkick failed?
+        log.error(`deleteProfileAndRestartApp failed: ${error}`);
+        deleteProfileError = $i18n.t(
+          'dialog--invalid-work-credentials.error--unlinking-failed',
+          'Could not unlink this device. Please check your Internet connection and try again.',
+        );
+        deletingProfile = false;
+      });
+  }
+</script>
+
+<Modal
+  bind:this={modalComponent}
+  {onclose}
+  options={{
+    allowClosingWithEsc: false,
+    allowSubmittingWithEnter: false,
+    overlay: 'opaque',
+    suspendHotkeysWhenVisible: true,
+  }}
+  wrapper={{
+    type: 'card',
+    title: $i18n.t(
+      'dialog--invalid-work-credentials.label--title',
+      'Invalid {fullAppName} Credentials',
+      {
+        fullAppName: import.meta.env.APP_NAME,
+      },
+    ),
+    minWidth: 340,
+    maxWidth: 460,
+  }}
+>
+  <div class="content">
+    <section class="intro-text">
+      <p>
+        {$i18n.t(
+          'dialog--invalid-work-credentials.prose--description-p1',
+          'The credentials for {fullAppName} are invalid. Either they were disabled by your {fullAppName} admin, or your {fullAppName} license expired.',
+          {
+            fullAppName: import.meta.env.APP_NAME,
+          },
+        )}
+      </p>
+      <p>
+        {$i18n.t(
+          'dialog--invalid-work-credentials.prose--description-p2',
+          'To continue using {fullAppName} for desktop, you have two options:',
+          {fullAppName: import.meta.env.APP_NAME},
+        )}
+      </p>
+    </section>
+
+    <section class="option1">
+      <h3>
+        {$i18n.t(
+          'dialog--invalid-work-credentials.label--subtitle-option-1',
+          'Option 1: Enter Valid Credentials',
+        )}
+      </h3>
+      <p>
+        {$i18n.t(
+          'dialog--invalid-work-credentials.prose--description-enter-credentials',
+          'Please enter valid {fullAppName} credentials. If you don’t know the credentials, please contact your {fullAppName} administrator.',
+          {fullAppName: import.meta.env.APP_NAME},
+        )}
+      </p>
+      <div class="form-fields">
+        <TextInput
+          bind:value={username}
+          disabled={checkingCredentials || credentialsValidity === true}
+          error={credentialsValidity === undefined || credentialsValidity === true ? undefined : ''}
+          label={$i18n.t('dialog--invalid-work-credentials.label--username', 'Username')}
+          oninput={clearCredentialsError}
+          onkeydown={onCredentialsKeyDown}
+          spellcheck={false}
+        />
+        <Password
+          bind:value={password}
+          disabled={checkingCredentials || credentialsValidity === true}
+          error={credentialsValidity === undefined || credentialsValidity === true
+            ? undefined
+            : $i18n.t(
+                'dialog--invalid-work-credentials.error--invalid-credentials',
+                'Invalid credentials: {message}',
+                {message: credentialsValidity},
+              )}
+          label={$i18n.t('dialog--invalid-work-credentials.label--password')}
+          oninput={clearCredentialsError}
+          onkeydown={onCredentialsKeyDown}
+        />
+      </div>
+      {#if credentialsValidity !== true}
+        <div class="action-button">
+          <Button
+            disabled={checkingCredentials || username.length === 0 || password.length === 0}
+            flavor="filled"
+            onclick={checkCredentials}
+          >
+            {$i18n.t(
+              'dialog--invalid-work-credentials.label--check-credentials',
+              'Re-Check Credentials',
+            )}
+          </Button>
+          {#if checkingCredentials}
+            <div class="loading">
+              <CircularProgress />
+            </div>
+          {/if}
+        </div>
+      {:else}
+        <p class="success-message">
+          <span class="icon"><MdIcon theme="Filled">check_circle</MdIcon></span>
+          {$i18n.t(
+            'dialog--invalid-work-credentials.prose--credentials-valid',
+            'Credentials are valid! Please enter your app password to save the updated credentials:',
+          )}
+        </p>
+        <div class="form-fields">
+          <Password
+            bind:this={keyStoragePasswordInputComponent}
+            bind:value={keyStoragePassword}
+            disabled={checkingKeyStoragePassword}
+            error={keyStoragePasswordValidity === false
+              ? $i18n.t(
+                  'dialog--invalid-work-credentials.error--incorrect-password',
+                  'The entered password is incorrect. Please try again.',
+                )
+              : undefined}
+            label={$i18n.t('dialog--invalid-work-credentials.label--app-password', 'App Password')}
+            oninput={clearKeyStorageError}
+            onkeydown={(event) => {
+              if (event.key === 'Enter') {
+                storeCredentials(modalComponent);
+              }
+            }}
+          />
+        </div>
+        <div class="action-button">
+          <Button
+            disabled={checkingKeyStoragePassword || keyStoragePassword.length === 0}
+            flavor="filled"
+            onclick={() => storeCredentials(modalComponent)}
+          >
+            {$i18n.t(
+              'dialog--invalid-work-credentials.action--store-credentials',
+              'Save Credentials and Close',
+            )}
+          </Button>
+          {#if checkingKeyStoragePassword}
+            <div class="loading">
+              <CircularProgress />
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </section>
+
+    <section class="option2">
+      <h3>
+        {$i18n.t(
+          'dialog--invalid-work-credentials.label--subtitle-option-2',
+          'Option 2: Relink Device',
+        )}
+      </h3>
+      <p>
+        {$i18n.t(
+          'dialog--invalid-work-credentials.prose--description-relink',
+          'Remove the current link, and relink {fullAppName} for desktop to your mobile device. The message history will be restored after relinking.',
+          {fullAppName: import.meta.env.APP_NAME},
+        )}
+      </p>
+      <div class="action-button">
+        <Button flavor="filled" disabled={deletingProfile} onclick={deleteProfileAndRestartApp}>
+          {$i18n.t('dialog--common.action--relink', 'Relink Device')}
+        </Button>
+        {#if deletingProfile}
+          <div class="loading">
+            <CircularProgress />
+          </div>
+        {/if}
+      </div>
+      {#if !deletingProfile && deleteProfileError !== undefined}
+        <p class="error">{deleteProfileError}</p>
+      {/if}
+    </section>
+  </div>
+</Modal>
+
+<style lang="scss">
+  @use 'component' as *;
+
+  .content {
+    padding: 0 rem(16px) rem(16px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: rem(16px);
+
+    .intro-text p:first-child {
+      margin-top: 0;
+    }
+
+    .intro-text p:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-fields {
+      margin-bottom: 1em;
+    }
+
+    .success-message .icon {
+      color: var(--t-color-success);
+      position: relative;
+      top: 0.15em;
+    }
+
+    .action-button {
+      display: flex;
+      gap: rem(16px);
+      align-items: center;
+
+      .loading {
+        height: 1.8em;
+        width: 1.8em;
+      }
+    }
+
+    .error {
+      color: var(--c-input-text-error-color);
+      font-size: 0.85em;
+    }
+  }
+</style>

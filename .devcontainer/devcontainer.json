@@ -1,24 +1,141 @@
 {
-  "name": "threema-desktop",
-  "initializeCommand": ["./.devcontainer/env.sh", "--build-only"],
-  "image": "threema-desktop-env:debian-13-node-22.17.0-rust-1.89-binaryen-123",
-  "mounts": [],
-  "containerUser": "threema",
-  "workspaceFolder": "/home/threema/threema-desktop",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/threema/threema-desktop,type=bind,consistency=cached",
-  "runArgs": [],
+  "name": "Threema Desktop Monorepo Devcontainer",
+  "$schema": "https://raw.githubusercontent.com/devcontainers/spec/refs/heads/main/schemas/devContainer.schema.json",
+
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "DEBIAN_VERSION": "13"
+    }
+  },
+
+  // Container runtime options
+  "runArgs": [
+    // Basic security: Limited capabilities
+    "--cap-drop=ALL",
+    "--cap-add=CHOWN",
+    "--cap-add=SETGID",
+    // Set more generous memory limits, so we don't starve Electron
+    "--shm-size=16g"
+  ],
+
+  // Run as non-root user
+  "remoteUser": "node",
+
+  // Automatically update container user UID/GID to match host user
+  "updateRemoteUserUID": true,
+
+  // Set working directory (devcontainer mounts workspace here)
+  "workspaceMount": "source=${localWorkspaceFolder},target=/code,type=bind,consistency=cached",
+  "workspaceFolder": "/code",
+
+  // Commands run after creating devcontainer
+  "initializeCommand": "bash .devcontainer/initialize.sh",
+
+  // Mounts
+  "mounts": [
+    // Persistent config (project-specific named volume for bash history etc.)
+    "source=devcontainer--${localWorkspaceFolderBasename}--config-persistent,target=/home/node/.config-persistent,type=volume",
+    // Persistent Threema profile
+    "source=${localEnv:HOME}/.local/share/threema-desktop-devcontainer/ThreemaDesktop,target=/home/node/.local/share/ThreemaDesktop,type=bind,consistency=cached",
+    // Claude Code state (project-specific named volume for sessions, todos, statsig, etc.)
+    "source=devcontainer--${localWorkspaceFolderBasename}--claude-data,target=/home/node/.config/claude,type=volume",
+    // Claude Code config and auth (shared across projects, bind-mounted on top of volume)
+    "source=${localEnv:HOME}/.config/claude/settings.json,target=/home/node/.config/claude/settings.json,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/claude/CLAUDE.md,target=/home/node/.config/claude/CLAUDE.md,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/claude/commands,target=/home/node/.config/claude/commands,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/claude/skills,target=/home/node/.config/claude/skills,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/claude/projects,target=/home/node/.config/claude/projects,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/claude/.credentials.json,target=/home/node/.config/claude/.credentials.json,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/claude/.claude.json,target=/home/node/.config/claude/.claude.json,type=bind,consistency=cached",
+    // Wayland socket (automatically detects wayland-0, wayland-1, etc.)
+    "source=${localEnv:XDG_RUNTIME_DIR:/tmp/devcontainer-no-wayland}/${localEnv:WAYLAND_DISPLAY:no-wayland},target=/tmp/${localEnv:WAYLAND_DISPLAY:no-wayland},type=bind,consistency=cached"
+  ],
+
+  // Container environment variables
+  "containerEnv": {
+    // Bash history
+    "HISTFILE": "/home/node/.config-persistent/.bash_history",
+    // Claude Code
+    "CLAUDE_CONFIG_DIR": "/home/node/.config/claude/",
+    // Force software rendering
+    "CHROMIUM_FLAGS": "--disable-gpu",
+    "LIBGL_ALWAYS_SOFTWARE": "1",
+    // Wayland support
+    "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+    "XDG_RUNTIME_DIR": "/tmp",
+    "XDG_SESSION_TYPE": "${localEnv:XDG_SESSION_TYPE}",
+    // VNC connection
+    "VNC_PORT": "5900",
+    "NOVNC_PORT": "6080"
+  },
+
+  // Features to install
+  "features": {
+    "./features/claude-code": {
+      "version": "latest"
+    }
+  },
+
+  // Forward ports
+  "appPort": [], // Compat with CLI, see https://github.com/devcontainers/cli/issues/22
+  "forwardPorts": [6080],
+  "portsAttributes": {
+    "6080": {
+      "label": "Desktop (noVNC)",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "otherPortsAttributes": {
+    "onAutoForward": "ignore"
+  },
+
+  // After first start
+  "overrideCommand": true,
+  "postStartCommand": "/home/node/start.sh",
+
+  // Customizations
   "customizations": {
     "vscode": {
+      "settings": {
+        // General
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "files.insertFinalNewline": true,
+        "editor.formatOnSave": true,
+        // Extensions
+        "rewrap.wrappingColumn": 100,
+        // JSON
+        "[jsonc]": {
+          "json.format.keepLines": true
+        },
+        // Rust
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "rust-analyzer.check.command": "clippy"
+      },
       "extensions": [
-        "dbaeumer.vscode-eslint",
+        // General
+        "dnut.rewrap-revived",
         "esbenp.prettier-vscode",
-        "svelte.svelte-vscode",
-        "EditorConfig.EditorConfig",
+        // Rust
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        // YAML
+        "redhat.vscode-yaml",
+        // Protobuf
         "zxh404.vscode-proto3",
-        "meganrogge.template-string-converter",
-        "eamodio.gitlens"
-      ],
-      "settings": {}
+        // JS/TS
+        "dbaeumer.vscode-eslint", // Linting
+        "vitest.explorer", // Testing
+        "meganrogge.template-string-converter", // Automatically convert strings to templates
+        "yoavbls.pretty-ts-errors", // Better TS type errors
+        "nick-lvov-dev.typescript-explicit-types", // Generate explicit types from inferred types
+        // Svelte
+        "svelte.svelte-vscode",
+        // Playwright
+        "ms-playwright.playwright"
+      ]
     }
   }
 }
