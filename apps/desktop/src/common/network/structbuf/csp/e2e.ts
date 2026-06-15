@@ -44,6 +44,13 @@ import * as utils from '../utils.js';
  *     - Production: 04884d12d668f855d00d71fb1d9d413c95f271312f7e077846af671875c4101b
  *   - Special: No
  *
+ * - `*3MAW0RK`:
+ *   - Nickname: Threema Work Delta Sync
+ *   - Public Key:
+ *     - Production: c0e8ad0f50c5c7315c402d3dc26db169408c117613e9b852d3d6c0e87fca536b
+ *     - Sandbox: c79d9e0f70342e653b0c6df027af8c8681db40e11bf556dd33ec78ee6f810c6d
+ *   - Special: Yes
+ *
  * - `*3MAWORK`:
  *   - Nickname: Threema Work Channel
  *   - Public Key:
@@ -192,7 +199,7 @@ import * as utils from '../utils.js';
  *     7. Add `identity` to `unknown-identities`.
  * 5.  Let `directory-response` be the response of asynchronously looking up
  *     `unknown-identities` on the Directory Server.
- * 6.  If work build, let `work-directory-response` be the response of
+ * 6.  If Work flavour, let `work-directory-response` be the response of
  *     asynchronously looking up `unknown-identities` on the Work Contacts API
  *     endpoint.
  * 7.  Await `directory-response` and `work-directory-response`.
@@ -260,7 +267,7 @@ import * as utils from '../utils.js';
  *     2. If `init.sync_state` is not defined, set it to `INITIAL`.
  *     3. If `init.verification_level` is not defined, set it to `UNVERIFIED`.
  *     4. If `init.work_verification_level` is not defined, set it to `NONE`.
- * 12.  Update the _contact lookup cache_ with the contents of
+ * 12. Update the _contact lookup cache_ with the contents of
  *     `contact-or-inits`. Each newly added or updated entry has an expiration
  *     time of 10m after which the entry is to be removed from the cache.
  * 13. Return `contact-or-inits`.
@@ -300,10 +307,11 @@ import * as utils from '../utils.js';
  * conversation with that contact is being started by either side in which
  * case the acquaintance level should be changed to _direct_.
  *
- * A contact with acquaintance level _group_ will remain indefinitely even if
- * the contact is being removed from all groups of the user or if all remaining
- * common groups are marked as _left_. In that case, the contact is implicitly
- * marked as _deleted_ so that it is covered by _block unknown_.
+ * A contact with acquaintance level _group_ will remain at that level
+ * indefinitely even if the contact is being removed from all groups of the
+ * user or if all remaining common groups are marked as _left_. In that case,
+ * the contact is implicitly marked as _deleted_ so that it is covered by
+ * _block unknown_.
  *
  * ### Notes Group
  *
@@ -722,7 +730,7 @@ import * as utils from '../utils.js';
  * other synchronised property of the group:
  *
  * 1. Let `change` be one of the following changes to the group as defined by
- *    `sync.Group`:
+ *    `d2d_sync.Group`:
  *    - `notification_trigger_policy_override`
  *    - `notification_sound_policy_override`
  *    - `conversation_category`
@@ -971,7 +979,7 @@ import * as utils from '../utils.js';
  *           1. If the contact for `receiver` no longer exists, log an error,
  *              discard `messages` and abort these steps.
  *        2. Let `change` be the following changes as defined by
- *           `sync.Contact`:
+ *           `d2d_sync.Contact`:
  *           - `acquaintance_level` set to `DIRECT`,
  *           - `conversation_visibility` set to `NORMAL` if the associated
  *              conversation visibility is currently _archived_,
@@ -1047,7 +1055,8 @@ import * as utils from '../utils.js';
  *          1. If the group does not exist or is marked as left, log a warning
  *             that a group sync race occurred, discard `messages` and abort
  *             these steps.
- *       2. Let `change` be the following changes as defined by `sync.Group`:
+ *       2. Let `change` be the following changes as defined by
+ *          `d2d_sync.Group`:
  *          - `conversation_visibility` set to `NORMAL` if the associated
  *            conversation visibility is currently _archived_,
  *       3. Reflect a `GroupSync.Update` with `group` set from `change`.
@@ -1125,7 +1134,7 @@ import * as utils from '../utils.js';
  *       2. Let `members` be all current members of the distribution list.
  *          Remove any members with acquaintance level _deleted_ from `members`.¹
  *       3. Let `change` be the following changes as defined by
- *          `sync.DistributionList`:
+ *          `d2d_sync.DistributionList`:
  *          - `member_identities` from `members`,
  *          - `conversation_visibility` set to `NORMAL` if the associated
  *            conversation visibility is currently _archived_,
@@ -1268,7 +1277,7 @@ import * as utils from '../utils.js';
  *
  * 1. Let `blob` be the following properties:
  *    - `data` being the encrypted binary data to be uploaded,
- *    - `scope` being either _public_ (for public facing blobs) or _local_ (for
+ *    - (MD) `scope` being either _public_ (for public facing blobs) or _local_ (for
  *        device group facing blobs).
  *    - `persist` being a mark (primarily for usage within groups).
  * 2. Run the _Blob Credentials Refresh Steps_ and let `credentials` be the
@@ -1286,7 +1295,7 @@ import * as utils from '../utils.js';
  *
  * 1. Let `blob` be the following properties:
  *    - `id` being the blob ID,
- *    - `scope` being either _public_ (for public facing blobs) or _local_ (for
+ *    - (MD) `scope` being either _public_ (for public facing blobs) or _local_ (for
  *        device group facing blobs).
  * 2. Run the _Blob Credentials Refresh Steps_ and let `credentials` be the
  *    result.
@@ -1502,10 +1511,10 @@ import * as utils from '../utils.js';
  * Audio must be in AAC format.
  *
  * If the source is already in AAC, no transcoding is necessary. Otherwise,
- * the recommended transcoding settings are: Bitrate 128 kbit/s, 2 channels.
+ * the recommended transcoding settings are: Bitrate 64 kbit/s, 2 channels.
  *
  * When recording audio (i.e. a voice message), the recommended recording
- * settings are: Sample rate 44.1 kHz, bitrate 32 kbit/s, 1 channel.
+ * settings are: Sample rate 44.1 kHz, bitrate 64 kbit/s, 1 channel.
  *
  * ### Video
  *
@@ -1514,10 +1523,10 @@ import * as utils from '../utils.js';
  * Recommended encoding settings for all videos:
  *
  * - Low: 480x480, scale by maintaining aspect ratio to nearest multiple
- *   of 16px. Video bitrate 384 kbit/s, audio bitrate 32 kbit/s (2
+ *   of 16px. Video bitrate 384 kbit/s, audio bitrate 128 kbit/s (2
  *   channels). Baseline Profile, Level 3.1.
  * - High: 848x848, scale by maintaining aspect ratio to nearest multiple
- *   of 16px. Video bitrate 1500 kbit/s, audio bitrate 64 kbit/s (2
+ *   of 16px. Video bitrate 1500 kbit/s, audio bitrate 128 kbit/s (2
  *   channels). Baseline Profile, Level 3.1.
  * - Original: As is. Still needs transcoding in case a different codec has
  *   been used.
@@ -1537,49 +1546,137 @@ import * as utils from '../utils.js';
  *   video calls are enabled. If either side omits this field, video support
  *   is disabled for the upcoming call.
  *
+ * ### Application Entrypoints
+ *
+ * #### Work Credentials URL
+ *
+ * The following steps are defined as _Application Work Credentials URL
+ * Entrypoint Steps_ and must be run when the application is built for the
+ * _Work_ flavour and is invoked by a Work credentials URL:
+ *
+ * 1. Decode the Work credentials URL and let `work-credentials` be the result.
+ * 2. Run the _Common Application Entrypoint Steps_ with `work-credentials`.
+ *
+ * #### OnPrem Server/License URL
+ *
+ * The following steps are defined as _Application OnPrem Server/License URL
+ * Entrypoint Steps_ and must be run when the application is built for the
+ * _OnPrem_ flavour and is invoked via an OnPrem server/license URL:
+ *
+ * 1. Decode the OnPrem server/license URL¹ and let `on-prem-server-url` and
+ *    `work-credentials` be the result.
+ * 2. Run the _Common Application Entrypoint Steps_ with `on-prem-server-url`
+ *    and `work-credentials`.
+ *
+ * ¹: While the OnPrem server URL only provides the path to the OPPF file, the
+ * OnPrem license URL additionally provides the Work credentials.
+ *
+ * #### Default
+ *
+ * The following steps are defined as the _Common Application Entrypoint Steps_
+ * and resemble the default entrypoint if no specific entrypoint was invoked by
+ * a user interaction:
+ *
+ * 1. If identity data exists:
+ *    1. (OnPrem: Refresh the OPPF file and apply its configuration to the
+ *       application. TODO(SE-137): Specify more clearly.)
+ *    2. [...]
+ *    3. Abort these steps.
+ * 2. (Identity data is missing at this point.)
+ * 3. (If the application is built for the _Consumer_ flavour,
+ *    request/verify the license. TODO(SE-137): Specify more clearly.)
+ * 4. If the application is built for the _Work_ flavour:
+ *    1. Let `work-credentials` be the provided parameters.
+ *    2. If `work-credentials` is not defined, request the user to provide
+ *       this information and update `work-credentials` with the result.
+ *    3. (Verify the Work license. TODO(SE-137): Specify more clearly.)
+ * 5. If the application is built for the _OnPrem_ flavour:
+ *   1. Let `on-prem-server-url` and `work-credentials` be the provided
+ *      parameters.
+ *   2. If the application is built for the regular _OnPrem_ flavour:
+ *      1. If the MDM parameter `th_onprem_server` is defined:
+ *         1. If `on-prem-server-url` is defined and its canonical¹
+ *            representation does not equal the canonical¹ representation of
+ *            the MDM parameter `th_onprem_server`, show an error to the user
+ *            that an incorrect OnPrem server/license URL has been used and
+ *            abort these steps.
+ *         2. Set `on-prem-server-url` to the MDM parameter `th_onprem_server`.
+ *      2. If `on-prem-server-url` or `work-credentials` is not defined,
+ *         request the user to provide the missing information and update
+ *         `on-prem-server-url` and `work-credentials` with the result.
+ *   3. If the application is built for the _White-Labeled OnPrem_ flavour²:
+ *      1. If `on-prem-server-url` is defined and its canonical¹
+ *         representation does not equal the canonical¹ representation of the
+ *         preconfigured OnPrem server URL, show an error to the user that an
+ *         incorrect OnPrem server/license URL has been used and abort these
+ *         steps.
+ *      2. Set `on-prem-server-url` to the preconfigured OnPrem server URL.
+ *      3. If `work-credentials` is not defined, request the user to provide
+ *         the Work credentials and update `work-credentials` with the result.
+ *   4. (Verify the OnPrem/Work license. TODO(SE-137): Specify more
+ *      clearly.)
+ * 6. Run the _Application Setup Steps_.
+ *
+ * ¹: The canonical URL is constructed by appending `/prov/config.oppf` if the
+ * URL does not end with `.oppf`.
+ *
+ * ²: Note that the `th_onprem_server` parameter is intentionally being ignored
+ * in this case.
+ *
  * ### Application Setup
  *
  * The following steps are defined as _Application Setup Steps_ and must be run
- * when a new Threema ID has been created or when application state has been
- * restored from a backup:
+ * when no identity data exists (i.e. the application is installed for the
+ * first time or the Threema ID and associated identity data has been removed):
  *
  * 1. [...]
- * 2. If application state has not been set up by the _Device Join Protocol_
- *    (meaning that multi-device is deactivated):
- *    1.  [...]
- *    2.  Update the user's feature mask on the directory server.
- *    3.  Let `contacts` be the list of all contacts, including those with an
- *        acquaintance level different than _direct_.
- *    4.  Refresh the state, type and feature mask of all `contacts` from the
- *        directory server and make any changes persistent.
- *    5.  Let `solicited-contacts` be a copy of `contacts` filtered in the
- *        following way. For each `contact`:
- *        1. If the `contact`'s activity state is _invalid_ (i.e. it does not
- *           exist or has been revoked), remove `contact` from the list and
- *           abort these sub-steps.
- *        2. If `contact` is part of a group that is not marked as _left_, add
- *           `contact` to the list and abort these sub-steps.
- *        3. Lookup the 1:1 conversation with `contact` and let `last-update`
- *           be the associated _last update_ timestamp.
- *        4. If `last-update` is defined, add `contact` to the list and abort
- *           these sub-steps.
- *        5. Remove `contact` from the list.
- *    6.  If FS is supported by the client, run the _FS Refresh Steps_ with
- *        `solicited-contacts`.
- *    7.  For each `contact` of `solicited-contacts` run the _Bundled Messages
- *        Send Steps_ with the following properties:
- *        - `id` being a random message ID,
- *        - `created-at` set to the current timestamp,
- *        - `receivers` set to `contact`,
- *        - to construct a
- *          [`contact-request-profile-picture`](ref:e2e.contact-request-profile-picture)
- *    8.  For each group not marked as _left_:
- *        1. If the user is the creator of the group, trigger a _group sync_
- *           for that group.
- *        2. If the user is not the creator of the group, run the _Group Sync
- *           Request Steps_ for the group.
- *    9. [...]
- * 3. Commit the application state and exit the setup phase.
+ * 2. (The application allows to create a new Threema ID or restore a backup
+ *    here. TODO(SE-137): Specify more clearly.)
+ * 3. If OnPrem sub-flavour and the MDM parameter `th_enable_remote_secret` is
+ *    `true`, run the _Remote Secret Activate Steps_.
+ * 4. If application state has not been set up by the _Device Join Protocol_
+ *    (meaning that multi-device is deactivated), run the following steps:
+ *    1.   [...]
+ *    2.   Update the user's feature mask on the directory server.
+ *    3.   Call the _Work Properties (Legacy)_ endpoint with the data gathered
+ *         from MDM parameters.
+ *    4.   Call the _Work Properties_ endpoint and reset all properties to
+ *         their default.
+ *    5.   Let `contacts` be the list of all contacts, including those with an
+ *         acquaintance level different than _direct_.
+ *    6.   Call the _Work Sync_ endpoint with `contacts` and update `contacts`
+ *         and the settings with the result.
+ *    7.   Refresh the state, type and feature mask of all `contacts` from the
+ *         directory server and make any changes persistent.
+ *    8.   Let `solicited-contacts` be a copy of `contacts` filtered in the
+ *         following way. For each `contact`:
+ *         1. If the `contact` is marked as _invalid_, remove `contact` from
+ *            the list and abort these sub-steps.
+ *         2. If `contact` is part of a group that is not marked as _left_, add
+ *            `contact` to the list and abort these sub-steps.
+ *         3. Lookup the 1:1 conversation with `contact` and let `last-update`
+ *            be the associated _last update_ timestamp.
+ *         4. If `last-update` is defined, add `contact` to the list and abort
+ *            these sub-steps.
+ *         5. Remove `contact` from the list.
+ *    9.   If FS is supported by the client, run the _FS Refresh Steps_ with
+ *         `solicited-contacts`.
+ *    10.  For each `contact` of `solicited-contacts` run the _Bundled Messages
+ *         Send Steps_ with the following properties:
+ *         - `id` being a random message ID,
+ *         - `created-at` set to the current timestamp,
+ *         - `receivers` set to `contact`,
+ *         - to construct a
+ *           [`contact-request-profile-picture`](ref:e2e.contact-request-profile-picture)
+ *    11.  For each group not marked as _left_:
+ *         1. If the user is the creator of the group, trigger a _group sync_
+ *            for that group.
+ *         2. If the user is not the creator of the group, run the _Group Sync
+ *            Request Steps_ for the group.
+ *    12. [...]
+ * 5. Commit the application state with the updated `contacts` and settings,
+ *    outer storage potentially protected by a passphrase (if provided) and
+ *    inner storage potentially protected by RS (if created).
  *
  * ### Application Update
  *
@@ -1607,6 +1704,22 @@ import * as utils from '../utils.js';
  * Note: Reactivation of FS due to disabling multi-device should run the
  * _Application Setup Steps_ step 2.2. through 2.6. TODO(SE-199): This note
  * will be removed once multi-device supports FS.
+ *
+ * ### Application Start
+ *
+ * The following steps are defined as _Application Start Steps_ and must be run
+ * as a blocking task when the application starts before running any further
+ * sequences:
+ *
+ * 1. [...]
+ * 2. Attempt to unlock the outer storage, potentially protected by a
+ *    passphrase (if provided).
+ * 3. If the Remote Secret feature is active, run the _Remote Secret Monitor
+ *    Steps_ until it yields RS and let it continue as a volatile background
+ *    task bound to the application.
+ * 4. Unlock the inner storage, optionally protected by RS (if activated).
+ * 5. [...]
+ * 6. Initialise the application from the unlocked storage.
  */
 
 /**
@@ -5955,17 +6068,17 @@ export class TypingIndicator extends base.Struct implements TypingIndicatorLike 
  * 4. If `group.profile-picture` is defined and equals `profile-picture`
  *    (i.e. no changes), discard the message and abort these steps.
  * 5. (MD) Run the following sub-steps:
- *    1. (MD) Begin a transaction with scope `GROUP_SYNC` and the following
+ *    1. Begin a transaction with scope `GROUP_SYNC` and the following
  *       precondition:
  *       1. If the group does not exist or the group is marked as _left_, log
  *          a warning that a group sync race occurred, discard the message
  *          and abort these steps.
- *    2. (MD) Let `group` be a snapshot of the current group state.
- *    3. (MD) If `group.profile-picture` is defined and equals
+ *    2. Let `group` be a snapshot of the current group state.
+ *    3. If `group.profile-picture` is defined and equals
  *       `profile-picture`, log a warning that a group sync race occurred.
- *    4. (MD) Reflect a `GroupSync.Update` with `group` set to contain
+ *    4. Reflect a `GroupSync.Update` with `group` set to contain
  *       `profile_picture` set to `profile-picture.
- *    5. (MD) Commit the transaction and await acknowledgement.
+ *    5. Commit the transaction and await acknowledgement.
  * 6. Store the profile picture and and apply it to the group.
  */
 export interface SetProfilePictureLike {

@@ -28,5 +28,19 @@ build
 /apps/desktop/src/common/node/db/query-runner.ts
 /apps/desktop/src/common/crypto/blake2b/implementation.js
 
+# Package: `packages/dom`
+/packages/dom/coverage/
+
+# Package: `packages/ts-utils`
+/packages/ts-utils/coverage/
+
+# Package: `packages/ui`
+/packages/ui/coverage/
+
+# Package: `apps/conferencing`
+/apps/conferencing/dist/
+/apps/conferencing/playwright-report/
+/apps/conferencing/test-results/
+
 # Package: `packages/libthreema-wasm`
 /packages/libthreema-wasm/libs/

@@ -199,11 +199,12 @@ export class ReflectedContactSyncTask implements PassiveTask<void> {
                 featureMask: create.featureMask,
                 syncState: create.syncState,
                 notificationTriggerPolicyOverride: create.notificationTriggerPolicyOverride,
-                notificationSoundPolicyOverride: create.notificationSoundPolicyOverride,
                 typingIndicatorPolicyOverride: create.typingIndicatorPolicyOverride,
                 readReceiptPolicyOverride: create.readReceiptPolicyOverride,
                 category: create.conversationCategory,
                 visibility: create.conversationVisibility,
+                workAvailabilityStatus: create.workAvailabilityStatus,
+                workLastFullSyncAt: create.workLastFullSyncAt,
             }),
         );
 
@@ -237,8 +238,9 @@ export class ReflectedContactSyncTask implements PassiveTask<void> {
                 typingIndicatorPolicyOverride: update.typingIndicatorPolicyOverride,
                 readReceiptPolicyOverride: update.readReceiptPolicyOverride,
                 notificationTriggerPolicyOverride: update.notificationTriggerPolicyOverride,
-                notificationSoundPolicyOverride: update.notificationSoundPolicyOverride,
                 nickname: update.nickname,
+                workAvailabilityStatus: update.workAvailabilityStatus,
+                workLastFullSyncAt: update.workLastFullSyncAt,
             }),
         );
 

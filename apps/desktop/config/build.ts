@@ -9,6 +9,10 @@ export interface BuildConfig {
     readonly BLOB_SERVER_URL: string | undefined;
     readonly SAFE_SERVER_URL: string | undefined;
     readonly RENDEZVOUS_SERVER_URL: string | undefined;
+    /**
+     * @deprecated Will eventually be replaced by the direct `WORK_SERVER_URL`.
+     */
+    readonly WORK_SERVER_LEGACY_URL: string | undefined;
     readonly WORK_SERVER_URL: string | undefined;
     readonly UPDATE_SERVER_URL: string;
     readonly SENTRY_DSN: string | undefined;

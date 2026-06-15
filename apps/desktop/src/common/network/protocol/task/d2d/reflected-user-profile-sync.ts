@@ -1,3 +1,5 @@
+import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+
 import {ensureNonce} from '~/common/crypto';
 import {extractErrorMessage} from '~/common/error';
 import type {Logger} from '~/common/logging';
@@ -14,7 +16,7 @@ import {
 } from '~/common/network/protocol/task/';
 import type {D2mDeviceId} from '~/common/network/types';
 import type {Mutable} from '~/common/types';
-import {ensureError, unreachable} from '~/common/utils/assert';
+import {unreachable} from '~/common/utils/assert';
 import {u64ToHexLe} from '~/common/utils/number';
 import {VALITA_EMPTY_STRING, VALITA_NULL, VALITA_UNDEFINED} from '~/common/utils/valita-helpers';
 
@@ -63,6 +65,7 @@ export class ReflectedUserProfileSyncTask implements PassiveTask<void> {
         this._processUpdateForNickname(validatedMessage, profileUpdate);
         this._processUpdateForProfilePictureShareWith(validatedMessage, profileUpdate);
         await this._processUpdateForProfilePicture(validatedMessage, profileUpdate);
+        this._processUpdateForWorkAvailabilityStatus(validatedMessage, profileUpdate);
 
         model.user.profileSettings.get().controller.update.fromSync(handle, profileUpdate);
     }
@@ -159,5 +162,16 @@ export class ReflectedUserProfileSyncTask implements PassiveTask<void> {
             default:
                 unreachable(validatedMessage.update.userProfile.profilePicture);
         }
+    }
+
+    private _processUpdateForWorkAvailabilityStatus(
+        validatedMessage: protobuf.validate.d2d.UserProfileSync.Type,
+        profileUpdate: Mutable<Partial<ProfileSettingsView>>,
+    ): void {
+        if (validatedMessage.update.userProfile.workAvailabilityStatus === undefined) {
+            return;
+        }
+        profileUpdate.workAvailabilityStatus =
+            validatedMessage.update.userProfile.workAvailabilityStatus;
     }
 }

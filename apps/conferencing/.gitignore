@@ -1,0 +1,6 @@
+# Build directories
+/dist/
+
+# Playwright
+/playwright-report/
+/test-results/

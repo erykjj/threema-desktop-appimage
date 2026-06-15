@@ -17,7 +17,7 @@ import {groupDebugString} from '~/common/model/group';
 import type {ProfileSettingsUpdate} from '~/common/model/types/settings';
 import * as protobuf from '~/common/network/protobuf';
 import {validate} from '~/common/network/protobuf';
-import {join} from '~/common/network/protobuf/js';
+import {d2d_join} from '~/common/network/protobuf/js';
 import type {EssentialData} from '~/common/network/protobuf/validate/join';
 import {type BlobId, type BlobIdString, blobIdToString} from '~/common/network/protocol/blob';
 import type {RendezvousCloseCause} from '~/common/network/protocol/rendezvous';
@@ -147,7 +147,7 @@ export class DeviceJoinProtocol {
             this._log.debug(`New ULP message (${readResult.value.byteLength} bytes)`);
             let parsed;
             try {
-                parsed = join.EdToNd.decode(readResult.value);
+                parsed = d2d_join.EdToNd.decode(readResult.value);
             } catch (error) {
                 throw new DeviceJoinError(
                     {kind: 'encoding'},
@@ -254,6 +254,7 @@ export class DeviceJoinProtocol {
                           key,
                       },
             profilePictureShareWith: essentialData.userProfile.profilePictureShareWith,
+            workAvailabilityStatus: essentialData.userProfile.workAvailabilityStatus,
         };
         repositories.user.profileSettings.get().controller.update.direct(profile);
 
@@ -270,9 +271,9 @@ export class DeviceJoinProtocol {
      */
     public async complete(): Promise<void> {
         // Send `Registered` message
-        const encoder = protobuf.utils.encoder(protobuf.join.NdToEd, {
+        const encoder = protobuf.utils.encoder(protobuf.d2d_join.NdToEd, {
             content: 'registered',
-            registered: protobuf.utils.creator(protobuf.join.Registered, {}),
+            registered: protobuf.utils.creator(protobuf.d2d_join.Registered, {}),
         });
         await this._writer.write(encoder.encode(new Uint8Array(encoder.byteLength())));
 
@@ -334,7 +335,6 @@ export class DeviceJoinProtocol {
                     readReceiptPolicyOverride: contact.readReceiptPolicyOverride,
                     typingIndicatorPolicyOverride: contact.typingIndicatorPolicyOverride,
                     notificationTriggerPolicyOverride: contact.notificationTriggerPolicyOverride,
-                    notificationSoundPolicyOverride: contact.notificationSoundPolicyOverride,
                     lastUpdate: lastUpdateAt,
                     colorIndex: idColorIndex({
                         type: ReceiverType.CONTACT,
@@ -342,6 +342,8 @@ export class DeviceJoinProtocol {
                     }),
                     category: contact.conversationCategory,
                     visibility: contact.conversationVisibility,
+                    workAvailabilityStatus: contact.workAvailabilityStatus,
+                    workLastFullSyncAt: contact.workLastFullSyncAt,
                 } as const),
             );
 
@@ -436,7 +438,6 @@ export class DeviceJoinProtocol {
                     colorIndex: idColorIndex(conversationId),
                     userState: group.userState,
                     notificationTriggerPolicyOverride: group.notificationTriggerPolicyOverride,
-                    notificationSoundPolicyOverride: group.notificationSoundPolicyOverride,
                     category: group.conversationCategory,
                     visibility: group.conversationVisibility,
                 } as const),

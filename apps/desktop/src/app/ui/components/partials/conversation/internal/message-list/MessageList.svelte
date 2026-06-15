@@ -2,6 +2,8 @@
   @component Renders a conversation as a chat view.
 -->
 <script lang="ts">
+  import {nodeIsOrContainsTarget} from '@threema/dom';
+  import {ensureError} from '@threema/ts-utils/meta/ensure-error';
   import {tick} from 'svelte';
 
   import {globals} from '~/app/globals';
@@ -37,14 +39,13 @@
   import {toast} from '~/app/ui/snackbar';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import {scale} from '~/app/ui/transitions/scale';
-  import {nodeIsOrContainsTarget} from '~/app/ui/utils/node';
   import {reactive, svelteUnreachable, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {appVisibility} from '~/common/dom/ui/state';
   import {MessageDirection} from '~/common/enum';
   import {extractErrorMessage} from '~/common/error';
   import type {MessageId, StatusMessageId} from '~/common/network/types';
   import type {u53} from '~/common/types';
-  import {assertUnreachable, ensureError, unreachable} from '~/common/utils/assert';
+  import {assertUnreachable, unreachable} from '~/common/utils/assert';
   import {
     isSingleUnicodeEmoji,
     THUMBS_DOWN_EMOJIS,

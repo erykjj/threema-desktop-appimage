@@ -78,7 +78,14 @@ export interface Config {
     readonly UPDATE_SERVER_URL: BaseUrl;
 
     /**
-     * Work server URL.
+     * Work server legacy URL (API).
+     *
+     * @deprecated Will eventually be replaced by the direct `WORK_SERVER_URL`.
+     */
+    readonly WORK_SERVER_LEGACY_URL: BaseUrl;
+
+    /**
+     * Work server URL (direct).
      */
     readonly WORK_SERVER_URL: BaseUrl;
 
@@ -199,6 +206,7 @@ function createConfig(config: {
     };
     readonly SAFE_SERVER_URL: string;
     readonly RENDEZVOUS_SERVER_URL: string;
+    readonly WORK_SERVER_LEGACY_URL: string;
     readonly WORK_SERVER_URL: string;
 }): Config {
     return {
@@ -251,6 +259,7 @@ function createConfig(config: {
                 },
                 'wss:',
             ),
+        WORK_SERVER_LEGACY_URL: ensureBaseUrl(config.WORK_SERVER_LEGACY_URL, 'https:'),
         WORK_SERVER_URL: ensureBaseUrl(config.WORK_SERVER_URL, 'https:'),
     };
 }
@@ -279,6 +288,8 @@ export function createDefaultConfig(): Config {
         },
         SAFE_SERVER_URL: unwrap(import.meta.env.SAFE_SERVER_URL),
         RENDEZVOUS_SERVER_URL: unwrap(import.meta.env.RENDEZVOUS_SERVER_URL),
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
+        WORK_SERVER_LEGACY_URL: unwrap(import.meta.env.WORK_SERVER_LEGACY_URL),
         WORK_SERVER_URL: unwrap(import.meta.env.WORK_SERVER_URL),
     });
 }
@@ -300,6 +311,7 @@ export function createConfigFromOppf(onPremConfig: oppf.OppfFile): Config {
         },
         SAFE_SERVER_URL: onPremConfig.safe.url,
         RENDEZVOUS_SERVER_URL: onPremConfig.rendezvous.url,
+        WORK_SERVER_LEGACY_URL: onPremConfig.work.url,
         WORK_SERVER_URL: onPremConfig.work.url,
     });
 }

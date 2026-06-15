@@ -39,7 +39,6 @@ import type {
     ImageRenderingType,
     MessageType,
     NonceScope,
-    NotificationSoundPolicy,
     ReadReceiptPolicy,
     SyncState,
     TypingIndicatorPolicy,
@@ -52,6 +51,7 @@ import type {
     PollChoicesType,
     PollAnnounceType,
     PollDisplayMode,
+    WorkAvailabilityStatusCategory,
 } from '~/common/enum';
 import type {FileEncryptionKey, FileId} from '~/common/file-storage';
 import type {BlobId} from '~/common/network/protocol/blob';
@@ -211,15 +211,6 @@ export const tContact = new (class TContact extends Table<DBConnection, 'TContac
     );
 
     /**
-     * Notification sound policy override for the contact.
-     */
-    public notificationSoundPolicyOverride = this.optionalColumn<NotificationSoundPolicy>(
-        'notificationSoundPolicyOverride',
-        'custom',
-        CUSTOM_TYPES.NOTIFICATION_SOUND_POLICY,
-    );
-
-    /**
      * The color lookup index.
      */
     public colorIndex = this.column<u8>('colorIndex', 'custom', CUSTOM_TYPES.U8);
@@ -260,6 +251,28 @@ export const tContact = new (class TContact extends Table<DBConnection, 'TContac
         'custom',
         CUSTOM_TYPES.BLOB_ID,
     );
+
+    /**
+     * WorkAvailabilityStatusCategory.
+     */
+    public workAvailabilityStatusCategory = this.optionalColumn<WorkAvailabilityStatusCategory>(
+        'workAvailabilityStatusCategory',
+        'custom',
+        CUSTOM_TYPES.WORK_AVAILABILITY_STATUS_CATEGORY,
+    );
+
+    /**
+     * WorkAvailabilityStatusDescription.
+     */
+    public workAvailabilityStatusDescription = this.optionalColumn(
+        'workAvailabilityStatusDescription',
+        'string',
+    );
+
+    /**
+     * Timestamp when this contact was last fully synced via WorkSync.
+     */
+    public workLastFullSyncAt = this.optionalColumn('workLastFullSyncAt', 'localDateTime');
 
     public constructor() {
         super('contacts'); // Table name in the database
@@ -324,15 +337,6 @@ export const tGroup = new (class TGroup extends Table<DBConnection, 'TGroup'> {
     public notificationTriggerPolicyOverrideExpiresAt = this.optionalColumn(
         'notificationTriggerPolicyOverrideExpiresAt',
         'localDateTime',
-    );
-
-    /**
-     * Notification sound policy override for the group.
-     */
-    public notificationSoundPolicyOverride = this.optionalColumn<NotificationSoundPolicy>(
-        'notificationSoundPolicyOverride',
-        'custom',
-        CUSTOM_TYPES.NOTIFICATION_SOUND_POLICY,
     );
 
     /**

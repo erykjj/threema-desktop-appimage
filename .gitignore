@@ -7,8 +7,10 @@ node_modules
 
 # Temp files & build artifacts
 .DS_Store
-.turbo
+.plan
 .prettiercache
+.turbo
+*.tsbuildinfo
 build/
 temp/
 

@@ -387,6 +387,14 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                           notificationTriggerPolicyOverride: undefined,
                           notificationTriggerPolicyOverrideExpiresAt: undefined,
                       } as const)),
+
+                ...(contact.workAvailabilityStatus !== undefined
+                    ? ({
+                          workAvailabilityStatusCategory: contact.workAvailabilityStatus.category,
+                          workAvailabilityStatusDescription:
+                              contact.workAvailabilityStatus.description,
+                      } as const)
+                    : undefined),
             }),
             ignoreIfSet: () => {
                 const ignore: ColumnsForSetOf<typeof tContact>[] = [];
@@ -467,12 +475,18 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                         policy: tContact.notificationTriggerPolicyOverride.asRequiredInOptionalObject(),
                         expiresAt: tContact.notificationTriggerPolicyOverrideExpiresAt,
                     },
-                    notificationSoundPolicyOverride: tContact.notificationSoundPolicyOverride,
                     profilePictureContactDefined: tContact.profilePictureContactDefined,
                     profilePictureGatewayDefined: tContact.profilePictureGatewayDefined,
                     profilePictureUserDefined: tContact.profilePictureUserDefined,
                     profilePictureBlobIdSent: tContact.profilePictureBlobIdSent,
                     colorIndex: tContact.colorIndex,
+                    workAvailabilityStatus: {
+                        category:
+                            tContact.workAvailabilityStatusCategory.asRequiredInOptionalObject(),
+                        description:
+                            tContact.workAvailabilityStatusDescription.asRequiredInOptionalObject(),
+                    },
+                    workLastFullSyncAt: tContact.workLastFullSyncAt,
                 })
                 .where(tContact.uid.equals(uid))
                 .executeSelectNoneOrOne(),
@@ -626,7 +640,6 @@ export class SqliteDatabaseBackend implements DatabaseBackend {
                         policy: tGroup.notificationTriggerPolicyOverride.asRequiredInOptionalObject(),
                         expiresAt: tGroup.notificationTriggerPolicyOverrideExpiresAt,
                     },
-                    notificationSoundPolicyOverride: tGroup.notificationSoundPolicyOverride,
                     profilePictureAdminDefined: tGroup.profilePictureAdminDefined,
                     colorIndex: tGroup.colorIndex,
                 })

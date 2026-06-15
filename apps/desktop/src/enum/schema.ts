@@ -385,6 +385,15 @@ export enum CspE2eForwardSecurityType {
 }
 
 /**
+ * E2EE work sync delta
+ *
+ * @generate name
+ */
+export enum CspE2eWorkSyncDeltaType {
+    WORK_SYNC_DELTA = 0xfd,
+}
+
+/**
  * E2EE Web session resume type.
  *
  * @generate name
@@ -713,6 +722,7 @@ export enum D2dCspMessageType {
     GROUP_POLL_SETUP = 82,
     GROUP_POLL_VOTE = 83,
     GROUP_DELIVERY_RECEIPT = 129,
+    WORK_SYNC_DELTA = 253,
     WEB_SESSION_RESUME = 254,
     EDIT_MESSAGE = 145,
     DELETE_MESSAGE = 146,
@@ -829,7 +839,10 @@ export enum TransactionScope {
     GROUP_SYNC = 2,
     DISTRIBUTION_LIST_SYNC = 3,
     SETTINGS_SYNC = 4,
-    NEW_DEVICE_SYNC = 5,
+    MDM_PARAMETER_SYNC = 5,
+    NEW_DEVICE_SYNC = 6,
+    DROP_DEVICE = 7,
+    WORK_SYNC_DELTA = 8,
 }
 /** @generate convert */
 export enum TypingIndicatorPolicy {
@@ -846,6 +859,12 @@ export enum VerificationLevel {
 export enum WorkVerificationLevel {
     NONE = 0,
     WORK_SUBSCRIPTION_VERIFIED = 1,
+}
+/** @generate convert */
+export enum WorkAvailabilityStatusCategory {
+    NONE = 0,
+    UNAVAILABLE = 1,
+    BUSY = 2,
 }
 /** @generate convert */
 export enum DeviceSlotState {

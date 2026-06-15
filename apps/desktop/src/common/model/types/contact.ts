@@ -5,7 +5,6 @@ import type {
     ActivityState,
     ContactNotificationTriggerPolicy,
     IdentityType,
-    NotificationSoundPolicy,
     ReadReceiptPolicy,
     ReceiverType,
     SyncState,
@@ -20,6 +19,7 @@ import type {
 } from '~/common/model/types/common';
 import type {ConversationInitMixin} from '~/common/model/types/conversation';
 import type {ReceiverController} from '~/common/model/types/receiver';
+import type {WorkAvailabilityStatus} from '~/common/model/types/work-availability-status';
 import type {ModelLifetimeGuard} from '~/common/model/utils/model-lifetime-guard';
 import type {ModelStore} from '~/common/model/utils/model-store';
 import type {FeatureMask, IdentityString, Nickname} from '~/common/network/types';
@@ -54,7 +54,8 @@ export interface ContactView {
         readonly policy: ContactNotificationTriggerPolicy;
         readonly expiresAt?: Date;
     };
-    readonly notificationSoundPolicyOverride?: NotificationSoundPolicy;
+    readonly workAvailabilityStatus?: WorkAvailabilityStatus;
+    readonly workLastFullSyncAt?: Date;
 }
 
 export type ContactViewDerivedProperties = StrictExtract<

@@ -1,6 +1,8 @@
 /**
  * Incoming message task.
  */
+import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+
 import type {EncryptedData, Nonce, PublicKey} from '~/common/crypto';
 import {CREATE_BUFFER_TOKEN} from '~/common/crypto/box';
 import {deriveMessageMetadataKey} from '~/common/crypto/csp-keys';
@@ -25,6 +27,7 @@ import {
     MessageType,
     CspE2eMessageReactionType,
     CspE2eGroupMessageReactionType,
+    CspE2eWorkSyncDeltaType,
 } from '~/common/enum';
 import type {Logger} from '~/common/logging';
 import type {
@@ -78,6 +81,7 @@ import {IncomingMessageContentUpdateTask} from '~/common/network/protocol/task/c
 import {IncomingMessageReactionTask} from '~/common/network/protocol/task/csp/incoming-message-reaction';
 import {IncomingPollUpdateTask} from '~/common/network/protocol/task/csp/incoming-poll-update';
 import {IncomingTypingIndicatorTask} from '~/common/network/protocol/task/csp/incoming-typing-indicator';
+import {IncomingWorkSyncDeltaTask} from '~/common/network/protocol/task/csp/incoming-work-sync-delta';
 import {OutgoingCspMessagesTask} from '~/common/network/protocol/task/csp/outgoing-csp-messages';
 import {
     messageReferenceDebugFor,
@@ -102,7 +106,7 @@ import {
     type MessageId,
 } from '~/common/network/types';
 import type {ReadonlyUint8Array, u53, u8} from '~/common/types';
-import {assert, ensureError, exhausted, unreachable} from '~/common/utils/assert';
+import {assert, exhausted, unreachable} from '~/common/utils/assert';
 import {byteWithoutPkcs7, byteWithoutZeroPadding} from '~/common/utils/byte';
 import {UTF8} from '~/common/utils/codec';
 import {Identity} from '~/common/utils/identity';
@@ -368,6 +372,7 @@ type MessageProcessingInstructions =
     | GroupControlMessageInstructions
     | StatusUpdateInstructions
     | ForwardSecurityMessageInstructions
+    | WorkSyncDeltaInstructions
     | MessageUpdateInstructions
     | MessageReactionInstructions
     | UnhandledMessageInstructions;
@@ -448,6 +453,14 @@ interface ForwardSecurityMessageInstructions extends BaseProcessingInstructions 
     readonly messageCategory: 'forward-security';
     readonly deliveryReceipt: false;
     readonly missingContactHandling: 'create';
+    readonly reflect: 'not-reflected';
+    readonly task: ComposableTask<ActiveTaskCodecHandle<'volatile'>, unknown>;
+}
+
+interface WorkSyncDeltaInstructions extends BaseProcessingInstructions {
+    readonly messageCategory: 'work-sync-delta';
+    readonly deliveryReceipt: false;
+    readonly missingContactHandling: 'ignore';
     readonly reflect: 'not-reflected';
     readonly task: ComposableTask<ActiveTaskCodecHandle<'volatile'>, unknown>;
 }
@@ -901,6 +914,7 @@ export class IncomingMessageTask implements ActiveTask<void, 'volatile'> {
             case 'status-update':
             case 'message-reaction':
             case 'forward-security':
+            case 'work-sync-delta':
                 this._log.debug('Running the sub-task');
                 await instructions.task.run(handle);
                 break;
@@ -1742,6 +1756,39 @@ export class IncomingMessageTask implements ActiveTask<void, 'volatile'> {
                         fsEnvelope,
                     ),
                 };
+                return instructions;
+            }
+
+            case CspE2eWorkSyncDeltaType.WORK_SYNC_DELTA: {
+                // 1. If not Work flavor, log a warning, discard the message and abort these steps.
+                //
+                // eslint-disable-next-line threema/compare-work-and-custom
+                if (import.meta.env.BUILD_VARIANT !== 'work') {
+                    this._log.warn('BUILD_VARIANT is not work. Discarding work sync delta message');
+                    return 'discard';
+                }
+
+                // 2. If the sender is not *3MAW0RK, discard the message and abort these steps.
+                if (senderIdentity !== '*3MAW0RK') {
+                    this._log.warn('Sender is not *3MAW0RK. Discarding work sync delta message');
+                    return 'discard';
+                }
+
+                const workSyncDelta = protobuf.csp_e2e.WorkSyncDelta.decode(
+                    cspMessageBody as Uint8Array,
+                );
+
+                const validatedWorkSyncDelta =
+                    protobuf.validate.csp_e2e.WorkSyncDelta.SCHEMA.parse(workSyncDelta);
+
+                const instructions: WorkSyncDeltaInstructions = {
+                    messageCategory: 'work-sync-delta',
+                    deliveryReceipt: false,
+                    missingContactHandling: 'ignore',
+                    reflect: 'not-reflected',
+                    task: new IncomingWorkSyncDeltaTask(this._services, validatedWorkSyncDelta),
+                };
+
                 return instructions;
             }
 

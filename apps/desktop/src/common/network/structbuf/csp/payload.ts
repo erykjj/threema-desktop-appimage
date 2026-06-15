@@ -189,10 +189,10 @@ export interface ContainerLike {
      * - `0x80`: [`echo-response`](ref:payload.echo-response)
      * - `0x01`: outgoing [`legacy-message`](ref:payload.legacy-message) or
      *   [`message-with-metadata-box`](ref:payload.message-with-metadata-box)
-     * - `0x81`: outgoing [`message-ack`](ref:payload.message-ack)
+     * - `0x81`: [`message-ack`](ref:payload.message-ack) for an outgoing message
      * - `0x02`: incoming [`legacy-message`](ref:payload.legacy-message) or
      *   [`message-with-metadata-box`](ref:payload.message-with-metadata-box)
-     * - `0x82`: incoming [`message-ack`](ref:payload.message-ack)
+     * - `0x82`: [`message-ack`](ref:payload.message-ack) for an incoming message
      * - `0x03`: [`unblock-incoming-messages`](ref:payload.unblock-incoming-messages)
      * - `0x20`: [`set-push-notification-token`](ref:payload.set-push-notification-token)
      * - `0x21`: (obsolete, formerly used by iOS to set a push filter)
@@ -1131,7 +1131,14 @@ export class LegacyMessage extends base.Struct implements LegacyMessageLike {
  *        `inner-message`. If this fails, exceptionally abort these steps and
  *        the connection. If the message has been discarded, _Acknowledge_
  *        the message and abort these steps.
- * 21. If `sender-identity` is not a _Special Contact_:
+ * 21. If `sender-identity` equals `*3MAW0RK`:
+ *     1. If `inner-type` is not `0xfd`, log a warning,
+ *        _Acknowledge_ and discard the message and abort these steps.
+ *     2. Run the receive steps associated to `inner-type` with
+ *        `inner-message`. If this fails, exceptionally abort these steps and
+ *        the connection. If the message has been discarded, _Acknowledge_
+ *        the message and abort these steps.
+ * 22. If `sender-identity` is not a _Special Contact_:
  *     1. If `inner-metadata.nickname` is defined, let `nickname` be the
  *        value of `inner-metadata.nickname`.¹
  *     2. If `inner-metadata` is not defined and _User Profile Distribution_
@@ -1139,7 +1146,7 @@ export class LegacyMessage extends base.Struct implements LegacyMessageLike {
  *        decoding the plaintext `legacy-sender-nickname`.¹
  *     3. If `nickname` is present, trim any excess whitespaces from the
  *        beginning and the end of `nickname`.
- *     4. If `contact-or-init` does not contain an existing contact:
+ *     4. If `contact-or-init` does not refer to an existing contact:
  *        1. If `inner-type` does not require to create an implicit
  *           _direct_ contact, log a notice, _Acknowledge_ and discard the
  *           message and abort these steps.
@@ -1159,28 +1166,51 @@ export class LegacyMessage extends base.Struct implements LegacyMessageLike {
  *           new contact from `contact-or-init` and `nickname`.
  *        4. TODO(SE-510): Schedule fetching gateway-defined profile picture
  *           here, if contact was added and if necessary.
- *     5. Lookup the contact associated to `sender-identity` and let
- *        `contact` be the result (at this point, `contact` must exist).
- *     6. (MD) If the contact's nickname is different to `nickname`:
- *         1. Begin a transaction with scope `CONTACT_SYNC` and the
- *            following precondition:
- *            1. If the contact no longer exists, log an error and
- *               exceptionally abort these steps and the connection.
- *         2. Reflect a `ContactSync.Update` with `contact` including the
- *            new `nickname`.
- *         3. Commit the transaction and await acknowledgement.
- *     7. Update the contact's nickname with `nickname`. Remove the
- *        contact's nickname if `nickname` is empty.
- *     8. Run the receive steps associated to `inner-type` with
+ *     5. If `contact-or-init` does refer to an existing contact:
+ *        1. Let `change` be an empty set of properties that need to be
+ *           updated for `contact-or-init`.
+ *        2. If `contact-or-init` has an acquaintance level different to
+ *           _direct_ and `inner-type` requires to create an implicit
+ *           _direct_ contact, set `change.acquaintance-level` to _direct_.
+ *        3. If the contact's nickname is different to `nickname`, set
+ *           `change.nickname` to `nickname`.
+ *        4. (MD) If `change` is not an empty set:
+ *           1. Begin a transaction with scope `CONTACT_SYNC` and the
+ *              following precondition:
+ *              1. If the contact no longer exists, log an error and
+ *                 exceptionally abort these steps and the connection.
+ *           2. Reflect a `ContactSync.Update` with `contact` set to
+ *              `d2d_sync.Contact` with the following changes:
+ *              - `acquaintance_level` set to `change.acquaintance-level`,
+ *              - `nickname` set to `change.nickname`.
+ *           3. Commit the transaction and await acknowledgement.
+ *        5. Apply any changes in `change` to `contact-or-init`.
+ *     6. If `inner-type` requires to create an implicit _direct_ contact,
+ *        run the following sub-steps in a loop:
+ *        1. If this is the 4th iteration, exceptionally abort these steps
+ *           and the connection.
+ *        2. Lookup the contact associated to `sender-identity` and let
+ *           `contact` be the result (at this point, `contact` must exist).
+ *        3. If `contact` has acquaintance level _direct_, abort the loop.
+ *        4. (MD) Run the following sub-steps:
+ *           1. Begin a transaction with scope `CONTACT_SYNC` and the
+ *              following precondition:
+ *              1. If the contact no longer exists, log an error and
+ *                 exceptionally abort these steps and the connection.
+ *           2. Reflect a `ContactSync.Update` with `contact` including
+ *              `acquaintance_level` set to `DIRECT`.
+ *           3. Commit the transaction and await acknowledgement.
+ *        5. Set `contact`'s acquaintance level to _direct_.
+ *     7. Run the receive steps associated to `inner-type` with
  *        `inner-message`. If this fails, exceptionally abort these steps and
  *        the connection. If the message has been discarded, _Acknowledge_
  *        the message and abort these steps.
- * 22. (MD) If the properties associated to `inner-type` require
+ * 23. (MD) If the properties associated to `inner-type` require
  *     reflecting incoming messages, reflect a `d2d.IncomingMessage` from
  *     `outer-type` and `outer-message` and the associated conversation to
  *     other devices and wait for reflection acknowledgement.² If this fails,
  *     exceptionally abort these steps and the connection.³
- * 23. If the properties associated to `inner-type` require sending
+ * 24. If the properties associated to `inner-type` require sending
  *     automatic delivery receipts and `flags` does not contain the _no
  *     automatic delivery receipts_ (`0x80`) flag, schedule a persistent task
  *     to run the _Bundled Messages Send Steps_ with the following
@@ -1191,7 +1221,7 @@ export class LegacyMessage extends base.Struct implements LegacyMessageLike {
  *     - to construct a [`delivery-receipt`](ref:e2e.delivery-receipt)
  *       message with status _received_ (`0x01`) and the respective
  *       `message-id`.
- * 24. _Acknowledge_ the message.
+ * 25. _Acknowledge_ the message.
  *
  * ¹: Note that the `nickname` of `MessageMetadata` may be undefined (leading
  * to no changes) or defined but explicitly empty (leading to the nickname of

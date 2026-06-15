@@ -16,7 +16,6 @@ import type {
     MessageQueryDirection,
     MessageType,
     NonceScope,
-    NotificationSoundPolicy,
     PersistentProtocolStateType,
     PollAnnounceType,
     PollAnswerType,
@@ -31,6 +30,7 @@ import type {
     TypingIndicatorPolicy,
     VerificationLevel,
     WorkVerificationLevel,
+    WorkAvailabilityStatusCategory,
 } from '~/common/enum';
 import type {FileEncryptionKey, FileId} from '~/common/file-storage';
 import type {FavoriteEmojisSortMode} from '~/common/model/emoji-preferences';
@@ -185,11 +185,15 @@ export type DbContact = {
         readonly policy: ContactNotificationTriggerPolicy;
         readonly expiresAt?: Date;
     };
-    notificationSoundPolicyOverride?: NotificationSoundPolicy;
     profilePictureContactDefined?: ReadonlyUint8Array;
     profilePictureGatewayDefined?: ReadonlyUint8Array;
     profilePictureUserDefined?: ReadonlyUint8Array;
     profilePictureBlobIdSent?: BlobId;
+    workAvailabilityStatus?: {
+        category: WorkAvailabilityStatusCategory;
+        description: string;
+    };
+    workLastFullSyncAt?: Date;
 } & DbReceiverCommon<ReceiverType.CONTACT, DbContactUid>;
 
 /**
@@ -232,7 +236,6 @@ export type DbGroup = {
         readonly policy: GroupNotificationTriggerPolicy;
         readonly expiresAt?: Date;
     };
-    notificationSoundPolicyOverride?: NotificationSoundPolicy;
     profilePictureAdminDefined?: ReadonlyUint8Array;
 } & DbReceiverCommon<ReceiverType.GROUP, DbGroupUid>;
 

@@ -2,6 +2,8 @@
   @component Renders the main settings view.
 -->
 <script lang="ts">
+  import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+
   import {globals} from '~/app/globals';
   import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import {getCategoryTitle} from '~/app/ui/components/partials/settings/helpers';
@@ -20,9 +22,9 @@
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import {reactive, svelteUnreachable} from '~/app/ui/utils/svelte';
   import {display} from '~/common/dom/ui/state';
+  import type {WorkAvailabilityStatus} from '~/common/model/types/work-availability-status';
   import type {SettingsCategory} from '~/common/settings';
   import type {ReadonlyUint8Array} from '~/common/types';
-  import {ensureError} from '~/common/utils/assert';
   import type {Remote} from '~/common/utils/endpoint';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
   import type {SettingsViewModelBundle} from '~/common/viewmodel/settings';
@@ -103,6 +105,12 @@
             ),
       );
     });
+  }
+
+  async function handleUpdateWorkAvailabilityStatus(
+    workAvailabilityStatus: WorkAvailabilityStatus,
+  ): Promise<void> {
+    await viewModelController?.updateWorkAvailabilityStatus(workAvailabilityStatus);
   }
 
   $effect(() => {
@@ -190,6 +198,7 @@
               handleUpdateSettings({update, type: 'profile'});
             },
             updateProfilePicture: handleUpdateProfilePicture,
+            updateWorkAvailabilityStatus: handleUpdateWorkAvailabilityStatus,
           }}
           settings={$viewModelStore.profile}
         />

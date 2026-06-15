@@ -123,7 +123,8 @@ function makeBuildConfig(environment: BuildEnvironment): BuildConfig {
                 SAFE_SERVER_URL: 'https://safe-{backupIdPrefix8}.threema.ch/',
                 RENDEZVOUS_SERVER_URL:
                     'wss://rendezvous-{rendezvousPathPrefix4}.threema.ch/{rendezvousPathPrefix8}/',
-                WORK_SERVER_URL: 'https://ds-apip-work.threema.ch/',
+                WORK_SERVER_LEGACY_URL: 'https://ds-apip-work.threema.ch/',
+                WORK_SERVER_URL: 'https://work.threema.ch/',
                 UPDATE_SERVER_URL: 'https://releases.threema.ch/desktop/',
 
                 // We don't do any automatic crash reporting for our live (consumer) builds
@@ -147,7 +148,8 @@ function makeBuildConfig(environment: BuildEnvironment): BuildConfig {
                 SAFE_SERVER_URL: 'https://safe-{backupIdPrefix8}.threema.ch/', // Does not have a sandboxed version
                 RENDEZVOUS_SERVER_URL:
                     'wss://rendezvous-{rendezvousPathPrefix4}.test.threema.ch/{rendezvousPathPrefix8}/',
-                WORK_SERVER_URL: 'https://ds-apip-work.test.threema.ch/',
+                WORK_SERVER_LEGACY_URL: 'https://ds-apip-work.test.threema.ch/',
+                WORK_SERVER_URL: 'https://work.test.threema.ch/',
                 UPDATE_SERVER_URL: 'https://releases.threema.ch/desktop/',
 
                 // Only enabled for internal test builds on sandbox, if set through env variable
@@ -164,6 +166,7 @@ function makeBuildConfig(environment: BuildEnvironment): BuildConfig {
                 BLOB_SERVER_URL: undefined,
                 SAFE_SERVER_URL: undefined,
                 RENDEZVOUS_SERVER_URL: undefined,
+                WORK_SERVER_LEGACY_URL: undefined,
                 WORK_SERVER_URL: undefined,
                 UPDATE_SERVER_URL: 'https://releases.threema.ch/desktop/',
 
