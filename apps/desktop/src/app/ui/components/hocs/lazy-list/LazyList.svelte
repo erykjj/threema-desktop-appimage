@@ -5,7 +5,9 @@
   observing items that enter and exit the view.
 -->
 <script lang="ts" generics="TProps extends {readonly id: unknown}">
+  import {AsyncLock} from '@threema/ts-utils/lock/async-lock';
   import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+  import {TIMER} from '@threema/ts-utils/timer/global-timer';
   import {onDestroy, onMount, tick} from 'svelte';
 
   import {intersection} from '~/app/ui/actions/intersection';
@@ -15,8 +17,6 @@
   import {reactive, type SvelteNullableBinding} from '~/app/ui/utils/svelte';
   import {assertUnreachable} from '~/common/utils/assert';
   import {createBufferedDispatcher} from '~/common/utils/callback';
-  import {AsyncLock} from '~/common/utils/lock';
-  import {TIMER} from '~/common/utils/timer';
 
   const {
     items,
@@ -260,7 +260,10 @@
 
     list-style-type: none;
     overflow: clip auto;
-    overscroll-behavior-y: contain;
+    // Note: Must stay `auto` (not `contain`). Since Chromium 144 (Electron 40),
+    // `overscroll-behavior` is honored even on scroll containers with no overflow of their own, so
+    // `contain` would swallow wheel/touch gestures when this list is embedded in another scroller.
+    overscroll-behavior-y: auto;
     scroll-snap-type: y mandatory;
 
     .item {

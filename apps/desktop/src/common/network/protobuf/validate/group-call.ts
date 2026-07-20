@@ -1,4 +1,15 @@
 import * as v from '@badrap/valita';
+import {group_call} from '@threema/protocol/protobuf';
+import {ensureU53} from '@threema/ts-utils/integer/u53';
+import {ensureU8} from '@threema/ts-utils/integer/u8';
+import {tag} from '@threema/ts-utils/meta/newtype';
+import {unixTimestampToDateMs} from '@threema/ts-utils/number/unix-timestamp-to-date-ms';
+import {
+    ensureDtlsFingerprint,
+    ensureIcePassword,
+    ensureIceUsernameFragment,
+    ensureRtpHeaderExtensionId,
+} from '@threema/webrtc/sdp';
 
 import {
     ensureCookie,
@@ -13,28 +24,20 @@ import {
     type RemoteParticipantCallKey,
     type RemoteParticipantCookie,
 } from '~/common/crypto/group-call';
-import {group_call} from '~/common/network/protobuf/js';
 import {validator} from '~/common/network/protobuf/utils';
 import * as Unit from '~/common/network/protobuf/validate/common/unit';
 import {NULL_OR_UNDEFINED_SCHEMA} from '~/common/network/protobuf/validate/helpers';
 import {SfuSupportedFeatures} from '~/common/network/protocol/call/flags';
 import {ensureParticipantId} from '~/common/network/protocol/call/group-call';
 import {ensureIdentityString, ensureNickname} from '~/common/network/types';
-import {ensureU16, ensureU53, ensureU8, tag} from '~/common/types';
+import {ensureU16} from '~/common/types';
 import {assert} from '~/common/utils/assert';
-import {unixTimestampToDateMs} from '~/common/utils/number';
 import {
     instanceOf,
     nullEmptyStringOptional,
     nullOptional,
     unsignedLongAsU64,
 } from '~/common/utils/valita-helpers';
-import {
-    ensureIceUsernameFragment,
-    ensureIcePassword,
-    ensureDtlsFingerprint,
-    ensureRtpHeaderExtensionId,
-} from '~/common/webrtc';
 
 export const CALL_STATE_SNAPSHOT_SCHEMA = validator(
     group_call.CallState,

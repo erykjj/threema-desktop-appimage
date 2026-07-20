@@ -2,6 +2,7 @@
   @component Renders the main settings view.
 -->
 <script lang="ts">
+  import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
   import {ensureError} from '@threema/ts-utils/meta/ensure-error';
 
   import {globals} from '~/app/globals';
@@ -24,7 +25,6 @@
   import {display} from '~/common/dom/ui/state';
   import type {WorkAvailabilityStatus} from '~/common/model/types/work-availability-status';
   import type {SettingsCategory} from '~/common/settings';
-  import type {ReadonlyUint8Array} from '~/common/types';
   import type {Remote} from '~/common/utils/endpoint';
   import {ReadableStore, type IQueryableStore} from '~/common/utils/store';
   import type {SettingsViewModelBundle} from '~/common/viewmodel/settings';
@@ -227,10 +227,13 @@
       padding: rem(12px) rem(8px);
       display: grid;
       grid-template:
-        'left center right' minmax(rem(40px), min-content)
+        'left center right'
         / rem(40px) auto rem(40px);
       gap: rem(12px);
       align-items: center;
+
+      height: rem(64px);
+      user-select: none;
 
       .left {
         grid-area: left;
@@ -262,20 +265,6 @@
         .left .back {
           // Keep item clickable in drag area.
           -webkit-app-region: no-drag;
-        }
-      }
-
-      &[data-display='small'] {
-        .top-bar {
-          grid-template:
-            'left center right' min-content
-            / rem(119px) auto rem(119px);
-
-          .left {
-            display: flex;
-            align-items: center;
-            justify-content: right;
-          }
         }
       }
     }

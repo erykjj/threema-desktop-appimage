@@ -1,3 +1,6 @@
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
+import type {AsyncLock} from '@threema/ts-utils/lock/async-lock';
 import {ensureError} from '@threema/ts-utils/meta/ensure-error';
 
 import {type Nonce, NONCE_UNGUARDED_SCOPE} from '~/common/crypto';
@@ -48,11 +51,9 @@ import {
 } from '~/common/network/protocol/blob';
 import {BLOB_FILE_NONCE, BLOB_THUMBNAIL_NONCE} from '~/common/network/protocol/constants';
 import type {RawBlobKey} from '~/common/network/types/keys';
-import type {Mutable, ReadonlyUint8Array, StrictExtract} from '~/common/types';
+import type {Mutable, StrictExtract} from '~/common/types';
 import {assert, unreachable, unwrap} from '~/common/utils/assert';
-import {bytesToHex} from '~/common/utils/byte';
 import type {FileBytesAndMediaType} from '~/common/utils/file';
-import type {AsyncLock} from '~/common/utils/lock';
 import {hasProperty} from '~/common/utils/object';
 
 export const NO_SENDER = Symbol('no-sender');

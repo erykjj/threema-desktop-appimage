@@ -1,3 +1,7 @@
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
+import {TIMER} from '@threema/ts-utils/timer/global-timer';
+
 import {
     adapter,
     type QueuingStrategy,
@@ -11,11 +15,8 @@ import {
 import {RendezvousCloseCode} from '~/common/enum';
 import {CloseCode} from '~/common/network';
 import {closeCauseToCloseInfo, isRendezvousCloseCause} from '~/common/network/protocol/rendezvous';
-import type {u16, u32, u53} from '~/common/types';
+import type {u16, u32} from '~/common/types';
 import {ProxyHandlerWrapper} from '~/common/utils/proxy';
-import {ResolvablePromise} from '~/common/utils/resolvable-promise';
-import {TIMER} from '~/common/utils/timer';
-
 // Add `WebSocketStream` to global since it's not in lib.dom.ts yet.
 declare global {
     interface WebSocketConnection {

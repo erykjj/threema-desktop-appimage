@@ -1,3 +1,5 @@
+import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
+import type {u53} from '@threema/ts-utils/integer/u53';
 import DatabaseConstructor, {type Database} from 'better-sqlcipher';
 import {SynchronousPromise} from 'synchronous-promise';
 import type {UpdatableValues} from 'ts-sql-query/extras/types';
@@ -101,7 +103,6 @@ import {
     type PollId,
 } from '~/common/network/types';
 import {type Settings, SETTINGS_CODEC} from '~/common/settings';
-import type {u53} from '~/common/types';
 import {chunk} from '~/common/utils/array';
 import {
     assert,
@@ -110,7 +111,6 @@ import {
     unreachable,
     unwrap,
 } from '~/common/utils/assert';
-import {bytesToHex} from '~/common/utils/byte';
 import {isSingleUnicodeEmoji, type SingleUnicodeEmoji} from '~/common/utils/emoji';
 import {hasProperty, omit, pick} from '~/common/utils/object';
 

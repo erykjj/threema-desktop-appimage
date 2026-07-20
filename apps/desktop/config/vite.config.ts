@@ -4,6 +4,8 @@ import * as process from 'node:process';
 
 import * as v from '@badrap/valita';
 import {svelte} from '@sveltejs/vite-plugin-svelte';
+import tailwindcss from '@tailwindcss/vite';
+import type {u53} from '@threema/ts-utils/integer/u53';
 import {unreachable} from '@threema/ts-utils/meta/unreachable';
 import cjsExternals from '@threema/vite-plugin-commonjs-externals';
 import {subresourceIntegrityPlugin} from '@threema/vite-plugin-subresource-integrity';
@@ -12,7 +14,7 @@ import istanbulPlugin from 'vite-plugin-istanbul';
 import tsconfigPaths from 'vite-tsconfig-paths';
 
 // Imports cannot be absolute in this file.
-import {KiB, MiB, type u53} from '../src/common/types';
+import {KiB, MiB} from '../src/common/types';
 
 import {
     BUILD_ENTRIES,
@@ -422,6 +424,11 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
             WEBRTC: env.environment === 'sandbox',
         },
 
+        // Feature flags
+        FEATURES: {
+            CONFERENCE_CALLS: env.environment === 'sandbox',
+        },
+
         // Build config
         ...makeBuildConfig(env.environment),
     };
@@ -536,6 +543,9 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
                 './test/mocha/common/tsconfig.json',
             ],
         }),
+        // Tailwind CSS (used alongside the existing SCSS theme). Must come before the Svelte
+        // plugin. Only relevant for the `app` entry, which is the only one that bundles CSS.
+        tailwind: env.entry === 'app' ? tailwindcss() : undefined,
         svelte:
             env.entry === 'app'
                 ? svelte({
@@ -673,6 +683,7 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
                     '.',
                     '../node_modules',
                     '../../../node_modules/',
+                    '../../../packages/branding',
                     '../../../packages/libthreema-wasm/libs',
                 ],
             },
@@ -682,7 +693,12 @@ export default function defineConfig(viteEnv: ViteConfigEnv): UserConfig {
             format: 'iife',
             plugins: () =>
                 Object.values(plugins)
-                    .filter((plugin) => plugin !== undefined && plugin !== plugins.svelte)
+                    .filter(
+                        (plugin) =>
+                            plugin !== undefined &&
+                            plugin !== plugins.svelte &&
+                            plugin !== plugins.tailwind,
+                    )
                     .flat(),
         },
         experimental: {

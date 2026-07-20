@@ -101,6 +101,7 @@
       / auto 1fr;
     gap: rem(8px);
     place-items: center;
+    width: 100%;
 
     &:focus-within {
       background-color: var(--cc-search-input-background-color--focus, inherit);
@@ -121,8 +122,8 @@
 
       & {
         color: var(--cc-search-input-icon-color, inherit);
-        padding: rem(8px);
-        font-size: em(24px);
+        padding: rem(10px);
+        font-size: rem(24px);
         user-select: none;
         display: grid;
         place-items: center;

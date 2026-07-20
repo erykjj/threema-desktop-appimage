@@ -1,5 +1,8 @@
 import * as v from '@badrap/valita';
 import type {ClientInfo} from '@threema/libthreema-wasm';
+import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
+import {hexToBytes} from '@threema/ts-utils/byte/hex-to-bytes';
+import {ensureU8} from '@threema/ts-utils/integer/u8';
 
 import type {LoggerFactory} from '~/common/logging';
 import {IdentityCreateTask} from '~/common/network/protocol/task/libthreema/identity-create';
@@ -10,9 +13,7 @@ import {
     ensureIdentityString,
     ensureServerGroup,
 } from '~/common/network/types';
-import {ensureU8} from '~/common/types';
 import {assert} from '~/common/utils/assert';
-import {bytesToHex, hexToBytes} from '~/common/utils/byte';
 
 export const TEST_DATA_JSON_SCHEMA = v
     .object({

@@ -1,4 +1,7 @@
 import * as v from '@badrap/valita';
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {intoUnsignedLong} from '@threema/ts-utils/number/into-unsigned-long';
+import {unixTimestampToDateMs} from '@threema/ts-utils/number/unix-timestamp-to-date-ms';
 
 import {WorkAvailabilityStatusCategory, WorkAvailabilityStatusCategoryUtils} from '~/common/enum';
 import * as proto from '~/common/internal-protobuf/settings';
@@ -9,9 +12,7 @@ import {ensureBlobId} from '~/common/network/protocol/blob';
 import {ensureNickname} from '~/common/network/types';
 import {wrapRawBlobKey} from '~/common/network/types/keys';
 import type {SettingsCategoryCodec} from '~/common/settings';
-import type {ReadonlyUint8Array} from '~/common/types';
 import {unreachable} from '~/common/utils/assert';
-import {intoUnsignedLong, unixTimestampToDateMs} from '~/common/utils/number';
 import {instanceOf, nullOptional, unsignedLongAsU64} from '~/common/utils/valita-helpers';
 
 /**

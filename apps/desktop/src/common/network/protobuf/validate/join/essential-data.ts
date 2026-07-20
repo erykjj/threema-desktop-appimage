@@ -1,9 +1,12 @@
 import * as v from '@badrap/valita';
+import {common, d2d_join, d2d_sync} from '@threema/protocol/protobuf';
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
+import {unixTimestampToDateMs} from '@threema/ts-utils/number/unix-timestamp-to-date-ms';
 
 import {ensureNonceHash, type NonceHash} from '~/common/crypto';
 import {WorkAvailabilityStatusCategory} from '~/common/enum';
 import type {WorkAvailabilityStatus} from '~/common/model/types/work-availability-status';
-import {common, d2d_join, d2d_sync} from '~/common/network/protobuf/js';
 import {validator} from '~/common/network/protobuf/utils';
 import * as DeltaImage from '~/common/network/protobuf/validate/common/delta-image';
 import {NULL_OR_UNDEFINED_SCHEMA} from '~/common/network/protobuf/validate/helpers';
@@ -15,9 +18,6 @@ import {profilePictureShareWithFromSchema} from '~/common/network/protobuf/valid
 import * as WorkAvailabilityStatusSchema from '~/common/network/protobuf/validate/sync/work-availability-status';
 import {ensureDeviceCookie, ensureIdentityString, ensureServerGroup} from '~/common/network/types';
 import {wrapRawClientKey, wrapRawDeviceGroupKey} from '~/common/network/types/keys';
-import type {ReadonlyUint8Array} from '~/common/types';
-import {bytesToHex} from '~/common/utils/byte';
-import {unixTimestampToDateMs} from '~/common/utils/number';
 import {instanceOf, nullOptional, unsignedLongAsU64, validate} from '~/common/utils/valita-helpers';
 
 const SCHEMA_IDENTITY_DATA = validator(

@@ -1,3 +1,29 @@
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {u8aToBase64} from '@threema/ts-utils/base64/u8a-to-base64';
+import {byteEquals} from '@threema/ts-utils/byte/byte-equals';
+import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
+import {UTF8} from '@threema/ts-utils/codec/utf8';
+import {Delayed} from '@threema/ts-utils/delayed/delayed';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {AsyncLock} from '@threema/ts-utils/lock/async-lock';
+import {tag} from '@threema/ts-utils/meta/newtype';
+import {dateToUnixTimestampMs} from '@threema/ts-utils/number/date-to-unix-timestamp-ms';
+import {intoUnsignedLong} from '@threema/ts-utils/number/into-unsigned-long';
+import {u64ToBytesLe} from '@threema/ts-utils/number/u64-to-bytes-le';
+import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
+import {SequenceNumberU53} from '@threema/ts-utils/sequence-number/sequence-number-u53';
+import {SequenceNumberU64} from '@threema/ts-utils/sequence-number/sequence-number-u64';
+import {TIMER} from '@threema/ts-utils/timer/global-timer';
+import type {TimerCanceller} from '@threema/ts-utils/timer/timer-canceller';
+import {
+    type DtlsFingerprint,
+    type IcePassword,
+    type IceUsernameFragment,
+    type RtpHeaderExtensionId,
+    type RtpHeaderExtensionIds,
+    SDP_TOKEN_RANGE,
+} from '@threema/webrtc/sdp';
+
 import {
     COOKIE_LENGTH,
     NACL_CONSTANTS,
@@ -49,34 +75,17 @@ import {
     type ParticipantId,
     type ServicesForGroupCall,
 } from '~/common/network/protocol/call/group-call';
-import {tag, type Dimensions, type ReadonlyUint8Array, type u53, type u64} from '~/common/types';
+import type {Dimensions, u64} from '~/common/types';
 import {assert, unreachable, unwrap} from '~/common/utils/assert';
-import {u8aToBase64} from '~/common/utils/base64';
-import {byteEquals, bytesToHex} from '~/common/utils/byte';
-import {UTF8} from '~/common/utils/codec';
-import {Delayed} from '~/common/utils/delayed';
 import {
     type ProxyMarked,
     type RemoteProxy,
     type ProxyEndpoint,
     PROXY_HANDLER,
 } from '~/common/utils/endpoint';
-import {AsyncLock} from '~/common/utils/lock';
-import {dateToUnixTimestampMs, intoUnsignedLong, u64ToBytesLe} from '~/common/utils/number';
-import {ResolvablePromise} from '~/common/utils/resolvable-promise';
-import {SequenceNumberU53, SequenceNumberU64} from '~/common/utils/sequence-number';
 import {AbortRaiser, type AbortListener} from '~/common/utils/signal';
 import {WritableStore, type IQueryableStore, type ReadableStore} from '~/common/utils/store';
 import {derive} from '~/common/utils/store/derived-store';
-import {TIMER, type TimerCanceller} from '~/common/utils/timer';
-import {
-    type IceUsernameFragment,
-    type IcePassword,
-    type DtlsFingerprint,
-    SDP_TOKEN_RANGE,
-    type RtpHeaderExtensionId,
-    type RtpHeaderExtensionIds,
-} from '~/common/webrtc';
 
 const MIDS = [
     ...SDP_TOKEN_RANGE,

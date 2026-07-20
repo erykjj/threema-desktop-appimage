@@ -1,6 +1,12 @@
 import '../sass/app.scss';
+import '../tailwind/index.css';
 
 import initComposeArea from '@threema/compose-area/web';
+import {Delayed} from '@threema/ts-utils/delayed/delayed';
+import {ResettableDelayed} from '@threema/ts-utils/delayed/resettable-delayed';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
+import {TIMER} from '@threema/ts-utils/timer/global-timer';
 import {mount, unmount} from 'svelte';
 
 import {APP_CONFIG} from '~/app/config';
@@ -57,14 +63,10 @@ import type {IGlobalPropertyModel} from '~/common/model/types/settings';
 import type {ModelStore} from '~/common/model/utils/model-store';
 import {DEFAULT_CATEGORY} from '~/common/settings';
 import {parseTestData, type TestDataJson} from '~/common/test-data';
-import type {u53} from '~/common/types';
 import {assertUnreachable, setAssertFailLogger, unwrap} from '~/common/utils/assert';
-import {Delayed, ResettableDelayed} from '~/common/utils/delayed';
 import type {Remote, RemoteProxy} from '~/common/utils/endpoint';
 import type {ReusablePromise} from '~/common/utils/promise';
-import {ResolvablePromise} from '~/common/utils/resolvable-promise';
 import {type ReadableStore, WritableStore, type IQueryableStore} from '~/common/utils/store';
-import {TIMER} from '~/common/utils/timer';
 
 export interface Elements {
     readonly splash: HTMLElement;

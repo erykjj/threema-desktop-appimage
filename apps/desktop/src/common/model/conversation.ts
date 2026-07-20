@@ -1,3 +1,8 @@
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {AsyncLock} from '@threema/ts-utils/lock/async-lock';
+import {TIMER} from '@threema/ts-utils/timer/global-timer';
+import type {TimerCanceller} from '@threema/ts-utils/timer/timer-canceller';
+
 import type {DbConversationUid, DbReceiverLookup, UidOf} from '~/common/db';
 import {
     AcquaintanceLevel,
@@ -69,10 +74,9 @@ import {
     type PollId,
     type IdentityString,
 } from '~/common/network/types';
-import type {i53, Mutable, u53} from '~/common/types';
+import type {i53, Mutable} from '~/common/types';
 import {assert, assertUnreachable, isNotUndefined, unreachable} from '~/common/utils/assert';
 import {PROXY_HANDLER} from '~/common/utils/endpoint';
-import {AsyncLock} from '~/common/utils/lock';
 import {
     createExactPropertyValidator,
     type Exact,
@@ -81,7 +85,6 @@ import {
 import {type LocalStore, WritableStore} from '~/common/utils/store';
 import {derive} from '~/common/utils/store/derived-store';
 import {LocalSetStore, type IDerivableSetStore} from '~/common/utils/store/set-store';
-import {TIMER, type TimerCanceller} from '~/common/utils/timer';
 
 import * as contact from './contact';
 import * as group from './group';

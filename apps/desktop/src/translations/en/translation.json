@@ -30,7 +30,6 @@
     "hint--badge-consumer": "This contact uses {shortAppName}’s consumer version.",
     "hint--badge-work": "This contact uses the business version {fullAppName}.",
     "hint--no-contacts": "Your contact list is empty.",
-    "hint--own-profile-picture": "My profile picture",
     "hint--profile-picture": "Profile picture of {name}",
     "label--add-contact": "New Contact",
     "label--availability-status": "Availability Status",
@@ -52,6 +51,9 @@
     "label--verification-level": "Verification Level",
     "prose--add-contact-instructions": "Please enter the {shortAppName} ID of the contact you would like to add:",
     "prose--add-contact-instructions-work-directory": "Alternatively, search a contact in the company directory, and add it to your contact list:"
+  },
+  "conversations": {
+    "label--title-conversations": "Chats"
   },
   "dialog--auto-app-update-download": {
     "prose--downloading": "Downloading {shortAppName} {version} for desktop…",

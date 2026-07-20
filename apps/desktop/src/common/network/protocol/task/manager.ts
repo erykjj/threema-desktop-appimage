@@ -1,4 +1,11 @@
+import type {u53} from '@threema/ts-utils/integer/u53';
 import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+import type {WeakOpaque} from '@threema/ts-utils/meta/newtype';
+import {intoUnsignedLong} from '@threema/ts-utils/number/into-unsigned-long';
+import {u64ToHexLe} from '@threema/ts-utils/number/u64-to-hex-le';
+import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
+import {SequenceNumberU32} from '@threema/ts-utils/sequence-number/sequence-number-u32';
+import {SequenceNumberU53} from '@threema/ts-utils/sequence-number/sequence-number-u53';
 
 import type {ServicesForBackend} from '~/common/backend';
 import {ensureEncryptedDataWithNonceAhead} from '~/common/crypto';
@@ -34,9 +41,8 @@ import {
     type ReflectSequenceNumber,
     type ReflectSequenceNumberValue,
 } from '~/common/network/types';
-import type {u32, u53, WeakOpaque} from '~/common/types';
+import type {u32} from '~/common/types';
 import {assert, assertUnreachable, unreachable, unwrap} from '~/common/utils/assert';
-import {intoUnsignedLong, u64ToHexLe} from '~/common/utils/number';
 import {
     Queue,
     type QueueConsumer,
@@ -44,8 +50,6 @@ import {
     type QueueValue,
     UnboundedQueue,
 } from '~/common/utils/queue';
-import {ResolvablePromise} from '~/common/utils/resolvable-promise';
-import {SequenceNumberU32, SequenceNumberU53} from '~/common/utils/sequence-number';
 import type {AbortListener} from '~/common/utils/signal';
 
 import {getTaskForIncomingCspMessage as getTaskForIncomingL5CspMessage} from './csp';

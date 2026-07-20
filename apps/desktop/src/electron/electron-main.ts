@@ -4,7 +4,13 @@ import * as process from 'node:process';
 import {pathToFileURL, URL} from 'node:url';
 
 import * as v from '@badrap/valita';
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {base64ToU8a} from '@threema/ts-utils/base64/base64-to-u8a';
+import type {u53} from '@threema/ts-utils/integer/u53';
 import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+import {clamp} from '@threema/ts-utils/number/clamp';
+import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
+import {TIMER} from '@threema/ts-utils/timer/global-timer';
 import type {IpcMainEvent, MenuItemConstructorOptions} from 'electron';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import * as electron from 'electron';
@@ -35,13 +41,7 @@ import {
     ensureRemoteSecretMonitorErrorType,
     type RemoteSecretErrorType,
 } from '~/common/remote-secret';
-import {
-    ensureSpkiValue,
-    type DomainCertificatePin,
-    type i53,
-    type ReadonlyUint8Array,
-    type u53,
-} from '~/common/types';
+import {ensureSpkiValue, type DomainCertificatePin, type i53} from '~/common/types';
 import {
     assert,
     assertUnreachable,
@@ -49,10 +49,6 @@ import {
     unreachable,
     unwrap,
 } from '~/common/utils/assert';
-import {base64ToU8a} from '~/common/utils/base64';
-import {clamp} from '~/common/utils/number';
-import {ResolvablePromise} from '~/common/utils/resolvable-promise';
-import {TIMER} from '~/common/utils/timer';
 
 import {
     checkFallbackOppFile,
@@ -1271,7 +1267,7 @@ function main(
                 enableWebSQL: false,
             },
             minHeight: 420,
-            minWidth: 420,
+            minWidth: 92 + 308 + 64,
         });
 
         if (import.meta.env.BUILD_ENVIRONMENT !== 'onprem') {

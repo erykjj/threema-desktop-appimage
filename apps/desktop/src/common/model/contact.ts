@@ -1,3 +1,8 @@
+import {byteEquals} from '@threema/ts-utils/byte/byte-equals';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {AsyncLock} from '@threema/ts-utils/lock/async-lock';
+import {SequenceNumberU53} from '@threema/ts-utils/sequence-number/sequence-number-u53';
+
 import type {
     DbContact,
     DbContactReceiverLookup,
@@ -48,19 +53,16 @@ import type {ActiveTaskCodecHandle} from '~/common/network/protocol/task';
 import {ReflectContactSyncTransactionTask} from '~/common/network/protocol/task/d2d/reflect-contact-sync-transaction';
 import type {IdentityString} from '~/common/network/types';
 import {getNotificationTagForContact, type NotificationTag} from '~/common/notification';
-import type {StrictOmit, u53} from '~/common/types';
+import type {StrictOmit} from '~/common/types';
 import {assert, unreachable, unwrap} from '~/common/utils/assert';
-import {byteEquals} from '~/common/utils/byte';
 import {PROXY_HANDLER} from '~/common/utils/endpoint';
 import {idColorIndex, idColorIndexToString} from '~/common/utils/id-color';
-import {AsyncLock} from '~/common/utils/lock';
 import {
     createExactPropertyValidator,
     type Exact,
     OPTIONAL,
     REQUIRED,
 } from '~/common/utils/property-validator';
-import {SequenceNumberU53} from '~/common/utils/sequence-number';
 import {LocalSetStore} from '~/common/utils/store/set-store';
 import {getGraphemeClusters} from '~/common/utils/string';
 

@@ -1,3 +1,10 @@
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {byteEquals} from '@threema/ts-utils/byte/byte-equals';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {AsyncLock} from '@threema/ts-utils/lock/async-lock';
+import {u64ToHexLe} from '@threema/ts-utils/number/u64-to-hex-le';
+import {SequenceNumberU53} from '@threema/ts-utils/sequence-number/sequence-number-u53';
+
 import type {
     DbContactUid,
     DbCreate,
@@ -64,13 +71,10 @@ import {ReflectGroupSyncTransactionTask} from '~/common/network/protocol/task/d2
 import {randomGroupId} from '~/common/network/protocol/utils';
 import type {GroupId, IdentityString} from '~/common/network/types';
 import {getNotificationTagForGroup, type NotificationTag} from '~/common/notification';
-import type {Mutable, ReadonlyUint8Array, u53} from '~/common/types';
+import type {Mutable} from '~/common/types';
 import {assert, assertUnreachable, unreachable, unwrap} from '~/common/utils/assert';
-import {byteEquals} from '~/common/utils/byte';
 import {PROXY_HANDLER} from '~/common/utils/endpoint';
 import {idColorIndex, idColorIndexToString} from '~/common/utils/id-color';
-import {AsyncLock} from '~/common/utils/lock';
-import {u64ToHexLe} from '~/common/utils/number';
 import {omit} from '~/common/utils/object';
 import {
     createExactPropertyValidator,
@@ -78,7 +82,6 @@ import {
     OPTIONAL,
     REQUIRED,
 } from '~/common/utils/property-validator';
-import {SequenceNumberU53} from '~/common/utils/sequence-number';
 import {difference} from '~/common/utils/set';
 import type {AbortListener} from '~/common/utils/signal';
 import {WritableStore, type ReadableStore} from '~/common/utils/store';

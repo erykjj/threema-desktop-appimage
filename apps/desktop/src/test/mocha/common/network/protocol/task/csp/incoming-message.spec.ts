@@ -1,3 +1,13 @@
+import type {MessageWithMetadataBoxLike} from '@threema/protocol/structbuf/csp/payload';
+import type {ByteLengthEncoder} from '@threema/ts-utils/byte/byte-encoder';
+import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
+import {UTF8} from '@threema/ts-utils/codec/utf8';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import type {u8} from '@threema/ts-utils/integer/u8';
+import {tag} from '@threema/ts-utils/meta/newtype';
+import {dateToUnixTimestampMs} from '@threema/ts-utils/number/date-to-unix-timestamp-ms';
+import {dateToUnixTimestampS} from '@threema/ts-utils/number/date-to-unix-timestamp-s';
+import {intoUnsignedLong} from '@threema/ts-utils/number/into-unsigned-long';
 import {expect} from 'chai';
 
 import type {ServicesForBackend} from '~/common/backend';
@@ -34,7 +44,6 @@ import {IncomingGroupNameTask} from '~/common/network/protocol/task/csp/group-sy
 import {IncomingMessageTask} from '~/common/network/protocol/task/csp/incoming-message';
 import {randomGroupId, randomMessageId} from '~/common/network/protocol/utils';
 import * as structbuf from '~/common/network/structbuf';
-import type {MessageWithMetadataBoxLike} from '~/common/network/structbuf/csp/payload';
 import type {FileRenderingType} from '~/common/network/structbuf/validate/csp/e2e/file';
 import {
     ensureIdentityString,
@@ -46,19 +55,9 @@ import {
     type Nickname,
 } from '~/common/network/types';
 import type {RawBlobKey} from '~/common/network/types/keys';
-import {
-    type ByteLengthEncoder,
-    type Dimensions,
-    type f64,
-    type u8,
-    type u53,
-    tag,
-} from '~/common/types';
+import type {Dimensions, f64} from '~/common/types';
 import {assert, unreachable, unwrap} from '~/common/utils/assert';
-import {bytesToHex} from '~/common/utils/byte';
-import {UTF8} from '~/common/utils/codec';
 import {Identity} from '~/common/utils/identity';
-import {dateToUnixTimestampMs, dateToUnixTimestampS, intoUnsignedLong} from '~/common/utils/number';
 import {hasPropertyStrict} from '~/common/utils/object';
 import {
     addTestGroup,

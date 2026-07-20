@@ -1,4 +1,9 @@
+import {Delayed} from '@threema/ts-utils/delayed/delayed';
+import type {u53} from '@threema/ts-utils/integer/u53';
 import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+import {clamp} from '@threema/ts-utils/number/clamp';
+import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
+import {TIMER} from '@threema/ts-utils/timer/global-timer';
 
 import type {ServicesForBackend} from '~/common/backend';
 import {NACL_CONSTANTS, wrapRawKey} from '~/common/crypto';
@@ -42,19 +47,14 @@ import {
 import {DropDeviceTask} from '~/common/network/protocol/task/d2m/drop-device';
 import {ConnectedTaskManager} from '~/common/network/protocol/task/manager';
 import type {TemporaryClientKey} from '~/common/network/types/keys';
-import type {u53} from '~/common/types';
 import {assert, assertUnreachable, unreachable} from '~/common/utils/assert';
-import {Delayed} from '~/common/utils/delayed';
 import {PROXY_HANDLER} from '~/common/utils/endpoint';
-import {clamp} from '~/common/utils/number';
-import {ResolvablePromise} from '~/common/utils/resolvable-promise';
 import {AbortRaiser, type AbortListener} from '~/common/utils/signal';
 import {
     MonotonicEnumStore,
     type StoreUnsubscriber,
     type StrictMonotonicEnumStore,
 } from '~/common/utils/store';
-import {TIMER} from '~/common/utils/timer';
 
 interface ClosingSignal {
     readonly done: ResolvablePromise<void>;

@@ -1,5 +1,5 @@
-import type {u53} from '~/common/types';
-import {clamp} from '~/common/utils/number';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {clamp} from '@threema/ts-utils/number/clamp';
 
 /**
  * Determine whether `a` and `b` {@link Date}s are in the same minute.

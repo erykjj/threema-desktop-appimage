@@ -71,6 +71,7 @@ structure.
 │   ├── eslint-config/                     # Shared ESLint configuration
 │   ├── eslint-plugin-threema/             # Custom ESLint rules
 │   ├── libthreema-wasm/                   # Threema protocol implementation written in Rust
+│   ├── protocol/                          # Generated Threema protocol bindings (protobuf/structbuf)
 │   ├── ts-config/                         # Shared TypeScript configuration
 │   ├── ts-utils/                          # Shared TypeScript utilities
 │   ├── vite-plugin-commonjs-externals/
@@ -195,7 +196,7 @@ pnpm run test:desktop:playwright:consumer-sandbox # E2E tests
   - `PascalCase` for components, classes, types, and interfaces.
   - `kebab-case` for file and directory names.
 - **Imports**: In the desktop app, use imports relative to the base paths defined in
-  `apps/desktop/src/tsconfig.base.json`, e.g. `import type {u53} from '~/common/types';`.
+  `apps/desktop/src/tsconfig.base.json`, e.g. `import {D2mPayloadTypeUtils} from '~/common/enum';`.
 - **Entry points**: Only files matching `entry.*.ts` or `entry.ts` are valid entry points. This
   ensures no side effects when importing for unit testing.
 
@@ -278,6 +279,8 @@ Some code is generated and should NOT be modified manually (usually stated at th
   `pnpm run generate:desktop:safe-enums`.
 - `src/common/network/protobuf/`: Generated from protobuf definitions.
 - `src/common/network/structbuf/`: Generated from structbuf definitions (except `utils.ts`).
+- `packages/protocol/src/`: Generated from the `threema-protocols` repository via
+  `pnpm run update:protocol`.
 
 Generating code should usually be done manually by the user. Always ask first before running any
 `pnpm run generate:*` scripts.

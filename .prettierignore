@@ -14,6 +14,7 @@ build
 # Package: `apps/desktop`
 /apps/desktop/.nyc_output_karma
 /apps/desktop/.nyc_output_mocha
+/apps/desktop/.temp
 /apps/desktop/coverage/
 /apps/desktop/export/
 /apps/desktop/junit/
@@ -37,6 +38,9 @@ build
 # Package: `packages/ui`
 /packages/ui/coverage/
 
+# Package: `packages/webrtc`
+/packages/webrtc/coverage/
+
 # Package: `apps/conferencing`
 /apps/conferencing/dist/
 /apps/conferencing/playwright-report/
@@ -44,3 +48,6 @@ build
 
 # Package: `packages/libthreema-wasm`
 /packages/libthreema-wasm/libs/
+
+# Package: `packages/protocol`
+/packages/protocol/src/protobuf/

@@ -1,3 +1,6 @@
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import type {u53} from '@threema/ts-utils/integer/u53';
+
 import type {
     DeleteProfileOptions,
     ElectronIpc,
@@ -9,7 +12,7 @@ import type {IFrontendElectronService} from '~/common/electron-service';
 import {TRANSFER_HANDLER} from '~/common/index';
 import type {LogInfo} from '~/common/node/file-storage/log-info';
 import type {RemoteSecretErrorType} from '~/common/remote-secret';
-import type {DomainCertificatePin, ReadonlyUint8Array, u53} from '~/common/types';
+import type {DomainCertificatePin} from '~/common/types';
 import {unwrap} from '~/common/utils/assert';
 import {PROXY_HANDLER} from '~/common/utils/endpoint';
 import type {PlaywrightIpcService} from '~/test/playwright/common/types/electron-fixture';

@@ -1,3 +1,11 @@
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {byteEquals} from '@threema/ts-utils/byte/byte-equals';
+import {UTF8} from '@threema/ts-utils/codec/utf8';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import {dateToUnixTimestampMs} from '@threema/ts-utils/number/date-to-unix-timestamp-ms';
+import {dateToUnixTimestampS} from '@threema/ts-utils/number/date-to-unix-timestamp-s';
+import {intoUnsignedLong} from '@threema/ts-utils/number/into-unsigned-long';
+
 import type {Nonce} from '~/common/crypto';
 import {CREATE_BUFFER_TOKEN} from '~/common/crypto/box';
 import {deriveMessageMetadataKey} from '~/common/crypto/csp-keys';
@@ -42,11 +50,7 @@ import {ReflectOutgoingMessageUpdateTask} from '~/common/network/protocol/task/d
 import {randomMessageId} from '~/common/network/protocol/utils';
 import * as structbuf from '~/common/network/structbuf';
 import {conversationIdForReceiver} from '~/common/network/types';
-import type {ReadonlyUint8Array, u53} from '~/common/types';
 import {assert, assertUnreachable, unreachable} from '~/common/utils/assert';
-import {byteEquals} from '~/common/utils/byte';
-import {UTF8} from '~/common/utils/codec';
-import {dateToUnixTimestampMs, dateToUnixTimestampS, intoUnsignedLong} from '~/common/utils/number';
 
 /**
  * A function that takes a contact and returns an encoder and the corresponding message properties. If `omit` is returned, no

@@ -1,3 +1,6 @@
+import {byteJoin} from '@threema/ts-utils/byte/byte-join';
+import {tag} from '@threema/ts-utils/meta/newtype';
+
 import type {ServicesForBackend} from '~/common/backend';
 import type {Config} from '~/common/config';
 import {type PublicKey, wrapRawKey} from '~/common/crypto';
@@ -10,8 +13,6 @@ import type {
     TemporaryServerKey,
     VouchKey,
 } from '~/common/network/types/keys';
-import {tag} from '~/common/types';
-import {byteJoin} from '~/common/utils/byte';
 
 const PERSONAL = '3ma-csp';
 

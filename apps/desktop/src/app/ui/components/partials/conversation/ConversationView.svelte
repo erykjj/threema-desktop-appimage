@@ -1,5 +1,7 @@
 <script lang="ts">
+  import {UTF8} from '@threema/ts-utils/codec/utf8';
   import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+  import {TIMER} from '@threema/ts-utils/timer/global-timer';
   import {onDestroy, onMount, tick, untrack} from 'svelte';
 
   import {globals} from '~/app/globals';
@@ -63,7 +65,6 @@
   import {EDIT_MESSAGE_GRACE_PERIOD_IN_MINUTES} from '~/common/network/protocol/constants';
   import {FEATURE_MASK_FLAG, type MessageId} from '~/common/network/types';
   import {assertUnreachable, unreachable, unwrap} from '~/common/utils/assert';
-  import {UTF8} from '~/common/utils/codec';
   import type {SingleUnicodeEmoji} from '~/common/utils/emoji';
   import type {Remote} from '~/common/utils/endpoint';
   import {getSanitizedFileNameDetails} from '~/common/utils/file';
@@ -79,7 +80,6 @@
     getGraphemeClusters,
     getLongestValidMatchingGraphemeSequence,
   } from '~/common/utils/string';
-  import {TIMER} from '~/common/utils/timer';
   import type {ConversationViewModelBundle} from '~/common/viewmodel/conversation/main';
   import type {
     SendFileBasedMessageInformation,
@@ -1377,26 +1377,26 @@
     height: 100%;
     overflow: clip;
 
-    &:has(:global(.availability)) {
+    &:has(.availability) {
       grid-template:
         'header' rem(64px)
-        'availability' rem(56px)
+        'availability' min-content
         'messages' minmax(0, 1fr)
         'footer' min-content
         / 100%;
 
       .messages :global(> .chat > .list) {
-        padding-top: calc(rem(64px) + rem(8px) + rem(56px));
-        scroll-padding-top: calc(rem(64px) + rem(8px) + rem(56px));
+        padding-top: calc(rem(64px) + rem(8px) + rem(52px));
+        scroll-padding-top: calc(rem(64px) + rem(8px) + rem(52px));
       }
 
       .messages :global(> .chat > .empty-chat > .notice) {
-        margin-top: calc(rem(16px) + rem(64px) + rem(56px));
+        margin-top: calc(rem(64px) + rem(16px) + rem(52px));
       }
     }
 
     .header {
-      z-index: 1;
+      z-index: 2;
 
       grid-area: header;
 
@@ -1410,6 +1410,7 @@
       z-index: 1;
 
       grid-area: availability;
+      padding: rem(8px) rem(8px) 0;
     }
 
     .messages {
@@ -1429,7 +1430,7 @@
     }
 
     .private {
-      z-index: 2;
+      z-index: 3;
 
       grid-row-start: messages;
       grid-column-start: messages;
@@ -1459,7 +1460,7 @@
     }
 
     .footer {
-      z-index: 1;
+      z-index: 2;
       grid-area: footer;
 
       display: flex;

@@ -1,3 +1,7 @@
+import type {ByteLengthEncoder} from '@threema/ts-utils/byte/byte-encoder';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import type {WeakOpaque} from '@threema/ts-utils/meta/newtype';
+
 import {
     CspE2eContactControlType,
     CspE2eContactControlTypeUtils,
@@ -33,7 +37,6 @@ import {
 } from '~/common/enum';
 import type * as protobuf from '~/common/network/protobuf';
 import type * as structbuf from '~/common/network/structbuf';
-import type {ByteLengthEncoder, u53, WeakOpaque} from '~/common/types';
 
 // Re-export enums
 export {D2mPayloadType, CspExtensionType, CspPayloadType, CspMessageFlag};

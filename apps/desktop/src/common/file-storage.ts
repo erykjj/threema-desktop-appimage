@@ -2,7 +2,11 @@
  * Common types related to generic blob storage.
  */
 
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
+import type {u53} from '@threema/ts-utils/integer/u53';
 import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+import type {WeakOpaque} from '@threema/ts-utils/meta/newtype';
 
 import type {ServicesForBackend} from '~/common/backend';
 import {type CryptoBackend, type ReadonlyRawKey, wrapRawKey} from '~/common/crypto';
@@ -11,8 +15,6 @@ import {TransferTag} from '~/common/enum';
 import {BaseError, type BaseErrorOptions, extractErrorMessage} from '~/common/error';
 import {TRANSFER_HANDLER} from '~/common/index';
 import type {Logger} from '~/common/logging';
-import type {ReadonlyUint8Array, u53, WeakOpaque} from '~/common/types';
-import {bytesToHex} from '~/common/utils/byte';
 import {registerErrorTransferHandler} from '~/common/utils/endpoint';
 
 /**

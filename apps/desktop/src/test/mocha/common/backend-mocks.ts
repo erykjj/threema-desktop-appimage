@@ -6,6 +6,13 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {UTF8} from '@threema/ts-utils/codec/utf8';
+import type {Delayed} from '@threema/ts-utils/delayed/delayed';
+import type {u53} from '@threema/ts-utils/integer/u53';
+import type {u8} from '@threema/ts-utils/integer/u8';
+import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
+import type {DtlsFingerprint} from '@threema/webrtc/sdp';
 import {expect} from 'chai';
 
 import type {ServicesForBackend} from '~/common/backend';
@@ -175,10 +182,7 @@ import {
     type CustomNotification,
 } from '~/common/notification';
 import type {SystemDialog, SystemDialogHandle, SystemDialogService} from '~/common/system-dialog';
-import type {u8, u53, ReadonlyUint8Array} from '~/common/types';
 import {assert, unwrap} from '~/common/utils/assert';
-import {UTF8} from '~/common/utils/codec';
-import type {Delayed} from '~/common/utils/delayed';
 import {
     type EndpointService,
     LocalObjectMapper,
@@ -190,13 +194,12 @@ import {
 import type {FileBytesAndMediaType} from '~/common/utils/file';
 import {Identity} from '~/common/utils/identity';
 import {ValueObject} from '~/common/utils/object';
-import {ResolvablePromise} from '~/common/utils/resolvable-promise';
 import {AbortRaiser} from '~/common/utils/signal';
 import {WritableStore, type LocalStore} from '~/common/utils/store';
 import {derive} from '~/common/utils/store/derived-store';
 import {ViewModelRepository} from '~/common/viewmodel';
 import {ViewModelCache} from '~/common/viewmodel/cache';
-import type {DtlsFingerprint, WebRtcService} from '~/common/webrtc';
+import type {WebRtcService} from '~/common/webrtc';
 import {assertCspPayloadType, assertD2mPayloadType} from '~/test/mocha/common/assertions';
 
 export const MOCK_URL = ensureBaseUrl('https://127.0.0.1:9999/', 'https:');

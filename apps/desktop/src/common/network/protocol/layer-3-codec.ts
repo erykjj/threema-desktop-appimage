@@ -5,8 +5,22 @@
  * - Transport layer encryption/decryption of CSP messages.
  * - Encoding/Decoding CSP message payloads and forwarding D2M messages.
  */
+import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {ByteBuffer} from '@threema/ts-utils/byte/byte-buffer';
+import {byteEncodeSequence} from '@threema/ts-utils/byte/byte-encode-sequence';
+import type {ByteEncoder} from '@threema/ts-utils/byte/byte-encoder';
+import {byteEquals} from '@threema/ts-utils/byte/byte-equals';
+import {bytePadPkcs7} from '@threema/ts-utils/byte/byte-pad-pkcs7';
+import {byteToHex} from '@threema/ts-utils/byte/byte-to-hex';
 import type {SyncTransformerCodec} from '@threema/ts-utils/codec/sync-transformer-codec';
+import {UTF8} from '@threema/ts-utils/codec/utf8';
+import type {Delayed} from '@threema/ts-utils/delayed/delayed';
+import type {u32} from '@threema/ts-utils/integer/u32';
+import type {u53} from '@threema/ts-utils/integer/u53';
 import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+import type {WeakOpaque} from '@threema/ts-utils/meta/newtype';
+import {intoUnsignedLong} from '@threema/ts-utils/number/into-unsigned-long';
+import type {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
 
 import type {ServicesForBackend} from '~/common/backend';
 import {
@@ -41,14 +55,7 @@ import type {
     DeviceCookie,
 } from '~/common/network/types';
 import type {ClientKey, TemporaryClientKey, TemporaryServerKey} from '~/common/network/types/keys';
-import type {ReadonlyUint8Array, u32, u53, WeakOpaque, ByteEncoder} from '~/common/types';
 import {assert, assertUnreachable, exhausted, unreachable} from '~/common/utils/assert';
-import {byteEncodeSequence, byteEquals, bytePadPkcs7, byteToHex} from '~/common/utils/byte';
-import {ByteBuffer} from '~/common/utils/byte-buffer';
-import {UTF8} from '~/common/utils/codec';
-import type {Delayed} from '~/common/utils/delayed';
-import {intoUnsignedLong} from '~/common/utils/number';
-import type {ResolvablePromise} from '~/common/utils/resolvable-promise';
 import type {MonotonicEnumStore} from '~/common/utils/store';
 
 import type {RawCaptureHandler} from './capture';
@@ -270,6 +277,7 @@ export class Layer3Decoder<TType extends 'full' | 'd2m-only'>
         this._log = services.logging.logger('network.protocol.l3.decoder');
         this._buffer = new ByteBuffer(
             new Uint8Array(services.config.MEDIATOR_FRAME_MAX_BYTE_LENGTH),
+            {debug: import.meta.env.DEBUG},
         );
     }
 
@@ -916,6 +924,7 @@ export class Layer3Encoder<TType extends 'full' | 'd2m-only'>
         this._log = services.logging.logger('network.protocol.l3.encoder');
         this._buffer = new ByteBuffer(
             new Uint8Array(services.config.MEDIATOR_FRAME_MAX_BYTE_LENGTH),
+            {debug: import.meta.env.DEBUG},
         );
     }
 

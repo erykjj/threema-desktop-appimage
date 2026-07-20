@@ -2,7 +2,11 @@
   @component Renders a settings page that contains app information and settings.
 -->
 <script lang="ts">
+  import type {u53} from '@threema/ts-utils/integer/u53';
   import {ensureError} from '@threema/ts-utils/meta/ensure-error';
+  import {byteSizeToHumanReadable} from '@threema/ts-utils/number/byte-size-to-human-readable';
+  import {TIMER} from '@threema/ts-utils/timer/global-timer';
+  import type {TimerCanceller} from '@threema/ts-utils/timer/timer-canceller';
 
   import {globals} from '~/app/globals';
   import SubstitutableText from '~/app/ui/SubstitutableText.svelte';
@@ -17,9 +21,6 @@
   import {svelteUnreachable} from '~/app/ui/utils/svelte';
   import {extractErrorMessage} from '~/common/error';
   import type {LogInfo} from '~/common/node/file-storage/log-info';
-  import type {u53} from '~/common/types';
-  import {byteSizeToHumanReadable} from '~/common/utils/number';
-  import {TIMER, type TimerCanceller} from '~/common/utils/timer';
 
   const log = globals.unwrap().uiLogging.logger('ui.component.settings-about');
 

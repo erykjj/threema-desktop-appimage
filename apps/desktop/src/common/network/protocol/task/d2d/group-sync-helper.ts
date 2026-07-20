@@ -1,3 +1,8 @@
+import type {ProtobufMessage} from '@threema/protocol/protobuf/tag';
+import {tag, type WeakOpaque} from '@threema/ts-utils/meta/newtype';
+import {dateToUnixTimestampMs} from '@threema/ts-utils/number/date-to-unix-timestamp-ms';
+import {intoUnsignedLong} from '@threema/ts-utils/number/into-unsigned-long';
+
 import {
     ConversationCategory,
     ConversationVisibility,
@@ -10,15 +15,12 @@ import type {
     ConversationView,
 } from '~/common/model/types/conversation';
 import * as protobuf from '~/common/network/protobuf';
-import type {ProtobufMessage} from '~/common/network/protobuf/tag';
 import {
     getDeltaImageMessage,
     type D2dProfilePictureUpdate,
     type D2dSetProfilePicture,
 } from '~/common/network/protocol/task/d2d';
 import type {GroupId, IdentityString} from '~/common/network/types';
-import {tag, type WeakOpaque} from '~/common/types';
-import {dateToUnixTimestampMs, intoUnsignedLong} from '~/common/utils/number';
 
 // Return types for the helper functions to be compatible when creating protobuf messages.
 type MemberStateChanges = WeakOpaque<
