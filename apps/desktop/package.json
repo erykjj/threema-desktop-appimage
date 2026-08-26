@@ -2,9 +2,9 @@
   "name": "threema-desktop",
   "productName": "Threema",
   "description": "Use Threema on your Desktop",
-  "author": "Threema GmbH",
-  "version": "2.0-beta63",
-  "versionCode": 65,
+  "author": "Threema AG",
+  "version": "2.0-beta64",
+  "versionCode": 66,
   "license": "AGPL-3.0+",
   "homepage": "https://threema.ch/",
   "keywords": [
@@ -35,12 +35,12 @@
     "generate:icons:windows": "tools/generate-icons-windows.sh",
     "generate:icons:windows:custom": "tools/generate-icons-windows-custom.sh",
     "generate:protobuf": "node tools/generate-protobuf.mjs",
-    "generate:safe-enums": "tools/generate-safe-enums.cjs < src/enum/schema.ts > src/common/enum/index.ts && prettier --write \"src/common/enum/index.ts\"",
+    "generate:safe-enums": "safe-enums src/enum/schema.ts src/common/enum/index.ts",
     "generate:translations": "i18next 'src/app/**/*.{ts,svelte}' 'src/common/dom/ui/**/*.ts' -o 'src/translations/$LOCALE/$NAMESPACE.json' -c config/i18next-parser.config.js",
     "lint:eslint": "eslint .",
     "lint:eslint:fix": "eslint . --fix",
-    "lint:svelte": "svelte-check --workspace src/app/ --no-tsconfig --compiler-warnings \"a11y-click-events-have-key-events:ignore,state_referenced_locally:ignore\" --fail-on-warnings",
-    "lint:tsc": "find src packaging -name tsconfig.json -print0 | xargs -0 -P \"$(getconf _NPROCESSORS_ONLN)\" -I{} sh -c 'tsc --noEmit -p \"$1\"' sh {}",
+    "lint:svelte": "svelte-check --workspace src/app/ --no-tsconfig --fail-on-warnings",
+    "lint:tsc": "find tsconfig.json config src packaging -name tsconfig.json -print0 | xargs -0 -P \"$(getconf _NPROCESSORS_ONLN)\" -I{} sh -c 'tsc --noEmit -p \"$1\"' sh {}",
     "package": "pnpm --prefix ./packaging run package",
     "postinstall": "node tools/generate-protobuf.mjs --postinstall",
     "rebuild:dependencies": "pnpm rebuild",
@@ -49,7 +49,7 @@
     "test:mocha": "nyc --nycrc-path .nycrc.mocha.json --temp-dir \".nyc_output_mocha/$TURBO_BUILD_VARIANT-$TURBO_BUILD_ENVIRONMENT\" --reporter=text node tools/run-tests.cjs mocha -- --reporter mocha-junit-reporter --reporter-options mochaFile=\"./junit/$TURBO_BUILD_VARIANT-$TURBO_BUILD_ENVIRONMENT/mocha.xml\"",
     "test:playwright": "pnpm exec playwright test"
   },
-  "packageManager": "pnpm@11.1.3",
+  "packageManager": "pnpm@11.15.1",
   "engines": {
     "node": "22.17.0"
   },
@@ -60,6 +60,7 @@
     "@sentry/browser": "9.39.0",
     "@threema/branding": "workspace:*",
     "@threema/compose-area": "~0.4.6",
+    "@threema/crypto": "workspace:*",
     "@threema/dom": "workspace:*",
     "@threema/libthreema-wasm": "workspace:*",
     "@threema/protocol": "workspace:*",
@@ -71,7 +72,7 @@
     "autolinker": "4.1.5",
     "better-sqlcipher": "threema-ch/better-sqlcipher#12.10.0-sqlcipher4.16.0-bearssl0.6",
     "debug": "catalog:",
-    "emojibase-data": "16.0.3",
+    "emojibase-data": "17.0.0",
     "fast-sha256": "1.3.0",
     "i18next": "~25.4.2",
     "i18next-icu": "~2.4.0",
@@ -88,7 +89,7 @@
     "ts-events": "3.4.1",
     "ts-sql-query": "1.67.0",
     "tweetnacl": "1.0.3",
-    "web-streams-polyfill": "~3.3.2"
+    "web-streams-polyfill": "~4.3.0"
   },
   "electron": {
     "external": [
@@ -126,6 +127,7 @@
     "@sveltejs/vite-plugin-svelte": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@threema/eslint-config": "workspace:*",
+    "@threema/safe-enums": "workspace:*",
     "@threema/ts-config": "workspace:*",
     "@threema/vite-plugin-commonjs-externals": "workspace:*",
     "@threema/vite-plugin-subresource-integrity": "workspace:*",

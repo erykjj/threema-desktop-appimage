@@ -1,3 +1,9 @@
+export {Avatar, type AvatarProps} from './components/avatar';
+export {
+    default as AvatarSelectionSummary,
+    type AvatarSelectionSummaryItem,
+    type AvatarSelectionSummaryProps,
+} from './components/avatar-selection-summary/AvatarSelectionSummary.svelte';
 export {
     default as Button,
     type ButtonIconStyle,
@@ -19,6 +25,10 @@ export {
     type VerticalNavigationStripProps,
     verticalNavigationStripVariants,
 } from './components/vertical-navigation-strip/VerticalNavigationStrip.svelte';
+export {
+    default as RadialExclusionMaskProvider,
+    type RadialExclusionMaskProviderProps,
+} from './hocs/radial-exclusion-mask-provider/RadialExclusionMaskProvider.svelte';
 export {
     type ProfilePictureColor,
     PROFILE_PICTURE_BACKGROUND_COLOR_CLASS_MAP,

@@ -1,10 +1,13 @@
+import {wrapRawKey, type RawKey} from '@threema/crypto';
+import type {NonceScope} from '@threema/protocol/enum';
 import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import type {f64} from '@threema/ts-utils/float/f64';
 import type {u53} from '@threema/ts-utils/integer/u53';
 import type {u8} from '@threema/ts-utils/integer/u8';
 import type {WeakOpaque} from '@threema/ts-utils/meta/newtype';
 
 import type {ServicesForBackend} from '~/common/backend';
-import {type NonceHash, type PublicKey, type RawKey, wrapRawKey} from '~/common/crypto';
+import type {NonceHash, PublicKey} from '~/common/crypto';
 import type {RawGroupCallKey} from '~/common/crypto/group-call';
 import type {
     AcquaintanceLevel,
@@ -20,7 +23,6 @@ import type {
     ImageRenderingType,
     MessageQueryDirection,
     MessageType,
-    NonceScope,
     PersistentProtocolStateType,
     PollAnnounceType,
     PollAnswerType,
@@ -60,7 +62,7 @@ import type {
 } from '~/common/network/types';
 import type {RawBlobKey} from '~/common/network/types/keys';
 import type {Settings} from '~/common/settings';
-import type {f64, u64, i53} from '~/common/types';
+import type {u64, i53} from '~/common/types';
 import type {SingleUnicodeEmoji} from '~/common/utils/emoji';
 
 /**

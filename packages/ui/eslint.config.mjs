@@ -1,7 +1,6 @@
 import {getConfig as getCommonConfig, getTypeScriptConfigMixin} from '@threema/eslint-config';
 import {defineConfig, globalIgnores} from 'eslint/config';
 import {configs as storybookConfigs} from 'eslint-plugin-storybook';
-import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import svelteParser from 'svelte-eslint-parser';
 
@@ -15,6 +14,24 @@ export default defineConfig(
     }),
 
     globalIgnores(['!.storybook', '.turbo/', 'coverage/', 'node_modules/']),
+
+    // Allow importing from the `svelte` peer dependency, which is provided by the consuming app.
+    // Components in this package need parts of its runtime (e.g. `getContext` or `SvelteMap`), not
+    // just its types.
+    {
+        files: ['src/**'],
+        rules: {
+            'import/no-extraneous-dependencies': [
+                'error',
+                {
+                    devDependencies: false,
+                    peerDependencies: true,
+                    bundledDependencies: false,
+                    packageDir: import.meta.dirname,
+                },
+            ],
+        },
+    },
 
     // Storybook plugin rules for `.storybook/**` and `*.stories.{js,ts,...}` files. Note:
     // `*.stories.svelte` files are handled separately further down below; the storybook plugin's
@@ -77,6 +94,5 @@ export default defineConfig(
                 ],
             },
         }),
-        extends: [svelte.configs['flat/prettier']],
     },
 );

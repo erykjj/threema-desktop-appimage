@@ -12,6 +12,10 @@
     "label--attach-file": "Datei anhängen",
     "label--create-poll": "Umfrage erstellen"
   },
+  "conference-call": {
+    "action--copy-invite": "Konferenzlink kopieren",
+    "action--invite": "Personen einladen"
+  },
   "contacts": {
     "action--add-contact": "Neuer Kontakt",
     "action--add-contact-from-work-directory": "Kontakt aus dem Unternehmensverzeichnis hinzufügen",
@@ -369,7 +373,7 @@
     "markup--intro-s1": "Diese Beta-Version kann zusammen mit der {mobileAppName}-App verwendet werden. Bitte beachten Sie, dass noch nicht alle Funktionen verfügbar sind.",
     "markup--intro-s2": "<slot_1>Mehr erfahren</slot_1>",
     "markup--step-1": "Öffnen Sie die {mobileAppName}-App auf Ihrem Mobilgerät",
-    "markup--step-2-android": "Android: Öffnen Sie das Hauptmenü, navigieren Sie zu «<slot_1>{shortAppName} 2.0 für Desktop (Beta)</slot_1>», und tippen Sie auf «<slot_1>Gerät hinzufügen</slot_1>»",
+    "markup--step-2-android": "Android: Navigieren Sie zu «<slot_1>Hauptmenü</slot_1> > <slot_1>Einstellungen</slot_1> > <slot_1>{shortAppName} 2.0 für Desktop (Beta)</slot_1>», und tippen Sie auf «<slot_1>Gerät hinzufügen</slot_1>»",
     "markup--step-2-ios": "iOS: Navigieren Sie zu «<slot_1>Einstellungen</slot_1> > <slot_1>{shortAppName} 2.0 für Desktop (Beta)</slot_1>», und tippen Sie auf «<slot_1>Gerät hinzufügen</slot_1>»",
     "markup--step-3": "Scannen Sie diesen QR-Code"
   },
@@ -519,8 +523,8 @@
     "prose--description-p3": "Bitte melden Sie diesen Fehler dem {shortAppName}-Support über die App auf dem Mobilgerät («Einstellungen > Beta Feedback»). Hinweis: Speichern Sie Ihre Logs, bevor Sie das Gerät neu verknüpfen, da sie bei erneuter Verknüpfung gelöscht werden."
   },
   "dialog--unsupported-feature-protected-conversation": {
-    "label--title": "Privater Chat",
-    "prose--description": "Private Chats werden in {appName} noch nicht unterstützt."
+    "label--title": "Dieser Chat ist privat",
+    "prose--description": "Private Chats werden auf {shortAppName} für Desktop derzeit nicht unterstützt. Um auf diese Konversation zuzugreifen, verwende Sie bitte die {shortAppName}-App auf Ihrem Smartphone."
   },
   "dialog--verification-levels": {
     "label--title": "Vertrauensstufen",
@@ -573,6 +577,7 @@
     "label--leave-error": "Gruppe konnte nicht verlassen werden",
     "label--leave-group-title": "«{groupName}» verlassen",
     "label--leave-success": "Gruppe erfolgreich verlassen",
+    "label--members-selected": "{n, plural, =1 {1 Mitglied ausgewählt} other {# Mitglieder ausgewählt}}",
     "label--new-group": "Neue Gruppe",
     "label--remove-member-failure": "Gruppenmitglied konnte nicht entfernt werden",
     "label--remove-member-success": "Gruppenmitglied erfolgreich entfernt",
@@ -612,6 +617,7 @@
     "error--add-files-empty": "Dateien konnten nicht hinzugefügt werden",
     "error--add-files-inaccessible": "Dateien konnten nicht geöffnet werden",
     "error--add-files-partially-inaccessible": "Einige Dateien konnten nicht geöffnet werden",
+    "error--call-camera-unavailable": "Kamera konnte nicht eingeschaltet werden",
     "error--call-disconnected": "Anruf wurde aufgrund eines Verbindungsunterbruchs beendet",
     "error--call-disconnected-due-to-inactivity": "Anruf wurde aufgrund von Inaktivität beendet",
     "error--call-group-calls-disabled": "Gruppenanrufe sind deaktiviert",
@@ -766,6 +772,7 @@
   "settings--about": {
     "action--clear-logs": "Logdateien leeren",
     "action--send-logs-to-support": "Logs an den Support senden",
+    "error--send-logs-to-support": "Senden der Logs fehlgeschlagen.",
     "label--application-name": "Applikationsname",
     "label--application-version": "Applikationsversion",
     "label--copyright": "Copyright",

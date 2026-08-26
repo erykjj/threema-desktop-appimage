@@ -12,6 +12,10 @@
     "label--attach-file": "Attach File",
     "label--create-poll": "Create Poll"
   },
+  "conference-call": {
+    "action--copy-invite": "Copy conference link",
+    "action--invite": "Invite people"
+  },
   "contacts": {
     "action--add-contact": "New Contact",
     "action--add-contact-from-work-directory": "Add Contact from Company Directory",
@@ -369,7 +373,7 @@
     "markup--intro-s1": "This beta version can be used in connection with the {mobileAppName} mobile app. Please note that some features are not yet available.",
     "markup--intro-s2": " <slot_1>Learn more</slot_1>",
     "markup--step-1": "Open the {mobileAppName} app on your mobile device",
-    "markup--step-2-android": "In the Android app, go to the main menu, select “<slot_1>{shortAppName} 2.0 for desktop (beta)</slot_1>,” and tap “<slot_1>Add device</slot_1>”",
+    "markup--step-2-android": "In the Android app, go to “<slot_1>Main menu</slot_1> > <slot_1>Settings</slot_1> > <slot_1>{shortAppName} 2.0 for desktop (beta)</slot_1>,” and tap “<slot_1>Add device</slot_1>”",
     "markup--step-2-ios": "In the iOS app, go to “<slot_1>Settings</slot_1> > <slot_1>{shortAppName} 2.0 for Desktop (Beta)</slot_1>,” and tap “<slot_1>Add Device</slot_1>”",
     "markup--step-3": "Scan this QR code"
   },
@@ -519,8 +523,8 @@
     "prose--description-p3": "Please report this error to {shortAppName}’s support from the app on your mobile device (“Settings > Beta Feedback”). Note: Remember to save your logs before relinking, as they will be cleared."
   },
   "dialog--unsupported-feature-protected-conversation": {
-    "label--title": "Private Chat",
-    "prose--description": "Private chats are not yet supported in {appName}."
+    "label--title": "This Chat Is Private",
+    "prose--description": "Private chats are currently not supported on {shortAppName} for desktop. To access this conversation, please use the {shortAppName} app on your smartphone."
   },
   "dialog--verification-levels": {
     "label--title": "Verification Levels",
@@ -573,6 +577,7 @@
     "label--leave-error": "Could not leave the group",
     "label--leave-group-title": "Leave “{groupName}”",
     "label--leave-success": "Successfully left the group",
+    "label--members-selected": "{n, plural, =1 {1 member selected} other {# members selected}}",
     "label--new-group": "New Group",
     "label--remove-member-failure": "Could not remove group member",
     "label--remove-member-success": "Successfully removed group member",
@@ -612,6 +617,7 @@
     "error--add-files-empty": "Files couldn’t be added",
     "error--add-files-inaccessible": "Files couldn’t be accessed",
     "error--add-files-partially-inaccessible": "Some files couldn’t be accessed",
+    "error--call-camera-unavailable": "Camera could not be turned on",
     "error--call-disconnected": "Call ended because the connection was interrupted",
     "error--call-disconnected-due-to-inactivity": "Call ended due to inactivity",
     "error--call-group-calls-disabled": "Group calls are disabled",
@@ -766,6 +772,7 @@
   "settings--about": {
     "action--clear-logs": "Clear Logs",
     "action--send-logs-to-support": "Send Logs to Support",
+    "error--send-logs-to-support": "Failed to send log files.",
     "label--application-name": "Application Name",
     "label--application-version": "Application Version",
     "label--copyright": "Copyright",

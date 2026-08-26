@@ -27,10 +27,19 @@ build
 /apps/desktop/build/playwright/test-results
 # Forked code, keep differences to original minimal.
 /apps/desktop/src/common/node/db/query-runner.ts
-/apps/desktop/src/common/crypto/blake2b/implementation.js
+
+# Package: `packages/crypto`
+/packages/crypto/coverage/
+/packages/crypto/src/blake2b/implementation.js
 
 # Package: `packages/dom`
 /packages/dom/coverage/
+
+# Package: `packages/safe-enums`
+/packages/safe-enums/coverage/
+# Contains schema fixture whose import specifier is deliberately not a string literal, which
+# Prettier refuses to parse, but is exactly the case we want to test.
+/packages/safe-enums/test/fixtures/non-literal-specifier.schema.ts
 
 # Package: `packages/ts-utils`
 /packages/ts-utils/coverage/

@@ -139,7 +139,7 @@ const ABOUT_PANEL_OPTIONS: electron.AboutPanelOptionsOptions = {
         `v${import.meta.env.BUILD_VERSION}` === import.meta.env.GIT_REVISION
             ? ''
             : import.meta.env.GIT_REVISION,
-    copyright: '© Threema GmbH – Released under the AGPL-3.0 license',
+    copyright: '© Threema AG – Released under the AGPL-3.0 license',
     website: 'https://threema.ch/',
     iconPath: import.meta.env.DEBUG
         ? path.join(
@@ -404,10 +404,14 @@ function generateLogFileInfo(type: 'app' | 'bw' | 'webrtc', appPath: string): Lo
     return {sizeInBytes, path: logPath};
 }
 
-async function loadCompressedLogBytes(filePath: string): Promise<ReadonlyUint8Array> {
+async function loadCompressedLogBytes(filePath: string): Promise<ReadonlyUint8Array | undefined> {
     const compressor = new ZlibCompressor();
-    const bytes = await fs.promises.readFile(filePath);
-    return await compressor.compress('gzip', bytes);
+    try {
+        const bytes = await fs.promises.readFile(filePath);
+        return await compressor.compress('gzip', bytes);
+    } catch {
+        return undefined;
+    }
 }
 
 interface MainInit {
@@ -1493,10 +1497,6 @@ function main(
 
             default:
                 unreachable(import.meta.env.BUILD_ENVIRONMENT);
-        }
-        // Allow `threema.com` in test builds for PQ testing.
-        if (import.meta.env.BUILD_MODE === 'testing') {
-            connectSrcRule = `${connectSrcRule} https://threema.com`;
         }
 
         // Apply a strict content security policy to any response
