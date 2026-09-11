@@ -12,13 +12,23 @@
   import SubstitutableText from '~/app/ui/SubstitutableText.svelte';
   import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import KeyValueList from '~/app/ui/components/molecules/key-value-list';
-  import {collectLogsAndComposeMessageToSupport} from '~/app/ui/components/partials/settings/internal/about/helpers';
+  import {
+    collectLogsAndComposeMessageToSupport,
+    deleteRtcStatsSessions,
+    exportRtcStatsSession,
+    loadRtcStatsSessions,
+  } from '~/app/ui/components/partials/settings/internal/about/helpers';
   import ClearLogsModal from '~/app/ui/components/partials/settings/internal/about/internal/clear-logs-modal/ClearLogsModal.svelte';
   import ToggleLoggerModal from '~/app/ui/components/partials/settings/internal/about/internal/toggle-logger-modal/ToggleLoggerModal.svelte';
   import type {AboutProps} from '~/app/ui/components/partials/settings/internal/about/props';
   import {i18n} from '~/app/ui/i18n';
   import {toast} from '~/app/ui/snackbar';
   import {svelteUnreachable} from '~/app/ui/utils/svelte';
+  import type {
+    RtcStatsSessionId,
+    RtcStatsSessionInfo,
+  } from '~/common/dom/webrtc/rtcstats/trace-indexeddb';
+  import {CallStatisticsPolicy} from '~/common/enum';
   import {extractErrorMessage} from '~/common/error';
   import type {LogInfo} from '~/common/node/file-storage/log-info';
 
@@ -29,6 +39,8 @@
   const {
     storage: {debugPanelState},
   } = services;
+
+  const troubleshootingSettings = services.settings.views.troubleshooting;
 
   let modalState = $state<'none' | 'toggle-logger' | 'clear-logs'>('none');
 
@@ -67,6 +79,52 @@
 
   async function handleClickSendLogsToSupport(): Promise<void> {
     await collectLogsAndComposeMessageToSupport(services, log);
+  }
+
+  // Call statistics (rtcstats) sessions. Only recorded (and shown) in sandbox builds.
+  let rtcStatsSessions = $state<readonly RtcStatsSessionInfo[]>([]);
+  if (import.meta.env.ALLOW_RTC_STATS_RECORDING) {
+    loadRtcStatsSessions(log)
+      .then((sessions) => {
+        rtcStatsSessions = sessions;
+      })
+      .catch((error: unknown) => {
+        log.error(
+          `Couldn't load call statistics sessions: ${extractErrorMessage(
+            ensureError(error),
+            'short',
+          )}`,
+        );
+      });
+  }
+
+  function handleSwitchCallStatistics(state: {readonly new: boolean}): void {
+    services.settings
+      .update({
+        type: 'troubleshooting',
+        update: {
+          callStatisticsPolicy: state.new
+            ? CallStatisticsPolicy.RECORD_LOCALLY
+            : CallStatisticsPolicy.DENY_RECORDING,
+        },
+      })
+      .catch((error: unknown) => {
+        log.error(
+          `Couldn't update call statistics setting: ${extractErrorMessage(
+            ensureError(error),
+            'short',
+          )}`,
+        );
+      });
+  }
+
+  async function handleClickExportRtcStatsSession(sessionId: RtcStatsSessionId): Promise<void> {
+    await exportRtcStatsSession(sessionId, log);
+  }
+
+  async function handleClickDeleteRtcStatsSessions(): Promise<void> {
+    await deleteRtcStatsSessions(log);
+    rtcStatsSessions = await loadRtcStatsSessions(log);
   }
 
   function handleSubmitToggleLoggerModal(): void {
@@ -261,6 +319,66 @@
       {/if}
     {/if}
   </KeyValueList.Section>
+
+  {#if import.meta.env.ALLOW_RTC_STATS_RECORDING}
+    <KeyValueList.Section
+      title={$i18n.t('settings--about.label--call-statistics', 'Call Statistics')}
+    >
+      <KeyValueList.ItemWithSwitch
+        checked={$troubleshootingSettings.callStatisticsPolicy ===
+          CallStatisticsPolicy.RECORD_LOCALLY}
+        key={$i18n.t('settings--about.label--call-statistics-recording', 'Record Call Statistics')}
+        onswitch={handleSwitchCallStatistics}
+      >
+        {#if $troubleshootingSettings.callStatisticsPolicy === CallStatisticsPolicy.RECORD_LOCALLY}
+          <Text
+            text={$i18n.t(
+              'settings--about.prose--call-statistics-turned-on',
+              'WebRTC statistics of Threema calls are recorded into a local database. Nothing is sent automatically.',
+            )}
+          />
+        {:else}
+          <Text
+            text={$i18n.t(
+              'settings--about.prose--call-statistics-turned-off',
+              'Call statistics recording is currently turned off',
+            )}
+          />
+        {/if}
+      </KeyValueList.ItemWithSwitch>
+
+      {#each rtcStatsSessions as session (session.sessionId)}
+        <KeyValueList.ItemWithButton
+          icon="download"
+          key=""
+          onclick={async () => await handleClickExportRtcStatsSession(session.sessionId)}
+        >
+          <Text
+            text={`${session.sessionId} (${$i18n.t(
+              'settings--about.prose--call-statistics-entries',
+              '{n, plural, =1 {1 entry} other {# entries}}',
+              {n: session.entryCount},
+            )})`}
+          />
+        </KeyValueList.ItemWithButton>
+      {/each}
+
+      {#if rtcStatsSessions.length > 0}
+        <KeyValueList.ItemWithButton
+          icon="delete_forever"
+          key=""
+          onclick={handleClickDeleteRtcStatsSessions}
+        >
+          <Text
+            text={$i18n.t(
+              'settings--about.action--delete-call-statistics',
+              'Delete Call Statistics',
+            )}
+          />
+        </KeyValueList.ItemWithButton>
+      {/if}
+    </KeyValueList.Section>
+  {/if}
 
   {#if isDebugModeEnabled}
     <KeyValueList.Section title={$i18n.t('settings--about.label--debug', 'Debug')}>

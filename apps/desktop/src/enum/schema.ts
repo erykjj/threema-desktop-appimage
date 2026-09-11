@@ -817,10 +817,6 @@ export enum IdentityType {
     WORK = 1,
 }
 /** @generate convert */
-export enum NotificationSoundPolicy {
-    MUTED = 0,
-}
-/** @generate convert */
 export enum ReadReceiptPolicy {
     SEND_READ_RECEIPT = 0,
     DONT_SEND_READ_RECEIPT = 1,
@@ -953,6 +949,12 @@ export enum AnimatedImageMode {
     LOOP = 0,
     DONT_LOOP = 1,
 }
+
+/** @generate convert */
+export enum CallStatisticsPolicy {
+    DENY_RECORDING = 0,
+    RECORD_LOCALLY = 1,
+}
 /**
  * ELECTRON
  * ========
@@ -981,7 +983,6 @@ export enum ElectronIpcCommand {
     IS_FILE_LOGGING_ENABLED = 'isFileLoggingEnabled',
     LOAD_USER_PASSWORD = 'loadUserPassword',
     LOG_TO_FILE = 'logToFile',
-    LOG_WEBRTC_STATS_TO_FILE = 'logWebrtcStatsToFile',
     ON_FALLBACK_OPPF = 'onFallbackOppf',
     REMOTE_SECRET_ERROR_RESTART_APP = 'remoteSecretErrorRestartApp',
     REMOTE_SECRET_SYSTEM_SUSPENSION_RESTART_APP = 'remoteSecretSystemSuspensionRestartApp',
@@ -1001,6 +1002,7 @@ export enum ElectronIpcCommand {
     TRIGGER_INVALID_CERTIFICATE_PINS = 'triggerInvalidCertificatePins',
     UPDATE_APP_BADGE = 'updateAppBadge',
     UPDATE_PUBLIC_KEY_PINS = 'updatePublicKeyPins',
+    OPEN_WEBRTC_INTERNALS = 'openWebRtcInternals',
 }
 
 export enum ScreenSharingReminderIpcCommand {

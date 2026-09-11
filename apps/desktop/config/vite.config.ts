@@ -29,6 +29,7 @@ import {
     type BuildEnvironment,
     type BuildVariant,
     determineAppName,
+    determineDeepLinkScheme,
     determineMobileAppName,
     isBuildFlavor,
 } from './base';
@@ -248,6 +249,7 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
 
     let shortAppName;
     let appName;
+    let deepLink: string | undefined = undefined;
     let presetOppfUrl: {readonly full: string} | undefined = undefined;
     if (buildFlavor === 'custom-onprem') {
         const currentConfigOrError = readCustomConfig();
@@ -259,12 +261,14 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
 
         appName = currentConfig.appName;
         shortAppName = currentConfig.localizedAppName ?? currentConfig.appName;
+        deepLink = determineDeepLinkScheme(buildFlavor, currentConfig.deepLinkScheme);
         presetOppfUrl =
             currentConfig.presetOppfUrl === undefined
                 ? undefined
                 : {full: currentConfig.presetOppfUrl};
     } else {
         shortAppName = 'Threema';
+        deepLink = determineDeepLinkScheme(buildFlavor);
         appName = determineAppName(buildFlavor, 'Threema');
     }
 
@@ -302,6 +306,9 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
 
         // Debug
         DEBUG: env.mode === 'development',
+        // Debug-only override of the directory-provided SFU token, e.g. to authenticate against a
+        // local SFU whose shared secret does not match the directory's.
+        SFU_TOKEN: env.mode === 'development' ? process.env.SFU_TOKEN : undefined,
 
         // Build variables
         BUILD_PLATFORM: buildPlatform,
@@ -315,6 +322,7 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
         SHORT_APP_NAME: shortAppName,
         APP_NAME: appName,
         MOBILE_APP_NAME: determineMobileAppName(buildFlavor, shortAppName),
+        DEEP_LINK_SCHEME: deepLink,
         URLS: determineUrls(buildFlavor, presetOppfUrl),
 
         // Defaults
@@ -333,7 +341,6 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
         LOG_PATH: {
             MAIN_AND_APP: ['data', 'debug-app.log'],
             BACKEND_WORKER: ['data', 'debug-bw.log'],
-            WEBRTC_STATS: ['data', 'debug-webrtc.log'],
         },
         DEPRECATED_KEY_STORAGE_PATH: ['data', 'keystorage.pb3'],
         KEY_STORAGE_PATH: ['data', 'keystorage.bin'],
@@ -421,13 +428,14 @@ function makeConfig(pkg: PackageJson, env: ConfigEnv): Omit<ImportMeta['env'], '
             NETWORK: false,
             ROUTER: false,
             STORES: false,
-            WEBRTC: env.environment === 'sandbox',
         },
 
         // Feature flags
         FEATURES: {
             CONFERENCE_CALLS: env.environment === 'sandbox',
         },
+
+        ALLOW_RTC_STATS_RECORDING: env.environment === 'sandbox',
 
         // Build config
         ...makeBuildConfig(env.environment),

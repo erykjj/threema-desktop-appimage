@@ -448,6 +448,9 @@ importers:
       '@mattiasbuelens/web-streams-adapter':
         specifier: 0.1.0
         version: 0.1.0
+      '@rtcstats/rtcstats-js':
+        specifier: 2.4.0
+        version: 2.4.0
       '@sentry/browser':
         specifier: 9.39.0
         version: 9.39.0
@@ -979,6 +982,9 @@ importers:
 
   packages/ts-utils:
     dependencies:
+      '@badrap/valita':
+        specifier: 'catalog:'
+        version: 0.4.6
       long:
         specifier: 5.3.2
         version: 5.3.2
@@ -1997,6 +2003,12 @@ packages:
     resolution: {integrity: sha512-APwKy6YUhvZaEoHyM+9xqmTpviEI+9eL7LoCH+aLcvWYHJ663qG5zx7WzWZY+a9qkg5JtzcMyJ9z0WtQBMDmgA==}
     cpu: [x64]
     os: [win32]
+
+  '@rtcstats/rtcstats-js@2.4.0':
+    resolution: {integrity: sha512-1R0zwVgQ5RkzCauOp/QyNmTSr9Z+VtoYA3736Nk7dsZSKfXPh6Q88C4m4MfVtcINtJAu2eUXl9kERtS/vjIt7Q==}
+
+  '@rtcstats/rtcstats-shared@2.5.0':
+    resolution: {integrity: sha512-YBohf6QGzVrGGomL7HKQgkh+gkRnlZ2j5upfqt85sU951cCtgS2fAqBpcSD3rV97uqfaLHPUu6KcXqM/BPTjpQ==}
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
@@ -3635,6 +3647,7 @@ packages:
   eslint@9.34.0:
     resolution: {integrity: sha512-RNCHRX5EwdrESy3Jc9o8ie8Bog+PeYvvSR8sDGoZxNFTvZ4dlxUB3WzQ3bQMztFrSRODGrLLj8g6OFuGY/aiQg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -7347,6 +7360,12 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.50.2':
     optional: true
+
+  '@rtcstats/rtcstats-js@2.4.0':
+    dependencies:
+      '@rtcstats/rtcstats-shared': 2.5.0
+
+  '@rtcstats/rtcstats-shared@2.5.0': {}
 
   '@rtsao/scc@1.1.0': {}
 

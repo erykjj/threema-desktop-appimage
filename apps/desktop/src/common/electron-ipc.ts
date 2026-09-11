@@ -66,20 +66,11 @@ export interface ElectronIpc {
     ) => Promise<void>;
 
     /**
-     * Log WebRTC call stats to a dedicated stats log file.
-     */
-    readonly logWebrtcStatsToFile: (
-        level: 'trace' | 'debug' | 'info' | 'warn' | 'error',
-        data: string,
-    ) => Promise<void>;
-
-    /**
      * Get gzip-compressed contents of the log files.
      */
     readonly getGzippedLogFiles: () => Promise<{
         app?: ReadonlyUint8Array;
         bw?: ReadonlyUint8Array;
-        webrtc?: ReadonlyUint8Array;
     }>;
 
     /**
@@ -295,6 +286,11 @@ export interface ElectronIpc {
      * Fetch the OPPF in an isolated session.
      */
     readonly getFallbackOppFile: (oppfUrl: string, userAgent: string) => Promise<ArrayBuffer>;
+
+    /**
+     * Open (or focus, if already open) the WebRTC internals window.
+     */
+    readonly openWebRtcInternals: () => void;
 }
 
 export interface ScreenSharingReminderDetails {

@@ -44,7 +44,8 @@
   let viewModelController: Remote<SettingsViewModelBundle>['viewModelController'] | undefined =
     undefined;
 
-  let currentCategory = $state<Exclude<SettingsCategory, 'calls' | 'privacy' | 'work'>>('profile');
+  let currentCategory =
+    $state<Exclude<SettingsCategory, 'calls' | 'privacy' | 'troubleshooting' | 'work'>>('profile');
 
   services.backend.viewModel
     .settings()
@@ -72,6 +73,7 @@
     if (
       route.params.category === 'calls' ||
       route.params.category === 'privacy' ||
+      route.params.category === 'troubleshooting' ||
       route.params.category === 'work'
     ) {
       return;
@@ -90,8 +92,12 @@
     });
   }
 
-  function handleUpdateProfilePicture(profilePicture: ReadonlyUint8Array | undefined): void {
-    viewModelController?.updateProfilePicture(profilePicture).catch((error) => {
+  async function handleUpdateProfilePicture(
+    profilePicture: ReadonlyUint8Array | undefined,
+  ): Promise<void> {
+    try {
+      await viewModelController?.updateProfilePicture(profilePicture);
+    } catch (error) {
       log.error(`Error updating profile picture: ${error}`);
       toast.addSimpleFailure(
         profilePicture === undefined
@@ -104,7 +110,7 @@
               'Unable to update your profile picture, please try again.',
             ),
       );
-    });
+    }
   }
 
   async function handleUpdateWorkAvailabilityStatus(

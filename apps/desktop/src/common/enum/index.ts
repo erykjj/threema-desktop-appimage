@@ -2285,36 +2285,6 @@ export namespace IdentityTypeUtils {
         return typeof value === 'number' && (ALL as ReadonlySet<u53>).has(value);
     }
 }
-export namespace NotificationSoundPolicy {
-    export const MUTED = 0;
-    export type MUTED = typeof MUTED;
-}
-/** @generate convert */
-export type NotificationSoundPolicy =
-    (typeof NotificationSoundPolicy)[keyof typeof NotificationSoundPolicy];
-export namespace NotificationSoundPolicyUtils {
-    export const ALL: ReadonlySet<NotificationSoundPolicy> = new Set([
-        NotificationSoundPolicy.MUTED,
-    ] as const);
-    export function fromNumber(
-        value: u53,
-        fallback?: NotificationSoundPolicy,
-    ): NotificationSoundPolicy {
-        if ((ALL as ReadonlySet<u53>).has(value)) {
-            return value as NotificationSoundPolicy;
-        }
-        if (fallback !== undefined) {
-            return fallback;
-        }
-        throw new Error(`${value} is not a valid NotificationSoundPolicy`);
-    }
-    export function containsNumber(value: u53): value is NotificationSoundPolicy {
-        return (ALL as ReadonlySet<u53>).has(value);
-    }
-    export function contains(value: unknown): value is NotificationSoundPolicy {
-        return typeof value === 'number' && (ALL as ReadonlySet<u53>).has(value);
-    }
-}
 export namespace ReadReceiptPolicy {
     export const SEND_READ_RECEIPT = 0;
     export type SEND_READ_RECEIPT = typeof SEND_READ_RECEIPT;
@@ -3049,6 +3019,35 @@ export namespace AnimatedImageModeUtils {
         return typeof value === 'number' && (ALL as ReadonlySet<u53>).has(value);
     }
 }
+export namespace CallStatisticsPolicy {
+    export const DENY_RECORDING = 0;
+    export type DENY_RECORDING = typeof DENY_RECORDING;
+    export const RECORD_LOCALLY = 1;
+    export type RECORD_LOCALLY = typeof RECORD_LOCALLY;
+}
+/** @generate convert */
+export type CallStatisticsPolicy = (typeof CallStatisticsPolicy)[keyof typeof CallStatisticsPolicy];
+export namespace CallStatisticsPolicyUtils {
+    export const ALL: ReadonlySet<CallStatisticsPolicy> = new Set([
+        CallStatisticsPolicy.DENY_RECORDING,
+        CallStatisticsPolicy.RECORD_LOCALLY,
+    ] as const);
+    export function fromNumber(value: u53, fallback?: CallStatisticsPolicy): CallStatisticsPolicy {
+        if ((ALL as ReadonlySet<u53>).has(value)) {
+            return value as CallStatisticsPolicy;
+        }
+        if (fallback !== undefined) {
+            return fallback;
+        }
+        throw new Error(`${value} is not a valid CallStatisticsPolicy`);
+    }
+    export function containsNumber(value: u53): value is CallStatisticsPolicy {
+        return (ALL as ReadonlySet<u53>).has(value);
+    }
+    export function contains(value: unknown): value is CallStatisticsPolicy {
+        return typeof value === 'number' && (ALL as ReadonlySet<u53>).has(value);
+    }
+}
 export namespace ElectronIpcCommand {
     export const BEFORE_RESTART = 'beforeRestart';
     export type BEFORE_RESTART = typeof BEFORE_RESTART;
@@ -3097,8 +3096,6 @@ export namespace ElectronIpcCommand {
     export type LOAD_USER_PASSWORD = typeof LOAD_USER_PASSWORD;
     export const LOG_TO_FILE = 'logToFile';
     export type LOG_TO_FILE = typeof LOG_TO_FILE;
-    export const LOG_WEBRTC_STATS_TO_FILE = 'logWebrtcStatsToFile';
-    export type LOG_WEBRTC_STATS_TO_FILE = typeof LOG_WEBRTC_STATS_TO_FILE;
     export const ON_FALLBACK_OPPF = 'onFallbackOppf';
     export type ON_FALLBACK_OPPF = typeof ON_FALLBACK_OPPF;
     export const REMOTE_SECRET_ERROR_RESTART_APP = 'remoteSecretErrorRestartApp';
@@ -3139,6 +3136,8 @@ export namespace ElectronIpcCommand {
     export type UPDATE_APP_BADGE = typeof UPDATE_APP_BADGE;
     export const UPDATE_PUBLIC_KEY_PINS = 'updatePublicKeyPins';
     export type UPDATE_PUBLIC_KEY_PINS = typeof UPDATE_PUBLIC_KEY_PINS;
+    export const OPEN_WEBRTC_INTERNALS = 'openWebRtcInternals';
+    export type OPEN_WEBRTC_INTERNALS = typeof OPEN_WEBRTC_INTERNALS;
 }
 /**
  * ELECTRON
