@@ -995,6 +995,7 @@ export enum ElectronIpcCommand {
     SCREEN_SHARING_SHOW_REMINDER = 'screenSharingShowReminder',
     SCREEN_SHARING_STOP = 'screenSharingStop',
     SET_FILE_LOGGING_ENABLED_AND_RESTART = 'setFileLoggingEnabledAndRestart',
+    SET_SCREENSHOT_PROTECTION = 'setScreenshotProtection',
     SET_SPELLCHECK = 'setSpellcheck',
     SIGNAL_RESTART_READY = 'signalRestartReady',
     STORE_USER_PASSWORD = 'storeUserPassword',

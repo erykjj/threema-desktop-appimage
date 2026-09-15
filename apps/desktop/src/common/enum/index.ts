@@ -3122,6 +3122,8 @@ export namespace ElectronIpcCommand {
     export type SCREEN_SHARING_STOP = typeof SCREEN_SHARING_STOP;
     export const SET_FILE_LOGGING_ENABLED_AND_RESTART = 'setFileLoggingEnabledAndRestart';
     export type SET_FILE_LOGGING_ENABLED_AND_RESTART = typeof SET_FILE_LOGGING_ENABLED_AND_RESTART;
+    export const SET_SCREENSHOT_PROTECTION = 'setScreenshotProtection';
+    export type SET_SCREENSHOT_PROTECTION = typeof SET_SCREENSHOT_PROTECTION;
     export const SET_SPELLCHECK = 'setSpellcheck';
     export type SET_SPELLCHECK = typeof SET_SPELLCHECK;
     export const SIGNAL_RESTART_READY = 'signalRestartReady';

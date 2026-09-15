@@ -256,7 +256,10 @@
     "prose--step-2-list-step-2": "Select the “Relink Device” button below to start the linking process"
   },
   "dialog--forward-message": {
-    "error--forwarding-failed": "Failed to forward the message",
+    "error--failed": "Failed to forward the message",
+    "error--share-failed": "Failed to share the link",
+    "label--share-submit": "Share",
+    "label--share-success": "Link shared",
     "label--submit": "Forward Message",
     "label--success": "Message successfully forwarded",
     "label--title": "Select Recipient"
@@ -866,8 +869,13 @@
     "prose--subtitle": "{shortAppName} ID"
   },
   "settings--security": {
+    "hint--prevent-screenshots-mdm": "This setting is managed by your organization.",
+    "hint--prevent-screenshots-unsupported": "This setting is not supported on your system.",
     "label--app-protection": "App Protection",
     "label--change-password": "Change Password",
+    "label--prevent-screenshots": "No screenshots",
+    "label--prevent-screenshots-disabled": "Taking screenshots is enabled",
+    "label--prevent-screenshots-enabled": "Taking screenshots is disabled",
     "label--title": "Security Settings",
     "prose--subtitle": "Password"
   },

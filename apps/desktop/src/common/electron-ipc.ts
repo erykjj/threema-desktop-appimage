@@ -291,6 +291,11 @@ export interface ElectronIpc {
      * Open (or focus, if already open) the WebRTC internals window.
      */
     readonly openWebRtcInternals: () => void;
+
+    /**
+     * Enable or disable screenshot protection
+     */
+    readonly setScreenshotProtection: (enable: boolean) => void;
 }
 
 export interface ScreenSharingReminderDetails {

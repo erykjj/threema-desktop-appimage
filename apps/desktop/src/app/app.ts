@@ -62,7 +62,9 @@ import {parseTestData, type TestDataJson} from '~/common/test-data';
 import {assertUnreachable, setAssertFailLogger, unwrap} from '~/common/utils/assert';
 import type {Remote, RemoteProxy} from '~/common/utils/endpoint';
 import type {ReusablePromise} from '~/common/utils/promise';
+import {createScreenshotPreventionState} from '~/common/utils/settings';
 import {type ReadableStore, WritableStore, type IQueryableStore} from '~/common/utils/store';
+import {derive} from '~/common/utils/store/derived-store';
 
 export interface Elements {
     readonly splash: HTMLElement;
@@ -722,6 +724,29 @@ async function main(): Promise<() => Promise<void>> {
         await backend.model.conversations.totalUnreadMessageCount
     ).subscribe(TIMER.debounce(updateUnreadMessageAppBadge, 300));
 
+    async function createScreenshotPreventionSettingsObserver(): Promise<() => void> {
+        const store = derive(
+            [await backend.model.user.workSettings, await backend.model.user.privacySettings],
+            ([currentWorkSetting, currentPrivacySettings]) => {
+                const state = createScreenshotPreventionState(
+                    currentWorkSetting.currentValue.view,
+                    currentPrivacySettings.currentValue.view,
+                    log,
+                );
+
+                return state;
+            },
+        );
+
+        const unsubscriber = store.subscribe((state) => {
+            electron.setScreenshotProtection(state.enabled);
+        });
+
+        return unsubscriber;
+    }
+
+    const screenshotPreventionUnsubscriber = await createScreenshotPreventionSettingsObserver();
+
     // Attach app when the identity is ready and DOM is loaded
     log.debug('Waiting for identity');
     await identityReady;
@@ -743,6 +768,7 @@ async function main(): Promise<() => Promise<void>> {
     return async () => {
         rtcStatsUnsubscriber();
         totalUnreadMessageCountUnsubscriber();
+        screenshotPreventionUnsubscriber();
         if ((await electron.getSystemInfo()).os === 'macos') {
             hotkeyManager.unregisterHotkey(routeToSettings);
         }

@@ -157,7 +157,11 @@ export interface PrivacySettings {
    *
    * An empty list is valid.
    */
-  excludeFromSyncIdentities: Identities | undefined;
+  excludeFromSyncIdentities:
+    | Identities
+    | undefined;
+  /** Whether the screenshot prevention is enabled by the local user setting */
+  localScreenshotPrevention?: boolean | undefined;
 }
 
 /**
@@ -799,6 +803,7 @@ function createBasePrivacySettings(): PrivacySettings {
     keyboardDataCollectionPolicy: undefined,
     blockedIdentities: undefined,
     excludeFromSyncIdentities: undefined,
+    localScreenshotPrevention: undefined,
   };
 }
 
@@ -827,6 +832,9 @@ export const PrivacySettings: MessageFns<PrivacySettings> = {
     }
     if (message.excludeFromSyncIdentities !== undefined) {
       Identities.encode(message.excludeFromSyncIdentities, writer.uint32(66).fork()).join();
+    }
+    if (message.localScreenshotPrevention !== undefined) {
+      writer.uint32(72).bool(message.localScreenshotPrevention);
     }
     return writer;
   },
@@ -900,6 +908,14 @@ export const PrivacySettings: MessageFns<PrivacySettings> = {
           }
 
           message.excludeFromSyncIdentities = Identities.decode(reader, reader.uint32());
+          continue;
+        }
+        case 9: {
+          if (tag !== 72) {
+            break;
+          }
+
+          message.localScreenshotPrevention = reader.bool();
           continue;
         }
       }

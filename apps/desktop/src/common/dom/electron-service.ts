@@ -69,6 +69,7 @@ export class ElectronIpcService implements ElectronIpc {
             registerInvalidCertificatePins: this.registerInvalidCertificatePins.bind(this),
             triggerInvalidCertificatePins: this.triggerInvalidCertificatePins.bind(this),
             signalRestartReady: this.signalRestartReady.bind(this),
+            setScreenshotProtection: this.setScreenshotProtection.bind(this),
         };
     }
 
@@ -298,5 +299,10 @@ export class ElectronIpcService implements ElectronIpc {
     /** @inheritdoc */
     public openWebRtcInternals(): void {
         return this._api.openWebRtcInternals();
+    }
+
+    /** @inheritdoc */
+    public setScreenshotProtection(enable: boolean): void {
+        this._api.setScreenshotProtection(enable);
     }
 }

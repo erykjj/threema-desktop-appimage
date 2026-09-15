@@ -139,6 +139,9 @@ message PrivacySettings {
   //
   // An empty list is valid.
   Identities exclude_from_sync_identities = 8;
+
+  // Whether the screenshot prevention is enabled by the local user setting
+  optional bool local_screenshot_prevention = 9;
 }
 
 // Calls settings

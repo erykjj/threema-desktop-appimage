@@ -823,6 +823,7 @@ function main(
 
                     showScreenSharingReminder(appBaseUrl, text, label)
                         .then((win) => {
+                            win.setContentProtection(window?.isContentProtected() ?? false);
                             screenSharingReminderWindow = win;
                         })
                         .catch(() => {
@@ -1043,6 +1044,16 @@ function main(
                 'Trying to set the spellcheck on a non-darwin platform. This is not implemented yet',
             );
         });
+
+        electron.ipcMain.on(
+            ElectronIpcCommand.SET_SCREENSHOT_PROTECTION,
+            (event, enable: boolean) => {
+                validateSenderFrame(event.senderFrame);
+                window?.setContentProtection(enable);
+                screenSharingReminderWindow?.setContentProtection(enable);
+                log.info('ElectronIpcCommand.SET_SCREENSHOT_PROTECTION called with', enable);
+            },
+        );
 
         electron.ipcMain.handle(ElectronIpcCommand.GET_LOG_INFORMATION, (event) => {
             validateSenderFrame(event.senderFrame);

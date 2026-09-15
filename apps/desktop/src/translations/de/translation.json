@@ -256,7 +256,10 @@
     "prose--step-2-list-step-2": "Klicken Sie hier auf «Neu verknüpfen», um die Desktop-App erneut zu verknüpfen"
   },
   "dialog--forward-message": {
-    "error--forwarding-failed": "Weiterleiten der Nachricht fehlgeschlagen",
+    "error--failed": "Weiterleiten der Nachricht fehlgeschlagen",
+    "error--share-failed": "Teilen des Links fehlgeschlagen",
+    "label--share-submit": "Teilen",
+    "label--share-success": "Link geteilt",
     "label--submit": "Nachricht weiterleiten",
     "label--success": "Nachricht erfolgreich weitergeleitet",
     "label--title": "Empfänger auswählen"
@@ -866,8 +869,13 @@
     "prose--subtitle": "{shortAppName}-ID"
   },
   "settings--security": {
+    "hint--prevent-screenshots-mdm": "Diese Einstellung wird von Ihrer Organisation verwaltet.",
+    "hint--prevent-screenshots-unsupported": "Diese Einstellung wird auf ihrem System nicht unterstützt.",
     "label--app-protection": "App-Schutz",
     "label--change-password": "App-Passwort ändern",
+    "label--prevent-screenshots": "Screenshots verhindern",
+    "label--prevent-screenshots-disabled": "Screenshots erstellen ist aktiviert",
+    "label--prevent-screenshots-enabled": "Screenshots erstellen ist deaktiviert",
     "label--title": "Sicherheitseinstellungen",
     "prose--subtitle": "Passwort"
   },

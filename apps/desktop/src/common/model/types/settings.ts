@@ -76,6 +76,7 @@ export interface PrivacySettingsView {
     readonly keyboardDataCollectionPolicy?: KeyboardDataCollectionPolicy;
     readonly blockedIdentities?: {readonly identities: IdentityString[]};
     readonly excludeFromSyncIdentities?: {readonly identities: IdentityString[]};
+    readonly localScreenshotPrevention?: boolean;
 }
 export type PrivacySettingsUpdate = Partial<PrivacySettingsView>;
 export type PrivacySettingsController = {

@@ -31,7 +31,7 @@
   const {uiLogging} = globals.unwrap();
   const log = uiLogging.logger('ui.component.message-forward-modal');
 
-  const {id, onclose, receiverLookup, services}: MessageForwardModalProps = $props();
+  const {content, onclose, services}: MessageForwardModalProps = $props();
   const {
     backend,
     router,
@@ -82,6 +82,28 @@
     }
   }
 
+  const actionLabel = $derived.by(() => {
+    switch (content.type) {
+      case 'forward-message':
+        return 'forward';
+      case 'share-text':
+        return 'share';
+      default:
+        return unreachable(content);
+    }
+  });
+
+  const submitLabel = $derived.by(() => {
+    switch (content.type) {
+      case 'forward-message':
+        return $i18n.t('dialog--forward-message.label--submit', 'Forward Message');
+      case 'share-text':
+        return $i18n.t('dialog--forward-message.label--share-submit', 'Share');
+      default:
+        return unreachable(content);
+    }
+  });
+
   function isReceiverSelected(receiver: AnyReceiverDataOrSelf): boolean {
     switch (receiver.type) {
       case 'self':
@@ -107,28 +129,49 @@
     ];
 
     if (viewModelController === undefined) {
-      log.error('Cannot forward message, viewmodelcontroller is undefined');
+      log.error(`Cannot ${actionLabel} message, viewmodelcontroller is undefined`);
       return;
     }
 
-    // Because Svelte `$state` uses proxies under the hood, values need to be unwrapped using
-    // `$state.snapshot` to make them usable outside of Svelte contexts.
-    const messageToForward = $state.snapshot({
-      lookup: receiverLookup,
-      messageId: id,
-    }) as unknown as {
-      readonly lookup: DbReceiverLookup;
-      readonly messageId: MessageId;
-    };
+    let send: Promise<unknown>;
+    let successMessage: string;
+    let errorMessage: string;
+    if (content.type === 'forward-message') {
+      // Because Svelte `$state` uses proxies under the hood, values need to be unwrapped using
+      // `$state.snapshot` to make them usable outside of Svelte contexts.
+      const messageToForward = $state.snapshot({
+        lookup: content.receiverLookup,
+        messageId: content.id,
+      }) as unknown as {
+        readonly lookup: DbReceiverLookup;
+        readonly messageId: MessageId;
+      };
+      send = viewModelController.forwardMessage(messageToForward, lookups);
+      successMessage = $i18n.t(
+        'dialog--forward-message.label--success',
+        'Message successfully forwarded',
+      );
+      errorMessage = $i18n.t(
+        'dialog--forward-message.error--failed',
+        'Failed to forward the message',
+      );
+    } else if (content.type === 'share-text') {
+      send = viewModelController.shareText(content.text, lookups);
+      successMessage = $i18n.t('dialog--forward-message.label--share-success', 'Link shared');
+      errorMessage = $i18n.t(
+        'dialog--forward-message.error--share-failed',
+        'Failed to share the link',
+      );
+    } else {
+      log.warn('Not a supported MessageForwardType', content);
+      return;
+    }
 
-    await viewModelController
-      .forwardMessage(messageToForward, lookups)
+    await send
       .then(() => {
-        toast.addSimpleSuccess(
-          $i18n.t('dialog--forward-message.label--success', 'Message successfully forwarded'),
-        );
+        toast.addSimpleSuccess(successMessage);
 
-        // If we only forwarded to one receiver, we can open this chat.
+        // If we only sent to one receiver, we can open this chat.
         if (lookups.length === 1) {
           router.goToConversation({
             receiverLookup: $state.snapshot(lookups[0]) as unknown as DbReceiverLookup,
@@ -138,13 +181,8 @@
         modalComponent?.close();
       })
       .catch((error) => {
-        log.error('An error occurred when forwarding message:', ensureError(error));
-        toast.addSimpleFailure(
-          $i18n.t(
-            'dialog--forward-message.error--forwarding-failed',
-            'Failed to forward the message',
-          ),
-        );
+        log.error(`An error occurred when ${actionLabel} message:`, ensureError(error));
+        toast.addSimpleFailure(errorMessage);
         modalComponent?.close();
         router.goToWelcome();
       });
@@ -190,14 +228,6 @@
           const item = itemStore.get();
           // Exclude `self`.
           if (item.receiver.type === 'self') {
-            return false;
-          }
-
-          // Exclude receiver of original message to forward.
-          if (
-            item.receiver.lookup.type === receiverLookup.type &&
-            item.receiver.lookup.uid === receiverLookup.uid
-          ) {
             return false;
           }
 
@@ -259,7 +289,7 @@
         onclick: 'close',
       },
       {
-        label: $i18n.t('dialog--forward-message.label--submit', 'Forward Message'),
+        label: submitLabel,
         type: 'filled',
         onclick: handleSubmit,
       },

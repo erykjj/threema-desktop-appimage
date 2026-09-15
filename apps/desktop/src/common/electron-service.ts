@@ -101,4 +101,9 @@ export interface IFrontendElectronService extends ProxyMarked {
      * Signal to the electron main thread that the app is ready to restart.
      */
     readonly signalRestartReady: () => Promise<void>;
+
+    /**
+     * Signal to the electron main thread to set screenshot protection.
+     */
+    readonly setScreenshotProtection: (enable: boolean) => void;
 }

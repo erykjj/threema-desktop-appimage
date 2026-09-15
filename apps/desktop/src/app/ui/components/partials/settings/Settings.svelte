@@ -209,7 +209,14 @@
           settings={$viewModelStore.profile}
         />
       {:else if currentCategory === 'security'}
-        <SecuritySettings {services} />
+        <SecuritySettings
+          {services}
+          actions={{
+            updateSettings: (update) => {
+              handleUpdateSettings({update, type: 'privacy'});
+            },
+          }}
+        />
       {:else}
         {svelteUnreachable(currentCategory)}
       {/if}

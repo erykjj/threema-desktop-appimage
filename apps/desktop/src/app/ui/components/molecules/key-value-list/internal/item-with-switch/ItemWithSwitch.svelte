@@ -4,18 +4,26 @@
 <script lang="ts">
   import {Switch} from '@threema/ui';
 
+  import Text from '~/app/ui/components/atoms/text/Text.svelte';
   import type {ItemWithSwitchProps} from '~/app/ui/components/molecules/key-value-list/internal/item-with-switch/props';
+  import Tooltip from '~/app/ui/generic/popover/Tooltip.svelte';
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
+  import type {SvelteNullableBinding} from '~/app/ui/utils/svelte';
 
   let {
     checked = $bindable(false),
     children,
     disabled = $bindable(false),
+    hint,
     key,
     onclickinfoicon,
     onswitch,
     options = {},
   }: ItemWithSwitchProps = $props();
+
+  let tooltipComponent = $state<SvelteNullableBinding<Tooltip>>(null);
+
+  const anchorName = `--${crypto.randomUUID()}` as const;
 
   function handleClickItem(event: MouseEvent): void {
     event.preventDefault();
@@ -27,9 +35,23 @@
     checked = !checked;
     onswitch?.({old: !checked, new: checked});
   }
+
+  function handleMouseEnterHint(): void {
+    tooltipComponent?.open();
+  }
+
+  function handleMouseLeaveHint(): void {
+    tooltipComponent?.close();
+  }
 </script>
 
-<button class="item" {disabled} onclick={handleClickItem}>
+<button
+  class="item"
+  {disabled}
+  onclick={handleClickItem}
+  onmouseenter={hint === undefined ? undefined : handleMouseEnterHint}
+  onmouseleave={hint === undefined ? undefined : handleMouseLeaveHint}
+>
   <div class="left">
     <div class="header">
       <div class="key">{key}</div>
@@ -49,11 +71,19 @@
   </div>
 
   <div class="right">
-    <span class="switch">
+    <span class="switch" style:anchor-name={hint === undefined ? undefined : anchorName}>
       <Switch bind:checked {disabled} />
     </span>
   </div>
 </button>
+
+{#if hint !== undefined}
+  <Tooltip bind:this={tooltipComponent} {anchorName}>
+    <span class="content">
+      <Text alignment="center" text={hint} />
+    </span>
+  </Tooltip>
+{/if}
 
 <style lang="scss">
   @use 'component' as *;
@@ -123,5 +153,12 @@
         height: rem(40px);
       }
     }
+  }
+
+  .content {
+    padding: 0;
+    margin: rem(10px);
+    max-width: rem(280px);
+    text-align: center;
   }
 </style>

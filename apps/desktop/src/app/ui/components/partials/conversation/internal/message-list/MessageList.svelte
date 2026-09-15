@@ -186,8 +186,11 @@
     modalState = {
       type: 'message-forward',
       props: {
-        id: message.id,
-        receiverLookup: conversation.receiver.lookup,
+        content: {
+          type: 'forward-message',
+          id: message.id,
+          receiverLookup: conversation.receiver.lookup,
+        },
         services,
       },
     };
