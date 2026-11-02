@@ -65,6 +65,8 @@
 
   let duration = $state<f64>(audioFile.duration ?? 0);
 
+  let currentAudioFileName: string | undefined;
+
   async function loadAudio(): Promise<void> {
     const fileInformation = await audioFile.fetchFileBytes().catch((error) => {
       log.debug(
@@ -236,17 +238,26 @@
     duration = audioElement?.duration ?? audioFile.duration ?? 0;
   }
 
-  $effect(() => {
-    reactive(() => {
-      loadAudio().catch(assertUnreachable);
-    }, [audioFile]);
-  });
+  function resetPlayerUiState(): void {
+    isPaused = true;
+    currentSliderPosition = 0;
+    currentAudioPosition = 0;
+    duration = 0;
+    waveformData = [];
+  }
 
-  onDestroy(() => {
-    if (audio.state === 'loaded') {
-      URL.revokeObjectURL(audio.state);
+  function handleAudioFileChange(): void {
+    if (currentAudioFileName !== audioFile.name.raw || audio.state === 'failed') {
+      currentAudioFileName = audioFile.name.raw;
+
+      resetPlayerUiState();
+      loadAudio().catch(assertUnreachable);
     }
-  });
+  }
+
+  $effect(() => reactive(() => handleAudioFileChange(), [audioFile]));
+
+  onDestroy(() => revokeCurrentAudioUrl(audio));
 </script>
 
 <div class="audio-player" class:footer={snippetFooter !== undefined}>

@@ -174,9 +174,10 @@ export class Updater {
                     cache: 'no-store',
                     credentials: 'omit',
                     referrerPolicy: 'no-referrer',
+                    // Note: The `user-agent` header is ignored by Chromium and is instead set in
+                    // the Electron main process.
                     headers: {
-                        'user-agent': STATIC_CONFIG.USER_AGENT,
-                        'accept': 'application/json',
+                        accept: 'application/json',
                     },
                 },
             );
@@ -286,9 +287,10 @@ export class Updater {
             cache: 'no-store',
             credentials: 'omit',
             referrerPolicy: 'no-referrer',
+            // Note: The `user-agent` header is ignored by Chromium and is instead set in the
+            // Electron main process.
             headers: {
-                'user-agent': STATIC_CONFIG.USER_AGENT,
-                'accept': 'application/octet-stream',
+                accept: 'application/octet-stream',
             },
         });
         if (response.body === null) {

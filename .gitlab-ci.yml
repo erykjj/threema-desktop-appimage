@@ -18,6 +18,8 @@ variables:
   # requires this project to be on each repository's job token allowlist.
   STRUCTBUF_TYPESCRIPT_REPO: '${CI_SERVER_HOST}/clients/protocols/structbuf-typescript.git'
   THREEMA_PROTOCOLS_REPO: '${CI_SERVER_HOST}/clients/protocols/threema-protocols.git'
+  # Path to central image registry
+  THREEMA_REGISTRY_IMAGE: $CI_REGISTRY_THREEMA/$CI_PROJECT_NAME
 
 default:
   image: node:${NODE_VERSION}-bookworm
@@ -35,17 +37,27 @@ default:
           chown -R root:root "${CI_PROJECT_DIR}"
         fi
 
-# Workflow triggers:
-# - Run for tags, branches and merge requests.
-# - However, do not trigger a branch workflow when a MR is open. In that case, only run the MR
-#   workflow.
 workflow:
   rules:
-    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"
+    # Always run when manually triggered from the UI (Build > Pipelines > Run pipeline)
+    - if: $CI_PIPELINE_SOURCE =~ /^(web|api|trigger)$/
+    # Skip draft MR pipelines, unless the MR is labeled `workflow:ci`. Note: GitLab does not
+    # distinguish between automatic and manually triggered MR pipelines ("Run pipeline" button in
+    # the MR), so the label is used to opt in. With the label set, click "Run pipeline" in the MR.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_DRAFT == "true" && $CI_MERGE_REQUEST_LABELS !~ /(^|,)workflow::ci(,|$)/
       when: never
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_TAG
+    # Always run on develop/stable (e.g. right after a merge lands there)
+    - if: $CI_COMMIT_BRANCH == "develop" || $CI_COMMIT_BRANCH == "stable"
+    # Skip every other branch-triggered pipeline (push, web, schedule, api, etc.) -
+    # feature branches only run via their MR pipeline
     - if: $CI_COMMIT_BRANCH
+      when: never
+    # Non-draft MR pipeline
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Tags always run
+    - if: $CI_COMMIT_TAG
+    # Anything else don't run
+    - when: never
 
 # CI stages.
 stages:
@@ -55,19 +67,19 @@ stages:
 
 .container-build-steps: &container-build-steps
   stage: build
-  image: $CI_REGISTRY_IMAGE/buildah:latest
+  image: $THREEMA_REGISTRY_IMAGE/buildah:latest
   before_script:
     - set -euo pipefail
     - buildah info
     - buildah login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN docker.io
-    - buildah login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - buildah login -u $CI_REGISTRY_THREEMA_USER -p $CI_REGISTRY_THREEMA_TOKEN $CI_REGISTRY
   tags:
     - docker-privileged
   # Build image and push it to the registry
   script:
     # Determine image path
-    - export IMAGE_FULL=$CI_REGISTRY_IMAGE/$IMAGE
-    - export IMAGE_CACHE=$CI_REGISTRY_IMAGE/cache/$IMAGE
+    - export IMAGE_FULL=$THREEMA_REGISTRY_IMAGE/$IMAGE
+    - export IMAGE_CACHE=$THREEMA_REGISTRY_IMAGE/${IMAGE}-cache
     - 'echo "Image path: ${IMAGE_FULL}"'
     # Pull image from cache
     - buildah pull ${IMAGE_FULL}:latest || true
@@ -255,7 +267,7 @@ image:libthreema:
 libthreema:
   stage: build
   needs: [image:libthreema]
-  image: $CI_REGISTRY_IMAGE/libthreema:latest
+  image: $THREEMA_REGISTRY_IMAGE/libthreema:latest
   <<: *linux_nodejs_config
   artifacts:
     paths:
@@ -306,7 +318,7 @@ launcher:
 pages:
   stage: build
   needs: [image:mdbook]
-  image: ${CI_REGISTRY_IMAGE}/mdbook:latest
+  image: $THREEMA_REGISTRY_IMAGE/mdbook:latest
   rules:
     - if: $CI_COMMIT_BRANCH == 'develop'
   artifacts:
@@ -352,7 +364,7 @@ lint:
 test:vitest:
   stage: test
   needs: [libthreema, image:node-browsers]
-  image: $CI_REGISTRY_IMAGE/node-browsers:latest
+  image: $THREEMA_REGISTRY_IMAGE/node-browsers:latest
   <<: *linux_nodejs_config
   variables:
     <<: *linux_nodejs_variables
@@ -375,7 +387,7 @@ test:vitest:
 test:desktop:karma:consumer-sandbox:linux:
   stage: test
   needs: [libthreema, image:node-browsers]
-  image: $CI_REGISTRY_IMAGE/node-browsers:latest
+  image: $THREEMA_REGISTRY_IMAGE/node-browsers:latest
   <<: *linux_nodejs_config
   artifacts:
     when: always
@@ -956,14 +968,11 @@ validate:rust-versions-in-sync:
           echo "Invalid build type: $BUILD_TYPE"
           exit 1
       esac
-    # Patch metadata for nightlies.
+    # Patch metadata for nightlies, so that they are distinguishable from the last stable release
+    # in software centers.
     - |
       if [ "$BUILD_TYPE" = "nightly" ]; then
-        VERSION=$(jq -r '.version' package.json)
-        GIT_REVISION=$(git rev-parse --short HEAD)
-        DATE=$(date +%Y-%m-%d)
-        # Metainfo file
-        sed -i "s/\(^.*version=\"$VERSION\".*\)/<release version=\"${VERSION}-nightly-${GIT_REVISION}\" date=\"$DATE\" \/>\n\1/" apps/desktop/packaging/metadata/ch.threema.threema-desktop.metainfo.xml
+        bash scripts/add-nightly-release-to-metainfo.sh apps/desktop/packaging/metadata/ch.threema.threema-desktop.metainfo.xml
       fi
     # Split flavors.
     - IFS=',' read -ra flavors <<< "$FLAVORS"

@@ -21,12 +21,14 @@ build
 /apps/desktop/packaging/flatpak/.flatpak-builder
 /apps/desktop/packaging/flatpak/generated-*.json
 /apps/desktop/playwright-report/
-/apps/desktop/src/common/network/protobuf/js
 /apps/desktop/src/common/internal-protobuf/
 /apps/desktop/src/rust/
 /apps/desktop/build/playwright/test-results
 # Forked code, keep differences to original minimal.
 /apps/desktop/src/common/node/db/query-runner.ts
+
+# Package: `packages/call`
+/packages/call/coverage/
 
 # Package: `packages/crypto`
 /packages/crypto/coverage/
@@ -34,6 +36,9 @@ build
 
 # Package: `packages/dom`
 /packages/dom/coverage/
+
+# Package: `packages/domain`
+/packages/domain/coverage/
 
 # Package: `packages/safe-enums`
 /packages/safe-enums/coverage/
@@ -59,4 +64,4 @@ build
 /packages/libthreema-wasm/libs/
 
 # Package: `packages/protocol`
-/packages/protocol/src/protobuf/
+/packages/protocol/src/protobuf/js/

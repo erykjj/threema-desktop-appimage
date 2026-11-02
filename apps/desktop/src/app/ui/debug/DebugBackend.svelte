@@ -6,6 +6,7 @@
   import MdIcon from '~/app/ui/svelte-components/blocks/Icon/MdIcon.svelte';
   import {D2mLeaderState} from '~/common/enum';
   import {ConnectionState, ConnectionStateUtils} from '~/common/network/protocol/state';
+  import {buildUpdaterUserAgent} from '~/common/user-agent';
   import {assertUnreachable} from '~/common/utils/assert';
 
   interface Props {
@@ -15,7 +16,7 @@
   const {services}: Props = $props();
 
   // Unpack services.
-  const {backend} = services;
+  const {backend, systemInfo} = services;
 
   const {deviceIds, connectionState, leaderState} = backend;
 
@@ -46,6 +47,17 @@
         D2M Device ID: {u64ToHexLe(deviceIds.d2mDeviceId)}<br />
         Server group: {debugPanel.serverGroup}<br />
         Leader: {#if leaderState$ === D2mLeaderState.LEADER}yes{:else}no{/if}
+      </p>
+
+      <p>
+        System Info <br />
+        Platform: {systemInfo.os} <br />
+        Version: {systemInfo.osVersion} <br />
+        Release: {systemInfo.osRelease} <br />
+        Architecture: {systemInfo.arch} <br />
+        Locale: {systemInfo.locale} <br />
+        Safe Storage: {systemInfo.isSafeStorageAvailable} <br />
+        Updater User-Agent: {buildUpdaterUserAgent(systemInfo)}
       </p>
 
       <Button

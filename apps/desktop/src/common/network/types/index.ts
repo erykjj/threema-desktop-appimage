@@ -1,4 +1,5 @@
 import {wrapRawKey, type ReadonlyRawKey} from '@threema/crypto';
+import type {BaseUrl, IdentityString} from '@threema/domain';
 import type {NonceScope} from '@threema/protocol/enum';
 import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
 import {UTF8} from '@threema/ts-utils/codec/utf8';
@@ -15,128 +16,22 @@ import {getIdentityString} from '~/common/model/contact';
 import {isU64, type u32, type u64} from '~/common/types';
 import {unreachable} from '~/common/utils/assert';
 
-/**
- * Properties to validate a URL with.
- */
-export interface ValidateUrlProperties {
-    readonly protocol: 'https:' | 'wss:';
-    readonly search: 'allow' | 'deny';
-    readonly hash: 'allow' | 'deny';
-}
-
-/**
- * Validate that the URL fulfills the expected properties.
- *
- * @param url Provided URL.
- * @param properties Expected properties to check for
- * @returns unmodified validated {@link URL}.
- */
-export function validateUrl(source: string | URL, properties: ValidateUrlProperties): URL {
-    const url = typeof source === 'string' ? new URL(source) : source;
-
-    // Validate
-    if (url.protocol !== properties.protocol) {
-        throw new Error(
-            `URL uses unexpected protocol: '${url}' (expected-protocol=${properties.protocol})`,
-        );
-    }
-    if (properties.search === 'deny' && url.search !== '') {
-        throw new Error(`URL may not contain search parameters: '${url}'`);
-    }
-    if (properties.hash === 'deny' && url.hash !== '') {
-        throw new Error(`URL may not contain fragment/hash: '${url}'`);
-    }
-
-    return url;
-}
-
-/**
- * A base URL (has a trailing slash).
- */
-export type BaseUrl = WeakOpaque<URL, {readonly BaseUrl: unique symbol}>;
-
-/**
- * Ensure the resulting URL is a base URL and uses the expected protocol. A base URL has the
- * following properties:
- *
- * - Path ends with a forward slash (auto-fixed if missing).
- * - No search parameters (throws {@link Error} if provided).
- * - No fragment/hash (throws {@link Error} if provided).
- * - May have username, password or port.
- *
- * @param url Provided URL.
- * @param protocol Expected protocol.
- * @returns validated {@link BaseUrl}.
- */
-export function ensureBaseUrl(
-    source: string | URL,
-    protocol: NonNullable<ValidateUrlProperties['protocol']>,
-): BaseUrl {
-    // Make a copy of the URL and validate protocol, search and hash
-    const url = validateUrl(new URL(source.toString()), {protocol, search: 'deny', hash: 'deny'});
-
-    // Ensure path ends with '/'
-    if (!url.pathname.endsWith('/')) {
-        url.pathname += '/';
-    }
-
-    return url as BaseUrl;
-}
-
-/**
- * The client's Threema ID as a string.
- *
- * See {@link IDENTITY_STRING_RE} for its pattern.
- *
- */
-export type IdentityString = WeakOpaque<string, {readonly IdentityString: unique symbol}>;
-
-/**
- * Regular expression for {@link IdentityString}.
- *
- * Note: This is not 100% accurate since some characters and numbers are disallowed. But it's
- *       accurate enough for our purposes.
- */
-const IDENTITY_STRING_RE = /^[A-Z0-9*]{1}[A-Z0-9]{7}$/u;
-
-/**
- * Type guard for {@link IdentityString}.
- */
-export function isIdentityString(identity: unknown): identity is IdentityString {
-    return typeof identity === 'string' && IDENTITY_STRING_RE.test(identity);
-}
-
-/**
- * Ensure input is a valid {@link IdentityString}.
- */
-export function ensureIdentityString(identity: unknown): IdentityString {
-    if (!isIdentityString(identity)) {
-        throw new Error(`Not a valid Threema ID: ${identity}`);
-    }
-    return identity;
-}
-
-/**
- * The nickname of a user, guaranteed to be non-empty.
- */
-export type Nickname = WeakOpaque<string, {readonly Nickname: unique symbol}>;
-
-/**
- * Type guard for {@link Nickname}.
- */
-export function isNickname(nickname: unknown): nickname is Nickname {
-    return typeof nickname === 'string' && nickname.length > 0;
-}
-
-/**
- * Ensure input is a valid {@link Nickname}.
- */
-export function ensureNickname(nickname: string): Nickname {
-    if (!isNickname(nickname)) {
-        throw new Error(`Not a valid nickname: '${nickname}'`);
-    }
-    return nickname;
-}
+// Note: These live in `@threema/domain` so that shared packages can use them without depending on
+// this app. They are re-exported here to keep the existing import sites working.
+//
+// TODO(DESK-2248): Remove re-exports in favor of updating the changed imports.
+export {
+    ensureBaseUrl,
+    ensureIdentityString,
+    ensureNickname,
+    isIdentityString,
+    isNickname,
+    validateUrl,
+    type BaseUrl,
+    type IdentityString,
+    type Nickname,
+    type ValidateUrlProperties,
+} from '@threema/domain';
 
 export type DeviceName = WeakOpaque<string, {readonly deviceName: unique symbol}>;
 

@@ -3,8 +3,8 @@
   "productName": "Threema",
   "description": "Use Threema on your Desktop",
   "author": "Threema AG",
-  "version": "2.0-beta66",
-  "versionCode": 68,
+  "version": "2.0-beta67",
+  "versionCode": 69,
   "license": "AGPL-3.0+",
   "homepage": "https://threema.ch/",
   "keywords": [
@@ -61,9 +61,11 @@
     "@rtcstats/rtcstats-js": "2.4.0",
     "@sentry/browser": "9.39.0",
     "@threema/branding": "workspace:*",
+    "@threema/call": "workspace:*",
     "@threema/compose-area": "~0.4.6",
     "@threema/crypto": "workspace:*",
     "@threema/dom": "workspace:*",
+    "@threema/domain": "workspace:*",
     "@threema/libthreema-wasm": "workspace:*",
     "@threema/protocol": "workspace:*",
     "@threema/threema-markup": "1.1.0",
@@ -90,7 +92,7 @@
     "tailwind-variants": "catalog:",
     "ts-events": "3.4.1",
     "ts-sql-query": "1.67.0",
-    "tweetnacl": "1.0.3",
+    "tweetnacl": "catalog:",
     "web-streams-polyfill": "~4.3.0"
   },
   "electron": {

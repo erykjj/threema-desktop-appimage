@@ -9,14 +9,18 @@
   "scripts": {
     "lint:eslint": "eslint .",
     "lint:eslint:fix": "eslint . --fix",
-    "lint:tsc": "tsc --noEmit",
+    "lint:tsc": "tsc -b",
     "test:vitest": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@threema/ts-utils": "workspace:*"
   },
   "devDependencies": {
     "@threema/domain": "workspace:*",
     "@threema/eslint-config": "workspace:*",
+    "@threema/test-utils": "workspace:*",
     "@threema/ts-config": "workspace:*",
-    "@threema/ts-utils": "workspace:*",
+    "@types/node": "catalog:",
     "@vitest/browser-playwright": "catalog:",
     "@vitest/coverage-istanbul": "catalog:",
     "eslint": "catalog:",

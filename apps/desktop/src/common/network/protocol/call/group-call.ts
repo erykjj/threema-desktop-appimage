@@ -1,9 +1,8 @@
-import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
+import {GroupCallError, type GroupCallIdValue} from '@threema/call';
+import type {DirectoryErrorType} from '@threema/domain';
 import {byteEquals} from '@threema/ts-utils/byte/byte-equals';
-import {bytesToHex} from '@threema/ts-utils/byte/bytes-to-hex';
 import type {u53} from '@threema/ts-utils/integer/u53';
 import {AsyncLock} from '@threema/ts-utils/lock/async-lock';
-import {tag, type WeakOpaque} from '@threema/ts-utils/meta/newtype';
 import {clamp} from '@threema/ts-utils/number/clamp';
 import {ResolvablePromise} from '@threema/ts-utils/promise/resolvable-promise';
 import {TIMER} from '@threema/ts-utils/timer/global-timer';
@@ -22,9 +21,7 @@ import {
     GroupUserState,
     GroupUserStateUtils,
     StatusMessageType,
-    TransferTag,
 } from '~/common/enum';
-import {BaseError, type BaseErrorOptions} from '~/common/error';
 import {TRANSFER_HANDLER} from '~/common/index';
 import type {Logger} from '~/common/logging';
 import type {Contact, Group, ServicesForModel} from '~/common/model';
@@ -32,99 +29,37 @@ import {OngoingGroupCall} from '~/common/model/group-call';
 import type {ModelStore} from '~/common/model/utils/model-store';
 import type {JoinResponse} from '~/common/network/protobuf/validate/group-call';
 import type {AnyOngoingCall, CallType} from '~/common/network/protocol/call';
-import {
-    DirectoryError,
-    type DirectoryErrorType,
-    type SfuToken,
-} from '~/common/network/protocol/directory';
+import {DirectoryError, type SfuToken} from '~/common/network/protocol/directory';
 import {ensureBaseUrl, type BaseUrl, type IdentityString} from '~/common/network/types';
-import type {u16} from '~/common/types';
 import {assert, assertUnreachable, unreachable} from '~/common/utils/assert';
-import {PROXY_HANDLER, registerErrorTransferHandler} from '~/common/utils/endpoint';
+import {PROXY_HANDLER} from '~/common/utils/endpoint';
 import {AbortRaiser, type AbortListener} from '~/common/utils/signal';
 import {type IQueryableStore, WritableStore} from '~/common/utils/store';
-import {MIDS_MAX, type AnyGroupCallContextAbort, GroupCall} from '~/common/webrtc/group-call';
+import {type AnyGroupCallContextAbort, GroupCall} from '~/common/webrtc/group-call';
+
+// Note: The Group Call ID, the Participant ID and the group call error live in `@threema/call` so
+// that they can be shared with other apps. They are re-exported here to keep the existing import
+// sites working.
+//
+// Note: The transfer handler of the `GroupCallError` is registered and patched onto its prototype
+// in `~/common/error`, so that `@threema/call` stays free of any RPC coupling.
+//
+// TODO(DESK-2248): Remove re-exports in favor of updating the changed imports.
+export {
+    createGroupCallId,
+    ensureParticipantId,
+    GroupCallError,
+    isParticipantId,
+    type GroupCallErrorType,
+    type GroupCallId,
+    type GroupCallIdValue,
+    type ParticipantId,
+} from '@threema/call';
 
 export type ServicesForGroupCall = Pick<
     ServicesForModel,
     'db' | 'crypto' | 'device' | 'directory' | 'endpoint' | 'logging' | 'model' | 'sfu' | 'webrtc'
 >;
-
-/**
- * Error types associated to a group call.
- *
- * - invalid-state: The call state machine is in a state that did not allow for the desired action.
- * - directory-error: Could not acquire an SFU token.
- * - sfu-timeout: The SFU endpoint did not respond in time.
- * - sfu-fetch: An error occurred when fetching data from the SFU (e.g. a network connectivity
- *   error).
- * - sfu-status-code: The SFU endpoint did not return an acceptable HTTP status code for the call.
- * - sfu-invalid-data: Data received from the SFU endpoint that is considered critical could not be
- *   decoded.
- * - webrtc-connect: Could not connect to the SFU via WebRTC.
- */
-export type GroupCallErrorType =
-    | {readonly kind: 'invalid-state'}
-    | {readonly kind: 'directory-error'; readonly type: DirectoryErrorType}
-    | {readonly kind: 'sfu-timeout'}
-    | {readonly kind: 'sfu-fetch'}
-    | {readonly kind: 'sfu-status-code'; readonly status: u53}
-    | {readonly kind: 'sfu-invalid-data'}
-    | {readonly kind: 'webrtc-connect'};
-
-const GROUP_CALL_ERROR_TRANSFER_HANDLER = registerErrorTransferHandler<
-    GroupCallError,
-    TransferTag.GROUP_CALL_ERROR,
-    [type: GroupCallErrorType]
->({
-    tag: TransferTag.GROUP_CALL_ERROR,
-    serialize: (error) => [error.type],
-    deserialize: (message, cause, [type]) => new GroupCallError(type, message, {from: cause}),
-});
-
-export class GroupCallError extends BaseError {
-    public [TRANSFER_HANDLER] = GROUP_CALL_ERROR_TRANSFER_HANDLER;
-    public constructor(
-        public readonly type: GroupCallErrorType,
-        message: string,
-        options?: BaseErrorOptions,
-    ) {
-        super(message, options);
-    }
-}
-
-/** Group Call ID value in hex. */
-export type GroupCallIdValue = WeakOpaque<string, {readonly GroupCallIdValue: unique symbol}>;
-
-/** A valid Group Call ID is the output of Blake2b hash with 32 bytes length. */
-export interface GroupCallId {
-    readonly bytes: ReadonlyUint8Array;
-    readonly id: GroupCallIdValue;
-    readonly shortened: string;
-}
-export function createGroupCallId(bytes: ReadonlyUint8Array): GroupCallId {
-    if (bytes.byteLength !== 32 || bytes.every((byte) => byte === 0)) {
-        throw Error('Not a valid group call id');
-    }
-    const id = tag<GroupCallIdValue>(bytesToHex(bytes, ''));
-    return {
-        bytes,
-        id,
-        shortened: `${id.slice(0, 4)}..${id.slice(-4)}`,
-    };
-}
-
-/** A valid Participant ID is [0, 790[ due to the way we map MIDs. */
-export type ParticipantId = WeakOpaque<u16, {readonly ParticipantId: unique symbol}>;
-export function isParticipantId(value: u53): value is ParticipantId {
-    return value >= 0 && value < MIDS_MAX;
-}
-export function ensureParticipantId(value: u53): ParticipantId {
-    if (!isParticipantId(value)) {
-        throw Error(`Not a valid participant id: '${value}'`);
-    }
-    return value;
-}
 
 /**
  * Return the {@link ModelStore<Contact> | 'me'} and the associated {@link PublicKey} if the

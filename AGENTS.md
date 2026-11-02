@@ -65,9 +65,16 @@ structure.
 
 ```
 ├── apps/
+│   ├── conferencing/                      # Threema Conferencing (Svelte single-page web app)
 │   └── desktop/                           # The main Electron app (Threema Desktop)
 ├── docs/                                  # Developer documentation (mdbook)
 ├── packages/                              # Shared packages
+│   ├── branding/                          # Threema brand assets and design tokens
+│   ├── call/                              # Platform-neutral call logic and primitives
+│   ├── crypto/                            # Platform-neutral crypto primitives (keys, boxes, NaCl backend)
+│   ├── dom/                               # Browser/DOM utilities
+│   ├── domain/                            # Threema domain logic and types (e.g. Threema ID)
+│   ├── electron/                          # Electron-specific utilities (@threema/electron-utils)
 │   ├── eslint-config/                     # Shared ESLint configuration
 │   ├── eslint-plugin-threema/             # Custom ESLint rules
 │   ├── libthreema-wasm/                   # Threema protocol implementation written in Rust
@@ -75,8 +82,11 @@ structure.
 │   ├── safe-enums/                        # Generator for safe enums (from a package's enum schema)
 │   ├── ts-config/                         # Shared TypeScript configuration
 │   ├── ts-utils/                          # Shared TypeScript utilities
+│   ├── ui/                                # Reusable UI components (Svelte 5, Tailwind CSS)
 │   ├── vite-plugin-commonjs-externals/
-│   └── vite-plugin-subresource-integrity/ # Custom SRI plugin for Vite
+│   ├── vite-plugin-subresource-integrity/ # Custom SRI plugin for Vite
+│   ├── webrtc/                            # Generic WebRTC primitives and utilities
+│   └── workers/                           # Worker utilities (@threema/worker-utils)
 ├── scripts/                               # Helper scripts used during development
 └── turbo.jsonc                            # Top-level Turborepo configuration
 ```
@@ -278,12 +288,10 @@ Some code is generated and should NOT be modified manually (usually stated at th
 
 - `src/common/enum/index.ts`: Generated from `src/enum/schema.ts` via
   `pnpm run generate:desktop:safe-enums`.
-- `src/common/network/protobuf/`: Generated from protobuf definitions.
-- `src/common/network/structbuf/`: Generated from structbuf definitions (except `utils.ts`).
 - `packages/protocol/src/enum/index.ts`: Generated from `packages/protocol/src/enum/schema.ts` via
   `pnpm run generate:protocol:safe-enums`. Exposed as `@threema/protocol/enum` and holds the enums
   whose values are defined by the Threema protocol or appear on the wire.
-- `packages/protocol/src/protobuf/`, `packages/protocol/src/structbuf/`: Generated from the
+- `packages/protocol/src/protobuf/js/`, `packages/protocol/src/structbuf/`: Generated from the
   `threema-protocols` repository via `pnpm run update:protocol`.
 
 Generating code should usually be done manually by the user. Always ask first before running any

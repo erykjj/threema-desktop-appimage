@@ -6,7 +6,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+import type {SfuPeekResult} from '@threema/call';
 import {wrapRawKey, type RawKey} from '@threema/crypto';
+import {TweetNaClBackend} from '@threema/crypto/tweetnacl';
 import {NonceScope} from '@threema/protocol/enum';
 import type {ReadonlyUint8Array} from '@threema/ts-utils/array/readonly-uint8-array';
 import {UTF8} from '@threema/ts-utils/codec/utf8';
@@ -32,7 +34,6 @@ import {SecureSharedBoxFactory} from '~/common/crypto/box';
 import {deriveDeviceGroupKeys} from '~/common/crypto/device-group-keys';
 import type {INonceGuard, INonceService} from '~/common/crypto/nonce';
 import {randomU64} from '~/common/crypto/random';
-import {TweetNaClBackend} from '~/common/crypto/tweetnacl';
 import {type DatabaseBackend, type DbReceiverLookup, wrapRawDatabaseKey} from '~/common/db';
 import type {Device, ThreemaWorkData} from '~/common/device';
 import type {SystemInfo} from '~/common/electron-ipc';
@@ -134,7 +135,7 @@ import {
 } from '~/common/network/protocol/directory';
 import type {D2mMessageFlags} from '~/common/network/protocol/flags';
 import {PersistentProtocolStateBackend} from '~/common/network/protocol/persistent-protocol-state';
-import type {PeekResponse, SfuHttpBackend} from '~/common/network/protocol/sfu';
+import type {SfuHttpBackend} from '~/common/network/protocol/sfu';
 import type {
     ActiveTaskCodecHandle,
     ServicesForTasks,
@@ -327,7 +328,10 @@ class TestDirectoryBackend implements DirectoryBackend {
 
 class TestSfuHttpBackend implements SfuHttpBackend {
     // eslint-disable-next-line @typescript-eslint/require-await
-    public async peek(data: GroupCallBaseData, token: SfuToken): Promise<PeekResponse | undefined> {
+    public async peek(
+        data: GroupCallBaseData,
+        token: SfuToken,
+    ): Promise<SfuPeekResult | undefined> {
         return {startedAt: new Date(), maxParticipants: 1337, participants: []};
     }
 
@@ -750,6 +754,8 @@ export function makeTestServicesWithoutIdentity(): TestServicesWithoutIdentity {
     };
     const systemInfo: SystemInfo = {
         os: 'other',
+        osVersion: 'unknown',
+        osRelease: 'unknown',
         arch: 'pentium386',
         locale: 'de_CH.utf8',
         isSafeStorageAvailable: true,
@@ -809,6 +815,7 @@ export function makeTestServices(identity: IdentityString): TestServices {
                 nonces,
                 NonceScope.CSP,
                 wrapRawClientKey(Uint8Array.from(rawClientKeyBytes)),
+                {debug: import.meta.env.DEBUG},
             ) as ClientKey,
             deviceId: ensureCspDeviceId(randomU64(crypto)),
             deviceCookie: new Uint8Array(16) as ReadonlyUint8Array as DeviceCookie,
@@ -1238,7 +1245,9 @@ export function createClientKey(fromRawKey?: RawKey<32>): ClientKey {
     const crypto = new TestTweetNaClBackend();
     const nonces = new TestNonceService();
     const rawKey = fromRawKey ?? wrapRawKey(nodeRandomBytes(32), NACL_CONSTANTS.KEY_LENGTH);
-    return SecureSharedBoxFactory.consume(crypto, nonces, NonceScope.CSP, rawKey) as ClientKey;
+    return SecureSharedBoxFactory.consume(crypto, nonces, NonceScope.CSP, rawKey, {
+        debug: import.meta.env.DEBUG,
+    }) as ClientKey;
 }
 
 /**

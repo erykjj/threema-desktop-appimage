@@ -1,0 +1,9 @@
+{
+  // Note: Development- and runtime code runs in different environments.
+  "files": [],
+  "references": [
+    {"path": "./tsconfig.src.json"},
+    {"path": "./tsconfig.dev.json"},
+    {"path": "./src/worker/tsconfig.json"}
+  ]
+}
